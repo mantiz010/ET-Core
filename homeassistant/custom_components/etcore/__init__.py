@@ -10,7 +10,7 @@ PLATFORMS: list[str] = ["switch", "light", "sensor"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    hub = EtCoreHub(hass)
+    hub = EtCoreHub(hass, entry.data)
     await hub.async_start()
 
     hass.data.setdefault(DOMAIN, {})

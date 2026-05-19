@@ -1,5 +1,8 @@
 #include "ETCore.h"
 
+#include <mbedtls/base64.h>
+#include <mbedtls/sha256.h>
+
 ETCore::ETCore() : _mcast(239, 10, 0, 2), _hubIp(0, 0, 0, 0) {}
 
 void ETCore::_makeBootId() {
@@ -12,12 +15,26 @@ void ETCore::_makeBootId() {
   snprintf(_boot, sizeof(_boot), "%08lx%08lx", (unsigned long)a, (unsigned long)b);
 }
 
+void ETCore::_makeSessionNonce() {
+#if defined(ARDUINO_ARCH_ESP32)
+  uint32_t r = esp_random();
+#else
+  uint32_t r = micros() ^ millis();
+#endif
+  _session[0] = (uint8_t)r;
+  _session[1] = (uint8_t)(r >> 8);
+  _session[2] = (uint8_t)(r >> 16);
+  _session[3] = (uint8_t)(r >> 24);
+}
+
 void ETCore::begin(const char* device_id, const char* device_class, const char* device_name, const char* fw_version) {
   _id = device_id;
   _class = device_class;
   _name = device_name;
   _fw = fw_version;
   _makeBootId();
+  _makeSessionNonce();
+  if (_cryptoEnabled) _deriveKey();
 
 #if defined(ARDUINO_ARCH_ESP32)
   WiFi.setSleep(false);
@@ -31,6 +48,26 @@ void ETCore::begin(const char* device_id, const char* device_class, const char* 
 
 void ETCore::onCommand(CommandHandler cb) {
   _cmdHandler = cb;
+}
+
+bool ETCore::enableEncryptionHex(const char* psk_hex) {
+  if (!_parseHex32(psk_hex, _psk)) {
+    disableEncryption();
+    return false;
+  }
+  _cryptoEnabled = true;
+  _deriveKey();
+  return true;
+}
+
+void ETCore::disableEncryption() {
+  _cryptoEnabled = false;
+  for (uint8_t i = 0; i < sizeof(_psk); i++) _psk[i] = 0;
+  for (uint8_t i = 0; i < sizeof(_key); i++) _key[i] = 0;
+}
+
+bool ETCore::encryptionEnabled() const {
+  return _cryptoEnabled;
 }
 
 void ETCore::setLeaseInterval(uint32_t ms) {
@@ -70,7 +107,18 @@ void ETCore::loop() {
   _learnHub(_udp.remoteIP());
 
   if (_cmdHandler) {
+    uint32_t seq = doc["seq"].as<uint32_t>();
+    if (seq && seq <= _lastCmdSeq) return;
+
     JsonObject payload = doc["payload"].as<JsonObject>();
+    JsonDocument plainDoc;
+    if (_cryptoEnabled) {
+      if (payload["_enc"].as<int>() != 1) return;
+      if (!_decryptPayload(payload, plainDoc)) return;
+      payload = plainDoc.as<JsonObject>();
+    }
+
+    if (seq) _lastCmdSeq = seq;
     _cmdHandler(doc["class"] | "", payload);
   }
 }
@@ -84,9 +132,13 @@ void ETCore::_sendEnvelope(const char* type, JsonObject payload, bool multicast_
   doc["boot"] = _boot;
   doc["seq"] = ++_seq;
 
-  JsonObject out = doc.createNestedObject("payload");
-  for (JsonPair kv : payload) {
-    out[kv.key()] = kv.value();
+  JsonObject out = doc["payload"].to<JsonObject>();
+  if (_cryptoEnabled && strcmp(type, "hello") != 0) {
+    if (!_encryptPayload(payload, out)) return;
+  } else {
+    for (JsonPair kv : payload) {
+      out[kv.key()] = kv.value();
+    }
   }
 
   IPAddress target = _hubKnown ? _hubIp : _mcast;
@@ -109,6 +161,10 @@ void ETCore::sendHello() {
   features.add("lease");
   features.add("ack");
   features.add("state_on_change");
+  if (_cryptoEnabled) {
+    features.add("chacha20_poly1305");
+    p["enc"] = "chacha20_poly1305";
+  }
   _sendEnvelope("hello", p, true);
 }
 
@@ -131,4 +187,119 @@ void ETCore::sendAck(const char* cmd_id, bool ok) {
   p["cmd_id"] = cmd_id ? cmd_id : "";
   p["ok"] = ok;
   _sendEnvelope("ack", p, false);
+}
+
+bool ETCore::_parseHex32(const char* hex, uint8_t out[32]) {
+  if (!hex || strlen(hex) != 64) return false;
+  for (uint8_t i = 0; i < 32; i++) {
+    char a = hex[i * 2];
+    char b = hex[i * 2 + 1];
+    auto val = [](char c) -> int {
+      if (c >= '0' && c <= '9') return c - '0';
+      if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+      if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+      return -1;
+    };
+    int hi = val(a);
+    int lo = val(b);
+    if (hi < 0 || lo < 0) return false;
+    out[i] = (uint8_t)((hi << 4) | lo);
+  }
+  return true;
+}
+
+void ETCore::_deriveKey() {
+  uint8_t input[96];
+  size_t id_len = _id ? strlen(_id) : 0;
+  if (id_len > 64) id_len = 64;
+  memcpy(input, _psk, 32);
+  if (id_len) memcpy(input + 32, _id, id_len);
+  mbedtls_sha256(input, 32 + id_len, _key, 0);
+  for (size_t i = 0; i < sizeof(input); i++) input[i] = 0;
+}
+
+void ETCore::_makeNonce(uint8_t direction, uint32_t seq, uint8_t nonce[12]) {
+  nonce[0] = direction;
+  nonce[1] = _session[0];
+  nonce[2] = _session[1];
+  nonce[3] = _session[2];
+  nonce[4] = _session[3];
+  nonce[5] = 0;
+  nonce[6] = 0;
+  nonce[7] = 0;
+  nonce[8] = (uint8_t)seq;
+  nonce[9] = (uint8_t)(seq >> 8);
+  nonce[10] = (uint8_t)(seq >> 16);
+  nonce[11] = (uint8_t)(seq >> 24);
+}
+
+bool ETCore::_b64encode(const uint8_t* in, size_t in_len, char* out, size_t out_len) {
+  size_t olen = 0;
+  int rc = mbedtls_base64_encode((uint8_t*)out, out_len, &olen, in, in_len);
+  if (rc != 0 || olen >= out_len) return false;
+  out[olen] = '\0';
+  return true;
+}
+
+bool ETCore::_b64decode(const char* in, uint8_t* out, size_t out_len, size_t* written) {
+  if (!in || !out || !written) return false;
+  size_t olen = 0;
+  int rc = mbedtls_base64_decode(out, out_len, &olen, (const uint8_t*)in, strlen(in));
+  if (rc != 0) return false;
+  *written = olen;
+  return true;
+}
+
+bool ETCore::_encryptPayload(JsonObject plain, JsonObject out) {
+  char pt[768];
+  size_t pt_len = serializeJson(plain, pt, sizeof(pt));
+  if (pt_len == 0 || pt_len >= sizeof(pt)) return false;
+
+  uint8_t nonce[12];
+  uint8_t ct[768];
+  uint8_t tag[16];
+  _makeNonce(1, _seq, nonce);
+  if (!ETChaCha20Poly1305::encrypt(_key, nonce, nullptr, 0, (const uint8_t*)pt, pt_len, ct, tag)) {
+    return false;
+  }
+
+  char n64[32];
+  char c64[1100];
+  char t64[32];
+  if (!_b64encode(nonce, sizeof(nonce), n64, sizeof(n64))) return false;
+  if (!_b64encode(ct, pt_len, c64, sizeof(c64))) return false;
+  if (!_b64encode(tag, sizeof(tag), t64, sizeof(t64))) return false;
+
+  out["_enc"] = 1;
+  out["alg"] = "C20P1305";
+  out["n"] = n64;
+  out["ct"] = c64;
+  out["tag"] = t64;
+  return true;
+}
+
+bool ETCore::_decryptPayload(JsonObject wrapper, JsonDocument& out) {
+  if (wrapper["_enc"].as<int>() != 1) return false;
+  const char* n64 = wrapper["n"] | "";
+  const char* c64 = wrapper["ct"] | "";
+  const char* t64 = wrapper["tag"] | "";
+
+  uint8_t nonce[12];
+  uint8_t ct[768];
+  uint8_t tag[16];
+  uint8_t pt[769];
+  size_t n_len = 0;
+  size_t ct_len = 0;
+  size_t tag_len = 0;
+
+  if (!_b64decode(n64, nonce, sizeof(nonce), &n_len) || n_len != sizeof(nonce)) return false;
+  if (!_b64decode(c64, ct, sizeof(ct), &ct_len)) return false;
+  if (!_b64decode(t64, tag, sizeof(tag), &tag_len) || tag_len != sizeof(tag)) return false;
+  if (nonce[0] != 2) return false;
+
+  if (!ETChaCha20Poly1305::decrypt(_key, nonce, nullptr, 0, ct, ct_len, tag, pt)) {
+    return false;
+  }
+  pt[ct_len] = 0;
+  return deserializeJson(out, pt, ct_len) == DeserializationError::Ok;
 }

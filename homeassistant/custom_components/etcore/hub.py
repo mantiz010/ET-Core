@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
+import os
 import json
 import logging
 import socket
@@ -9,19 +12,27 @@ from typing import Any, Callable
 
 from homeassistant.core import HomeAssistant
 
-from .const import DEFAULT_LEASE_TTL, LEASE_SWEEP_INTERVAL, MULTICAST_GROUP, PORT
+from .const import CONF_PSK_HEX, DEFAULT_LEASE_TTL, LEASE_SWEEP_INTERVAL, MULTICAST_GROUP, PORT
+
+try:
+    from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
+except Exception:
+    ChaCha20Poly1305 = None
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class EtCoreHub:
-    def __init__(self, hass: HomeAssistant):
+    def __init__(self, hass: HomeAssistant, config: dict[str, Any] | None = None):
         self.hass = hass
+        self._psk = self._parse_psk((config or {}).get(CONF_PSK_HEX))
+        self._hub_session = os.urandom(4)
         self._sock: socket.socket | None = None
         self._tasks: list[asyncio.Task] = []
         self._devices: dict[str, dict[str, Any]] = {}
         self._message_listeners: list[Callable[[dict[str, Any]], None]] = []
         self._status_listeners: list[Callable[[dict[str, Any]], None]] = []
+        self._seq = 0
 
     @property
     def devices(self) -> dict[str, dict[str, Any]]:
@@ -83,10 +94,76 @@ class EtCoreHub:
                 continue
 
             msg["_src_ip"] = addr[0]
+            if not self._decode_payload(msg):
+                continue
             self._record_message(msg, addr[0])
 
             for cb in list(self._message_listeners):
                 self.hass.add_job(cb, msg)
+
+    def _parse_psk(self, value: Any) -> bytes | None:
+        psk = str(value or "").strip()
+        if not psk:
+            return None
+        try:
+            raw = bytes.fromhex(psk)
+        except ValueError:
+            _LOGGER.warning("ET-Core PSK is not valid hex; encrypted packets disabled")
+            return None
+        if len(raw) != 32:
+            _LOGGER.warning("ET-Core PSK must be 32 bytes / 64 hex chars; encrypted packets disabled")
+            return None
+        return raw
+
+    def _key_for(self, dev_id: str) -> bytes | None:
+        if not self._psk:
+            return None
+        return hashlib.sha256(self._psk + dev_id.encode("utf-8")).digest()
+
+    def _decode_payload(self, msg: dict[str, Any]) -> bool:
+        payload = msg.get("payload")
+        if not isinstance(payload, dict) or payload.get("_enc") != 1:
+            return True
+        dev_id = str(msg.get("id") or "")
+        key = self._key_for(dev_id)
+        if not key or ChaCha20Poly1305 is None:
+            _LOGGER.warning("ET-Core encrypted payload from %s ignored: crypto not configured", dev_id)
+            return False
+        try:
+            nonce = base64.b64decode(str(payload.get("n") or ""), validate=True)
+            ct = base64.b64decode(str(payload.get("ct") or ""), validate=True)
+            tag = base64.b64decode(str(payload.get("tag") or ""), validate=True)
+            if len(nonce) != 12 or len(tag) != 16 or nonce[0] != 1:
+                return False
+            plain = ChaCha20Poly1305(key).decrypt(nonce, ct + tag, None)
+            msg["payload"] = json.loads(plain.decode("utf-8"))
+            msg["_encrypted"] = True
+            return isinstance(msg["payload"], dict)
+        except Exception as exc:
+            _LOGGER.warning("ET-Core decrypt failed for %s: %s", dev_id, exc.__class__.__name__)
+            return False
+
+    def _encode_payload(self, dev_id: str, seq: int, payload: dict[str, Any]) -> dict[str, Any]:
+        key = self._key_for(dev_id)
+        if not key or ChaCha20Poly1305 is None:
+            return payload
+
+        nonce = bytearray(12)
+        nonce[0] = 2
+        nonce[1:5] = self._hub_session
+        nonce[8] = seq & 0xFF
+        nonce[9] = (seq >> 8) & 0xFF
+        nonce[10] = (seq >> 16) & 0xFF
+        nonce[11] = (seq >> 24) & 0xFF
+        plain = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        out = ChaCha20Poly1305(key).encrypt(bytes(nonce), plain, None)
+        return {
+            "_enc": 1,
+            "alg": "C20P1305",
+            "n": base64.b64encode(bytes(nonce)).decode("ascii"),
+            "ct": base64.b64encode(out[:-16]).decode("ascii"),
+            "tag": base64.b64encode(out[-16:]).decode("ascii"),
+        }
 
     def _record_message(self, msg: dict[str, Any], ip: str) -> None:
         dev_id = str(msg.get("id") or "")
@@ -153,12 +230,15 @@ class EtCoreHub:
         ip = dev.get("last_addr")
         if not ip:
             return
+        self._seq = (self._seq + 1) & 0xFFFFFFFF
+        if self._seq == 0:
+            self._seq = 1
         msg = {
             "v": 1,
             "type": "cmd",
             "id": dev_id,
             "class": dev_class,
-            "seq": int(time.time() * 1000),
-            "payload": payload,
+            "seq": self._seq,
+            "payload": self._encode_payload(dev_id, self._seq, payload),
         }
         self._sock.sendto(json.dumps(msg, separators=(",", ":")).encode("utf-8"), (ip, PORT))

@@ -40,4 +40,10 @@ Default timing:
 
 ## Status
 
-Initial scaffold. Do not deploy to production yet.
+Working v0.2 code pass:
+
+- Arduino `ETCore` library with hello, lease, state, command, ACK, and encrypted payload support.
+- Vendored `ETChaCha20Poly1305` library is used for ESP32 ChaCha20-Poly1305.
+- Home Assistant custom integration with switch, RGB light, and dynamic sensor entities.
+- Optional PSK can be entered in the Home Assistant config flow.
+- `examples/RelayOne` compiles on `esp32:esp32:esp32`.

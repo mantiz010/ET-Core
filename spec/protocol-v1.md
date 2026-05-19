@@ -147,12 +147,13 @@ Device confirms command.
 
 ET-Core crypto must not reuse an AEAD nonce for the same key.
 
-Planned encrypted mode:
+Encrypted mode:
 
 - Device key: `sha256(master_psk || device_id)`.
-- Per-boot random is included in nonce or subkey derivation.
-- Direction is included in nonce or subkey derivation.
+- Payload wrapper: `{ "_enc": 1, "alg": "C20P1305", "n": "...", "ct": "...", "tag": "..." }`.
+- Nonce is 12 bytes and base64 encoded in `n`.
+- `nonce[0]` is the direction: `1` device to hub, `2` hub to device.
+- `nonce[1..4]` is fresh random session data generated at boot/start.
+- `nonce[8..11]` is the sender's monotonic sequence.
 - Command counters are monotonic per hub boot/session.
 - State counters are monotonic per device boot.
-
-No encrypted mode is implemented in the initial scaffold.

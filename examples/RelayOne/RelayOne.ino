@@ -5,6 +5,7 @@
 
 static const char* WIFI_SSID = "YOUR_WIFI_SSID";
 static const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
+static const char* ETCORE_PSK_HEX = "";
 
 #define RELAY_PIN 4
 
@@ -38,6 +39,9 @@ void setup() {
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   while (WiFi.status() != WL_CONNECTED) delay(250);
 
+  if (strlen(ETCORE_PSK_HEX) == 64) {
+    etcore.enableEncryptionHex(ETCORE_PSK_HEX);
+  }
   etcore.begin("relay1", "switch.relay", "ET-Core Relay 1", "relay-0.1.0");
   etcore.onCommand(onCommand);
   publishState();
