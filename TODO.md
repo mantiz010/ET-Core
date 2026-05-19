@@ -7,6 +7,7 @@
 - Add retained device state in Home Assistant so entities restore cleanly after HA restart.
 - Add a clean `bye` packet helper for devices that can announce restart/shutdown.
 - Add a 4-channel relay example using ET-Core.
+- Add explicit scale test for 50 and 100 simulated devices.
 
 ## Priority 2
 
@@ -15,14 +16,27 @@
 - Add battery sensor fields and Home Assistant device class/unit mapping.
 - Add Home Assistant services for sending raw ET-Core commands and forcing rediscovery.
 - Add panel controls for filtering devices, clearing event history, and exporting diagnostics.
+- Add configurable lease profile: fast lab mode, normal 50-device mode, and 100-device mode.
 
 ## Priority 3
 
 - Add protocol tests for encrypt/decrypt compatibility between Arduino and Python.
 - Add replay tests for stale hub commands and stale device state.
 - Add simulated device test runner for the Home Assistant hub.
+- Add 150-256 device stress test with packet-rate and Home Assistant CPU measurements.
 - Add packet capture examples for NetBoss/ETDiag.
 - Add release packaging for Arduino library and Home Assistant custom component.
+
+## Scale Requirements
+
+- Must support at least 50 devices.
+- Should support 100 devices on normal WiFi/LAN.
+- Stress target is 150-256 devices.
+- Default lease profile can stay fast at `2s` lease / `6s` TTL.
+- 100-device profile should support `3s` lease / `9s` TTL.
+- State packets must be on-change plus slow refresh, not constant spam.
+- UDP payload should stay under about `1200` bytes.
+- Panel needs filtering or pagination before large installs.
 
 ## Security
 

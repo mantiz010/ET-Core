@@ -26,6 +26,7 @@ The repo includes:
 - Home Assistant availability follows lease expiry.
 - ESP32 firmware remains simple and fast.
 - Security design avoids nonce reuse across reboot.
+- Support at least 50 devices, with a design target of 100 devices.
 
 ## Protocol Shape
 
@@ -43,6 +44,25 @@ Default timing:
 - State refresh: `60s`
 - Command ACK timeout: `300ms`
 - Command retries: `2`
+
+For larger networks around 100 devices, use a `3s` lease interval and `9s` TTL if WiFi airtime or Home Assistant load becomes noisy.
+
+## Scale Target
+
+ET-Core is designed to support:
+
+- Minimum target: `50` devices.
+- Normal design target: `100` devices.
+- Stress-test target: `150-256` devices.
+
+Rules for 100-device operation:
+
+- Devices send `lease` packets only at the configured interval.
+- Devices send `state` on change, plus a slow refresh.
+- UDP payloads should stay under about `1200` bytes.
+- Sensors should use compact field names and avoid large JSON bodies.
+- Home Assistant keeps device state in one hub table and updates entities from that table.
+- The web panel must support filtering or pagination before ET-Core is considered production-ready for 100+ devices.
 
 ## Encryption
 
