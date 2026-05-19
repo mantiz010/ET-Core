@@ -5,6 +5,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
 from .hub import EtCoreHub
+from .panel import async_setup_panel, async_unload_panel
 
 PLATFORMS: list[str] = ["switch", "light", "sensor"]
 
@@ -17,6 +18,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN][entry.entry_id] = hub
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await async_setup_panel(hass)
     return True
 
 
@@ -24,4 +26,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     hub: EtCoreHub = hass.data[DOMAIN].pop(entry.entry_id)
     await hub.async_stop()
+    if not hass.data[DOMAIN]:
+        await async_unload_panel(hass)
     return unload_ok

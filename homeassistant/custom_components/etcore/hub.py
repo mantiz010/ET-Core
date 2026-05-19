@@ -32,6 +32,9 @@ class EtCoreHub:
         self._devices: dict[str, dict[str, Any]] = {}
         self._message_listeners: list[Callable[[dict[str, Any]], None]] = []
         self._status_listeners: list[Callable[[dict[str, Any]], None]] = []
+        self._events: list[dict[str, Any]] = []
+        self._rx_count = 0
+        self._decrypt_fail_count = 0
         self._seq = 0
 
     @property
@@ -95,8 +98,11 @@ class EtCoreHub:
 
             msg["_src_ip"] = addr[0]
             if not self._decode_payload(msg):
+                self._decrypt_fail_count += 1
                 continue
+            self._rx_count += 1
             self._record_message(msg, addr[0])
+            self._remember_event(msg)
 
             for cb in list(self._message_listeners):
                 self.hass.add_job(cb, msg)
@@ -220,8 +226,45 @@ class EtCoreHub:
             "last_addr": dev.get("last_addr"),
         }
         self.hass.bus.async_fire("etcore_device_status", status)
+        self._events.append({
+            "ts": time.time(),
+            "type": "status",
+            "id": dev_id,
+            "status": "online" if status["online"] else "offline",
+            "reason": reason,
+        })
+        self._events = self._events[-80:]
         for cb in list(self._status_listeners):
             self.hass.add_job(cb, status)
+
+    def _remember_event(self, msg: dict[str, Any]) -> None:
+        self._events.append({
+            "ts": time.time(),
+            "type": str(msg.get("type") or ""),
+            "id": str(msg.get("id") or ""),
+            "class": str(msg.get("class") or ""),
+            "encrypted": bool(msg.get("_encrypted", False)),
+            "src": msg.get("_src_ip"),
+        })
+        self._events = self._events[-80:]
+
+    def get_diag_snapshot(self) -> dict[str, Any]:
+        devices = []
+        now = time.time()
+        for dev in self._devices.values():
+            item = dict(dev)
+            item["age"] = round(now - float(dev.get("last_seen") or now), 3)
+            item["expires_in"] = round(float(dev.get("lease_expires") or now) - now, 3)
+            devices.append(item)
+        devices.sort(key=lambda d: str(d.get("id") or ""))
+        return {
+            "ok": True,
+            "encrypted": bool(self._psk),
+            "rx_count": self._rx_count,
+            "decrypt_failures": self._decrypt_fail_count,
+            "devices": devices,
+            "events": list(reversed(self._events[-50:])),
+        }
 
     def send_command(self, dev_id: str, dev_class: str, payload: dict[str, Any]) -> None:
         if not self._sock:
