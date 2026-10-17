@@ -152,8 +152,7 @@ class EtCoreHub:
 
         msg["_src_ip"] = addr[0]
         if not self._decode_payload(msg):
-            self._decrypt_fail_count += 1
-            return
+            return  # counted inside: decrypt failure, replay or unproven session
         self._rx_count += 1
         self._record_message(msg, addr[0])
         self._remember_event(msg)
@@ -213,24 +212,26 @@ class EtCoreHub:
                     self._warn_limited(f"plain:{dev_id}",
                                        "ET-Core %s sent %s without encryption (no key on the device?); ignored",
                                        dev_id, msg.get("type"))
+                self._decrypt_fail_count += 1
                 return False
             return True
         dev_id = str(msg.get("id") or "")
         key = self._key_for(dev_id)
         if not key or ChaCha20Poly1305 is None:
             self._warn_limited(f"nokey:{dev_id}", "ET-Core encrypted payload from %s ignored: crypto not configured", dev_id)
+            self._decrypt_fail_count += 1
             return False
         try:
             nonce = base64.b64decode(str(payload.get("n") or ""), validate=True)
             ct = base64.b64decode(str(payload.get("ct") or ""), validate=True)
             tag = base64.b64decode(str(payload.get("tag") or ""), validate=True)
             if len(nonce) != 12 or len(tag) != 16 or nonce[0] != 1:
-                return False
+                raise ValueError("bad nonce or tag")
             aad = self._aad(str(msg.get("type") or ""), dev_id, msg.get("seq"))
             plain = ChaCha20Poly1305(key).decrypt(nonce, ct + tag, aad)
             payload = json.loads(plain.decode("utf-8"))
             if not isinstance(payload, dict):
-                return False
+                raise ValueError("payload is not an object")
             # Replay check: nonce bytes 1-7 are the device's per-boot session and
             # seq (authenticated via AAD) must keep rising within a session.
             session = nonce[1:8].hex()
@@ -248,6 +249,7 @@ class EtCoreHub:
             msg["_encrypted"] = True
             return True
         except Exception as exc:
+            self._decrypt_fail_count += 1
             self._warn_limited(f"dec:{dev_id}", "ET-Core decrypt failed for %s (wrong key?): %s", dev_id, exc.__class__.__name__)
             return False
 

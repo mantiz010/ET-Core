@@ -136,7 +136,7 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         hub._devices["ghost"] = {"id": "ghost", "last_addr": "127.0.0.250"}  # nobody listens there
         for _ in range(2500):
             hub.send_command("ghost", "switch.relay", {"on": True})
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(1.5)  # all retries (300 ms x 2) done and saves written
         last = hub._seq
         self.assertGreater(self.store.value, last, "saved reservation fell behind the seq in use")
         await hub.async_stop()
@@ -275,6 +275,9 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         finally:
             attacker.close()
         self.assertFalse(self.online(hub, "relayAB"), "leases from an earlier boot kept a dead device online")
+        diag = hub.get_diag_snapshot()
+        self.assertGreater(diag["unproven_dropped"], 0)
+        self.assertEqual(diag["decrypt_failures"], 0, "replays/unproven counted as decrypt failures")
 
     async def test_fix0_forged_plaintext_lease_ignored_when_encrypted(self):
         hub = await self.hub()
