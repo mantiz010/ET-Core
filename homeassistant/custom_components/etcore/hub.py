@@ -464,6 +464,20 @@ class EtCoreHub:
         pend = self._pending.get(cmd_id)
         if not pend or pend["dev_id"] != dev_id:
             return
-        self._pending.pop(cmd_id, None)
         if pend["timer"]:
             pend["timer"].cancel()
+        if payload.get("ok") is False and payload.get("err") == "stale":
+            # Our seq is behind what the device already accepted (HA restored from
+            # a backup). The reply is authenticated, so jump above it and resend.
+            last = int(payload.get("last_seq") or 0) & 0xFFFFFFFF
+            if last >= self._seq:
+                _LOGGER.info("ET-Core: %s reports seq %s ahead of the hub (%s); moving up",
+                             dev_id, last, self._seq)
+                self._seq = last
+                self._seq_reserved = 0  # forces a save of a new block on the next seq
+            if pend["tries"] <= CMD_RETRIES:
+                self._transmit(cmd_id)
+            else:
+                pend["timer"] = self.hass.loop.call_later(0, self._ack_timeout, cmd_id)
+            return
+        self._pending.pop(cmd_id, None)

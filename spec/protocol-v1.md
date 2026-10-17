@@ -199,9 +199,15 @@ Encrypted mode:
   the last `seq`; an encrypted packet with the same session and a `seq` that is not
   higher is dropped. Known limit: a packet recorded during an *earlier* boot of the
   device carries a different session and is not caught by this check.
-- The hub's command `seq` never goes backwards: it is saved in Home Assistant
-  storage ahead of use in blocks of 1000 and continues from the saved value after a
-  restart. (If that storage is lost, devices ignore commands until they reboot.)
+- The hub's command `seq` never goes backwards in normal use: it is saved in Home
+  Assistant storage ahead of use in blocks of 1000 and continues from the saved value
+  after a restart.
+- Recovery when it does go back (HA restored from a backup, storage lost): an
+  encrypted device that gets a genuine command for its current boot (decrypts, `_ds`
+  matches) with a `seq` it has already passed does not run it and answers with an
+  encrypted `ack` `{"cmd_id", "ok": false, "err": "stale", "last_seq": N}`. The hub
+  moves its seq above N, saves a new block and resends. A replayed command only
+  produces the same reply.
 - Encrypted commands carry `_ds`: the target device's current session (nonce bytes
   1-4 of its own packets, 8 lowercase hex chars). Devices drop commands whose `_ds`
   is not their own session, so commands recorded before a device reboot are dead.

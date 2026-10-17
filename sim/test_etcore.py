@@ -289,6 +289,25 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         hub.send_command("relayQ", "switch.relay", {"on": True})
         self.assertTrue(await wait_for(lambda: len(d.commands()) == 1, 2), "command went elsewhere")
 
+    async def test_commands_recover_after_ha_restored_from_backup(self):
+        hub = await self.hub()
+        backup = self.store.value  # "last night's backup" of HA storage
+        d = await self._online_device(hub, "relayR")
+        hub._seq = backup + 600  # commands sent since the backup: past the saved block
+        for on in (True, False, True):
+            hub.send_command("relayR", "switch.relay", {"on": on})
+            await asyncio.sleep(0.2)
+        self.assertTrue(await wait_for(lambda: len(d.commands()) == 3, 2))
+        await hub.async_stop()
+        self.hubs.remove(hub)
+        self.store.value = backup  # HA restored from the backup
+        hub2 = await self.hub()
+        self.assertTrue(await wait_for(lambda: self.online(hub2, "relayR"), 8))
+        hub2.send_command("relayR", "switch.relay", {"on": False})
+        self.assertTrue(await wait_for(lambda: len(d.commands()) == 4, 3),
+                        "device ignored commands after HA was restored from a backup")
+        self.assertEqual(json.loads(d.commands()[-1])["on"], False)
+
     async def test_bug3_replayed_command_is_rejected(self):
         hub = await self.hub()
         d = self.device("relayE")

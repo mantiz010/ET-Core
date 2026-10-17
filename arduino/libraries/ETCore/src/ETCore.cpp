@@ -125,7 +125,9 @@ void ETCore::loop() {
   if (_cmdHandler) {
     // seq is bound into the encryption (see _aad), so it cannot be rewritten.
     uint32_t seq = doc["seq"].as<uint32_t>();
-    if (seq == 0 || seq <= _lastCmdSeq) return;
+    if (seq == 0) return;
+    // Old seq without encryption: nothing to authenticate, just drop it.
+    if (!_cryptoEnabled && seq <= _lastCmdSeq) return;
 
     JsonObject payload = doc["payload"].as<JsonObject>();
     JsonDocument plainDoc;
@@ -138,6 +140,13 @@ void ETCore::loop() {
       snprintf(ds, sizeof(ds), "%02x%02x%02x%02x", _session[0], _session[1], _session[2], _session[3]);
       if (strcmp(payload["_ds"] | "", ds) != 0) return;
       payload.remove("_ds");
+      // A genuine command for this boot but with an old seq: the hub's counter went
+      // back (e.g. HA restored from a backup). Tell it the last seq we accepted so
+      // it can jump above it. Never executed. (A replay only gets this reply too.)
+      if (seq <= _lastCmdSeq) {
+        _sendStale(payload["cmd_id"] | "");
+        return;
+      }
     }
 
     _lastCmdSeq = seq;
@@ -226,6 +235,16 @@ void ETCore::sendLease() {
 
 void ETCore::sendState(JsonObject payload) {
   _sendEnvelope("state", payload, true);
+}
+
+void ETCore::_sendStale(const char* cmd_id) {
+  JsonDocument d;
+  JsonObject p = d.to<JsonObject>();
+  p["cmd_id"] = cmd_id ? cmd_id : "";
+  p["ok"] = false;
+  p["err"] = "stale";
+  p["last_seq"] = _lastCmdSeq;
+  _sendEnvelope("ack", p, false);
 }
 
 void ETCore::sendAck(const char* cmd_id, bool ok) {

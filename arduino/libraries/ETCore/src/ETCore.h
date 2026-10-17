@@ -35,6 +35,7 @@ public:
 
 private:
   void _sendEnvelope(const char* type, JsonObject payload, bool multicast_fallback);
+  void _sendStale(const char* cmd_id);
   void _learnHub(IPAddress ip);
   void _makeBootId();
   void _makeSessionNonce();
