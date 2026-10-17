@@ -71,6 +71,24 @@ async def main():
         print(f"commands: {len(lat)}/{len(targets)} acked, ack latency median {statistics.median(lat):.1f} ms, "
               f"max {max(lat):.1f} ms, failed {fails}, resends {hub._cmd_fail_count} given up")
 
+    # Home Assistant restart: every device is a new session to the new hub and must
+    # answer its challenge. Time until all are online with names and state.
+    store = hub._counter_store
+    await hub.async_stop()
+    hub = make_hub(loop, PSK, store)
+    t_r = time.monotonic()
+    await hub.async_start()
+    states = set()
+    hub.register_listener(lambda m: states.add(m["id"]) if m.get("type") == "state" else None)
+    hub.register_status_listener(lambda st: offline_events.append((time.monotonic(), st)))
+    named = lambda: sum(1 for d in devs if hub.devices.get(d.id, {}).get("online") and hub.devices[d.id].get("name"))
+    ok = await wait_for(lambda: named() == N and len(states) == N, 60, 0.1)
+    t_back = time.monotonic() - t_r
+    await asyncio.sleep(1)
+    print(f"HA restart: all {N} online+named+state: {'yes' if ok else 'NO (%d named, %d state)' % (named(), len(states))} "
+          f"in {t_back:.1f} s; hub sent {len(hub.rec.tx)} packets, unproven dropped {hub._unproven_count}")
+    offline_events.clear()
+
     # Unplug 10 devices at once, time each offline
     victims = random.sample(devs, min(10, N))
     t_kill = time.monotonic()
