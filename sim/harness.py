@@ -78,12 +78,15 @@ class MemoryCounterStore:
         self.value = int(value)
 
 
-def make_hub(loop, psk: str | None = None, store=None):
+def make_hub(loop, psk: str | None = None, store=None, lan: bool = False):
+    """lan=True: talk on the real network (hardware tests) instead of loopback."""
     mod = load_hub_module()
 
     class LoopbackHub(mod.EtCoreHub):
         def _build_socket(self):
             sock = super()._build_socket()
+            if lan:
+                return sock
             lo = socket.inet_aton("127.0.0.1")
             try:
                 sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(GROUP) + lo)
