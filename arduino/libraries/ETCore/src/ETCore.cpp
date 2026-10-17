@@ -188,7 +188,7 @@ void ETCore::_sendEnvelope(const char* type, JsonObject payload, bool multicast_
   doc["seq"] = ++_seq;
 
   JsonObject out = doc["payload"].to<JsonObject>();
-  if (_cryptoEnabled && strcmp(type, "hello") != 0) {
+  if (_cryptoEnabled) {
     if (!_encryptPayload(type, _seq, payload, out)) return;
   } else {
     for (JsonPair kv : payload) {

@@ -148,10 +148,6 @@ class EtCoreHub:
         self._record_message(msg, addr[0])
         self._remember_event(msg)
 
-        # Entities are only created/updated from authenticated packets when a PSK
-        # is set; they read the name the hello gave from hub.devices.
-        if self._psk and not msg.get("_encrypted"):
-            return
         for cb in list(self._message_listeners):
             self.hass.add_job(cb, msg)
 
@@ -198,9 +194,15 @@ class EtCoreHub:
     def _decode_payload(self, msg: dict[str, Any]) -> bool:
         payload = msg.get("payload")
         if not isinstance(payload, dict) or payload.get("_enc") != 1:
-            # With a PSK set, anything that proves a device is alive or reports its
-            # state must be encrypted; a plaintext one could come from anyone.
-            if self._psk and str(msg.get("type") or "") in ("lease", "state", "ack"):
+            # With a PSK set every device packet must be encrypted (hello too, so a
+            # forged one cannot rename a device); a plaintext one could come from
+            # anyone, or from a device that has no key.
+            if self._psk:
+                dev_id = str(msg.get("id") or "")
+                if dev_id and dev_id != "hub":
+                    self._warn_limited(f"plain:{dev_id}",
+                                       "ET-Core %s sent %s without encryption (no key on the device?); ignored",
+                                       dev_id, msg.get("type"))
                 return False
             return True
         dev_id = str(msg.get("id") or "")
@@ -281,14 +283,11 @@ class EtCoreHub:
         if (mtype == "hello" and now - told >= 1.0) or not told or (want_hello and now - told >= 10.0):
             dev["told_hub_at"] = now
             self._send_announce(ip, hello=want_hello)
-        # With a PSK only authenticated packets may set where commands go, the class
-        # (which picks the entity type) or liveness. A plaintext hello cannot.
-        authentic = not self._psk or bool(msg.get("_encrypted"))
-        if authentic:
-            dev["class"] = msg.get("class") or dev.get("class")
-            dev["boot"] = msg.get("boot") or dev.get("boot")
-            dev["last_addr"] = ip
-            dev["last_seen"] = now
+        # With a PSK only authenticated packets get this far.
+        dev["class"] = msg.get("class") or dev.get("class")
+        dev["boot"] = msg.get("boot") or dev.get("boot")
+        dev["last_addr"] = ip
+        dev["last_seen"] = now
 
         if mtype == "hello":
             dev["name"] = payload.get("name", dev_id)
@@ -305,8 +304,7 @@ class EtCoreHub:
             dev["rssi"] = payload.get("rssi")
             dev["uptime"] = payload.get("uptime")
 
-        # hello is plaintext by design, so with a PSK it only updates the name.
-        if mtype in ("lease", "state") or (mtype == "hello" and not self._psk):
+        if mtype in ("lease", "state", "hello"):
             dev["online"] = True
             if not was_online:
                 self._fire_status(dev_id, "online")

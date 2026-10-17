@@ -289,6 +289,21 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         hub.send_command("relayQ", "switch.relay", {"on": True})
         self.assertTrue(await wait_for(lambda: len(d.commands()) == 1, 2), "command went elsewhere")
 
+    async def test_forged_hello_cannot_rename_device(self):
+        hub = await self.hub()
+        d = await self._online_device(hub, "relayW")
+        attacker = sender_from(self.ip())
+        forged = json.dumps({"v": 1, "type": "hello", "id": "relayW", "class": "switch.relay", "boot": "x",
+                             "seq": 1, "payload": {"name": "Hacked"}}).encode()
+        try:
+            attacker.sendto(forged, ("127.0.0.1", PORT))
+            await asyncio.sleep(0.3)
+        finally:
+            attacker.close()
+        self.assertEqual(hub.devices["relayW"].get("name"), "relayW", "forged hello renamed the device")
+        hello = packets(hub.rec.rx, d.ip, "hello")[0]
+        self.assertEqual(hello["payload"].get("_enc"), 1, "hello sent in plaintext with a key set")
+
     async def test_commands_recover_after_ha_restored_from_backup(self):
         hub = await self.hub()
         backup = self.store.value  # "last night's backup" of HA storage
