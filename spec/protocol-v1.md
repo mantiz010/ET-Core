@@ -154,6 +154,9 @@ Multicast is often lost on WiFi (seen on the hardware test: an ESP32-C3 received
 multicast announce at all), so the hub also asks by unicast: the unicast announce it
 sends on first contact carries `"hello": true` while it does not know the device's
 name, repeated at most every 10 s until a hello arrives.
+After answering an announce with `"hello": true` the library calls the sketch's
+`onSync` handler, which should send the current `state`, so a restarted hub shows
+the real state at once instead of a default until the next change or refresh.
 
 ```json
 {"v": 1, "type": "announce", "id": "hub", "class": "hub", "seq": 7, "payload": {"hello": false}}

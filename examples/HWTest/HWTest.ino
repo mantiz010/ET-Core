@@ -61,6 +61,7 @@ void setup() {
 
   etcore.begin("hwtest1", "switch.relay", "ET-Core HW Test", "hwtest-1");
   etcore.onCommand(onCommand);
+  etcore.onSync(publishState);
   publishState();
 }
 

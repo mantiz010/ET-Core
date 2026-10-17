@@ -50,6 +50,10 @@ void ETCore::onCommand(CommandHandler cb) {
   _cmdHandler = cb;
 }
 
+void ETCore::onSync(SyncHandler cb) {
+  _syncHandler = cb;
+}
+
 bool ETCore::enableEncryptionHex(const char* psk_hex) {
   if (!_parseHex32(psk_hex, _psk)) {
     disableEncryption();
@@ -94,6 +98,7 @@ void ETCore::loop() {
   if (_helloPending && (int32_t)(now - _helloDueMs) >= 0) {
     _helloPending = false;
     sendHello();
+    if (_syncHandler) _syncHandler();  // a new hub has no state for us yet
   }
 
   const int packetSize = _udp.parsePacket();

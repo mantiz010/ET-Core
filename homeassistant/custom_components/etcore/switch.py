@@ -67,6 +67,11 @@ class EtCoreSwitch(SwitchEntity):
         }
 
     @property
+    def name(self) -> str:
+        # The hello may arrive after the entity was created from a lease.
+        return (self._hub.devices.get(self._dev_id) or {}).get("name") or self._dev_id
+
+    @property
     def is_on(self) -> bool:
         return self._attr_is_on
 

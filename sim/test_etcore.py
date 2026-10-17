@@ -320,6 +320,17 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await wait_for(lambda: h2.devices.get("relayS", {}).get("name") == "relayS", 6),
                         f"name not learned without the multicast: {h2.devices.get('relayS')}")
 
+    async def test_new_hub_gets_current_state_without_waiting(self):
+        hub = await self.hub()
+        d = await self._online_device(hub, "relayT")
+        hub.send_command("relayT", "switch.relay", {"on": True})
+        self.assertTrue(await wait_for(lambda: len(d.commands()) == 1, 2))
+        await hub.async_stop()
+        self.hubs.remove(hub)
+        hub2 = await self.hub()  # HA restarted: it must learn the device is ON
+        got = lambda: [m for m in packets(hub2.rec.rx, d.ip, "state")]
+        self.assertTrue(await wait_for(got, 4), "no state from the device after HA restart")
+
     async def test_bug3_replayed_command_is_rejected(self):
         hub = await self.hub()
         d = self.device("relayE")

@@ -16,12 +16,16 @@
 class ETCore {
 public:
   typedef void (*CommandHandler)(const char* dev_class, JsonObject payload);
+  typedef void (*SyncHandler)();
 
   ETCore();
 
   void begin(const char* device_id, const char* device_class, const char* device_name, const char* fw_version);
   void loop();
   void onCommand(CommandHandler cb);
+  // Called when the hub asks for a hello (it just started or does not know us):
+  // the sketch should send its current state with sendState().
+  void onSync(SyncHandler cb);
 
   bool enableEncryptionHex(const char* psk_hex);
   void disableEncryption();
@@ -82,4 +86,5 @@ private:
   uint8_t _key[32] = {0};
 
   CommandHandler _cmdHandler = nullptr;
+  SyncHandler _syncHandler = nullptr;
 };

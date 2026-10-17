@@ -46,6 +46,7 @@ int main(int argc, char** argv) {
   if (argc > 6) core.setLeaseTtl((uint16_t)atoi(argv[6]));
   core.begin(id, g_class, id, "sim-1");
   core.onCommand(onCommand);
+  core.onSync(publish);
   publish();
   printf("READY %s\n", id);
   fflush(stdout);

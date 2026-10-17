@@ -22,6 +22,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         payload = msg.get("payload") if isinstance(msg.get("payload"), dict) else {}
         if not dev_id or not dev_class.startswith("sensor."):
             return
+        # Only state carries readings; lease/ack/hello fields are not sensors.
+        if msg.get("type") != "state":
+            return
 
         for key, value in payload.items():
             if key in {"name", "fw", "lib", "features"} or not isinstance(value, (int, float, str, bool)):
@@ -62,6 +65,11 @@ class EtCoreSensor(SensorEntity):
             "manufacturer": "ElectronicsTech",
             "model": "ET-Core Sensor",
         }
+
+    @property
+    def name(self) -> str:
+        dev_name = (self._hub.devices.get(self._dev_id) or {}).get("name") or self._dev_id
+        return f"{dev_name} {self._key.replace('_', ' ')}"
 
     @property
     def available(self) -> bool:

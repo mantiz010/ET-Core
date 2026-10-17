@@ -44,6 +44,7 @@ void setup() {
   }
   etcore.begin("relay1", "switch.relay", "ET-Core Relay 1", "relay-0.1.0");
   etcore.onCommand(onCommand);
+  etcore.onSync(publishState);
   publishState();
 }
 
