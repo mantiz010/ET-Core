@@ -197,12 +197,26 @@ void ETCore::_handleAnnounce(JsonDocument& doc, uint32_t now) {
     }
   }
   _learnHub(_udp.remoteIP());
+  // A new challenge is fresh by construction, so its hello request is never held
+  // back; anything else (incl. a replayed announce) at most once per 10 s.
+  const char* ch = payload["ch"] | "";
+  const bool newCh = unicast && _cryptoEnabled && ch[0] && strcmp(ch, _hubCh) != 0;
   if ((payload["hello"] | false) && !_helloPending &&
-      (!_helloReqSeen || now - _lastHelloReqMs >= 10000)) {
+      (newCh || !_helloReqSeen || now - _lastHelloReqMs >= 10000)) {
     _helloReqSeen = true;
     _lastHelloReqMs = now;
     _helloPending = true;
     _helloDueMs = now + (unicast ? esp_random() % 100 : esp_random() % 2000);
+  }
+  // A hub that has not seen this boot yet sends a challenge; until a packet
+  // carries it back the hub ignores us (it cannot tell us from a recording of an
+  // earlier boot). Answer at once with a lease unless a hello is about to go.
+  if (newCh) {
+    snprintf(_hubCh, sizeof(_hubCh), "%s", ch);
+    if (!_helloPending) {
+      sendLease();
+      _lastLeaseMs = now;
+    }
   }
 }
 
@@ -240,6 +254,7 @@ void ETCore::sendHello() {
   p["lib"] = ETCORE_LIBRARY_VERSION;
   p["lease_interval_ms"] = _leaseIntervalMs;
   p["ttl"] = _leaseTtlSec;
+  if (_hubCh[0]) p["ch"] = _hubCh;
   JsonArray features = p.createNestedArray("features");
   features.add("lease");
   features.add("ack");
@@ -257,6 +272,7 @@ void ETCore::sendLease() {
   p["ttl"] = _leaseTtlSec;
   p["uptime"] = (uint32_t)(millis() / 1000);
   p["rssi"] = WiFi.RSSI();
+  if (_hubCh[0]) p["ch"] = _hubCh;
   _sendEnvelope("lease", p, true);
 }
 

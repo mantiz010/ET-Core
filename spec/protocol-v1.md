@@ -219,8 +219,17 @@ Encrypted mode:
 - Devices drop commands with `seq` 0 or `seq` not greater than the last accepted one.
 - Hub replay check: for each device the hub keeps the session (nonce bytes 1-7) and
   the last `seq`; an encrypted packet with the same session and a `seq` that is not
-  higher is dropped. Known limit: a packet recorded during an *earlier* boot of the
-  device carries a different session and is not caught by this check.
+  higher is dropped.
+- New sessions must prove they are live. A packet recorded during an *earlier* boot
+  decrypts fine but carries another session, so the hub does not start a session it
+  has not seen before (no online, no state, no address change) until the device
+  echoes a challenge: the hub sends that session a unicast announce with
+  `"ch": "<8 hex>"` (and `_ds` = that session, at most once per second per device),
+  and the device puts `ch` in every `lease` and `hello` from then on and sends a
+  `lease` at once (or the requested `hello`). Only a packet of that session carrying
+  that `ch` starts it. Every device after a reboot, and every device after a hub
+  restart, goes through this once (one extra round trip). A fresh challenge also
+  bypasses the device's once-per-10-s limit on hello requests.
 - The hub's command `seq` never goes backwards in normal use: it is saved in Home
   Assistant storage ahead of use in blocks of 1000 and continues from the saved value
   after a restart.

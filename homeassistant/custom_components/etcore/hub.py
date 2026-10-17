@@ -41,6 +41,9 @@ CMD_RETRIES = 2
 # per device per window and report how many were held back.
 WARN_WINDOW = 300.0
 
+# A new device session is challenged at most this often (seconds).
+CHALLENGE_INTERVAL = 1.0
+
 
 class _HubProtocol(asyncio.DatagramProtocol):
     def __init__(self, hub: "EtCoreHub") -> None:
@@ -73,6 +76,7 @@ class EtCoreHub:
         self._rx_count = 0
         self._decrypt_fail_count = 0
         self._replay_count = 0
+        self._unproven_count = 0
         self._warned: dict[str, tuple[float, int]] = {}
         self._pending: dict[str, dict[str, Any]] = {}
         self._cmd_fail_count = 0
@@ -224,22 +228,54 @@ class EtCoreHub:
                 return False
             aad = self._aad(str(msg.get("type") or ""), dev_id, msg.get("seq"))
             plain = ChaCha20Poly1305(key).decrypt(nonce, ct + tag, aad)
+            payload = json.loads(plain.decode("utf-8"))
+            if not isinstance(payload, dict):
+                return False
             # Replay check: nonce bytes 1-7 are the device's per-boot session and
             # seq (authenticated via AAD) must keep rising within a session.
             session = nonce[1:8].hex()
             seq = int(msg.get("seq") or 0)
             dev = self._devices.setdefault(dev_id, {"id": dev_id})
-            if dev.get("rx_session") == session and seq <= int(dev.get("rx_seq") or 0):
-                self._replay_count += 1
+            if dev.get("rx_session") == session:
+                if seq <= int(dev.get("rx_seq") or 0):
+                    self._replay_count += 1
+                    return False
+            elif not self._session_proven(dev, session, payload, msg.get("_src_ip")):
                 return False
             dev["rx_session"] = session
             dev["rx_seq"] = seq
-            msg["payload"] = json.loads(plain.decode("utf-8"))
+            msg["payload"] = payload
             msg["_encrypted"] = True
-            return isinstance(msg["payload"], dict)
+            return True
         except Exception as exc:
             self._warn_limited(f"dec:{dev_id}", "ET-Core decrypt failed for %s (wrong key?): %s", dev_id, exc.__class__.__name__)
             return False
+
+    def _session_proven(self, dev: dict[str, Any], session: str, payload: dict[str, Any], ip: Any) -> bool:
+        """A session this hub has not seen yet must prove it is live, not recorded.
+
+        Packets recorded during an earlier boot decrypt fine and carry another
+        session, so on their own they could keep a dead device "online". The hub
+        sends the new session a random challenge (unicast announce, bound to the
+        session by _ds); only a packet that carries it back starts the session.
+        """
+        pending: dict[str, str] = dev.setdefault("challenges", {})
+        ch = pending.get(session)
+        if ch and payload.get("ch") == ch:
+            dev.pop("challenges", None)
+            return True
+        self._unproven_count += 1
+        if not ch:
+            ch = pending[session] = os.urandom(4).hex()
+            while len(pending) > 4:  # replays of several old boots: keep a few
+                pending.pop(next(iter(pending)))
+        now = time.time()
+        if ip and now - float(dev.get("challenged_at") or 0) >= CHALLENGE_INTERVAL:
+            dev["challenged_at"] = now
+            dev["told_hub_at"] = now
+            self._send_announce(str(ip), hello=not dev.get("name"), dev_id=dev["id"],
+                                ds=session, ch=ch)
+        return False
 
     def _encode_payload(self, dev_id: str, seq: int, payload: dict[str, Any]) -> dict[str, Any]:
         key = self._key_for(dev_id)
@@ -337,7 +373,8 @@ class EtCoreHub:
         self._src_ip_cache[target] = (ip, now)
         return ip
 
-    def _send_announce(self, target: str, *, hello: bool, dev_id: str | None = None) -> None:
+    def _send_announce(self, target: str, *, hello: bool, dev_id: str | None = None,
+                       ds: str | None = None, ch: str | None = None) -> None:
         """Multicast (dev_id None, site key) or unicast to one device (its key).
 
         With a PSK the payload is encrypted and carries the hub's own address, so
@@ -354,7 +391,9 @@ class EtCoreHub:
             key = self._key_for(dev_id) if dev_id else self._site_key
             if key and ChaCha20Poly1305 is not None:
                 if dev_id:
-                    payload["_ds"] = str((self._devices.get(dev_id) or {}).get("rx_session") or "")
+                    payload["_ds"] = ds or str((self._devices.get(dev_id) or {}).get("rx_session") or "")
+                if ch:
+                    payload["ch"] = ch
                 nonce = bytes([3]) + self._hub_session + seq.to_bytes(4, "little")
                 out = ChaCha20Poly1305(key).encrypt(
                     nonce, json.dumps(payload, separators=(",", ":")).encode("utf-8"),
@@ -430,6 +469,7 @@ class EtCoreHub:
             "rx_count": self._rx_count,
             "decrypt_failures": self._decrypt_fail_count,
             "replays_dropped": self._replay_count,
+            "unproven_dropped": self._unproven_count,
             "commands_failed": self._cmd_fail_count,
             "commands_pending": len(self._pending),
             "devices": devices,

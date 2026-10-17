@@ -220,6 +220,29 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
             attacker.close()
         self.assertFalse(self.online(hub, "relayD"), "replayed lease kept a dead device online")
 
+    async def test_leases_from_an_earlier_boot_cannot_fake_online(self):
+        hub = await self.hub()
+        ip = self.ip()
+        d1 = Device("relayAB", "switch.relay", ip, PSK, lease_ms=500)
+        self.devices.append(d1)
+        self.assertTrue(await wait_for(lambda: self.online(hub, "relayAB"), 5))
+        await asyncio.sleep(4)
+        old = [m["_raw"] for m in packets(hub.rec.rx, ip, "lease")]  # boot 1, recorded
+        d1.kill()
+        d2 = Device("relayAB", "switch.relay", ip, PSK, lease_ms=500)  # same device rebooted
+        self.devices.append(d2)
+        n = len(packets(hub.rec.rx, ip, "lease"))
+        self.assertTrue(await wait_for(lambda: len(packets(hub.rec.rx, ip, "lease")) > n + 3, 5))
+        d2.kill()  # unplugged for good
+        attacker = sender_from(ip)
+        try:
+            for raw in old[-12:] * 2:  # boot-1 leases, in order (their seq rises)
+                attacker.sendto(raw, ("127.0.0.1", PORT))
+                await asyncio.sleep(0.5)
+        finally:
+            attacker.close()
+        self.assertFalse(self.online(hub, "relayAB"), "leases from an earlier boot kept a dead device online")
+
     async def test_fix0_forged_plaintext_lease_ignored_when_encrypted(self):
         hub = await self.hub()
         d = self.device("relayH")
@@ -365,6 +388,7 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
     async def test_genuine_multicast_announce_alone_is_followed(self):
         hub = await self.hub()
         d = await self._online_device(hub, "relayAA")
+        await asyncio.sleep(10.5)  # past the device's once-per-10-s hello limit
         await hub.async_stop()
         self.hubs.remove(hub)
         h2 = make_hub(asyncio.get_running_loop(), PSK, self.store)
@@ -372,8 +396,8 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         h2._send_announce = lambda target, **kw: None if kw.get("dev_id") else orig(target, **kw)
         await h2.async_start()  # only the encrypted multicast announce goes out
         self.hubs.append(h2)
-        self.assertTrue(await wait_for(lambda: h2.devices.get("relayAA", {}).get("name") == "relayAA", 5),
-                        "device ignored the hub's genuine multicast announce")
+        self.assertTrue(await wait_for(lambda: packets(h2.rec.rx, d.ip, "hello"), 3),
+                        "device did not answer the hub's genuine multicast announce")
 
     async def test_commands_recover_after_ha_restored_from_backup(self):
         hub = await self.hub()

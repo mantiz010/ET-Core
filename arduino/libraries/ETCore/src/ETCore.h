@@ -90,6 +90,7 @@ private:
   uint8_t _siteKey[32] = {0};  // hub multicast announces: sha256(psk || "\0etcore-announce")
   uint32_t _lastHelloReqMs = 0;
   bool _helloReqSeen = false;
+  char _hubCh[9] = {0};  // last challenge from the hub, echoed in lease and hello
 
   CommandHandler _cmdHandler = nullptr;
   SyncHandler _syncHandler = nullptr;
