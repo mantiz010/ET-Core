@@ -167,7 +167,8 @@ Hub to devices. Sent multicast when the hub starts (`"hello": true`) and then ev
 30 s (`"hello": false`), and unicast to a device when it says hello or is first
 heard by this hub run. Devices learn the hub address from it and send leases,
 state and acks unicast from then on. Devices never answer a periodic announce; an
-announce with `"hello": true` gets one `hello` back after a random 0-2 s delay.
+announce with `"hello": true` gets one `hello` back after a random delay (0-2 s for
+multicast, 0-100 ms for unicast).
 Multicast is often lost on WiFi (seen on the hardware test: an ESP32-C3 received no
 multicast announce at all), so the hub also asks by unicast: the unicast announce it
 sends on first contact carries `"hello": true` while it does not know the device's
@@ -250,12 +251,18 @@ Encrypted mode:
   decrypts fine but carries another session, so the hub does not start a session it
   has not seen before (no online, no state, no address change) until the device
   echoes a challenge: the hub sends that session a unicast announce with
-  `"ch": "<8 hex>"` (and `_ds` = that session, at most once per second per device),
-  and the device puts `ch` in every `lease` and `hello` from then on and sends a
-  `lease` at once (or the requested `hello`). Only a packet of that session carrying
-  that `ch` starts it. Every device after a reboot, and every device after a hub
-  restart, goes through this once (one extra round trip). A fresh challenge also
-  bypasses the device's once-per-10-s limit on hello requests.
+  `"ch": "<24 hex>"` (and `_ds` = that session), and the device puts `ch` in every
+  `lease` and `hello` from then on and sends a `lease` at once (or the requested
+  `hello`). Only a packet of that session carrying a valid `ch` starts it.
+  - `ch` = 8 hex chars of hub time (seconds) + first 16 hex chars of
+    HMAC-SHA256(per-hub-run secret, `<id>|<session>|<time>`). Valid for 10 s. It is
+    computed, not stored, so recordings of many old boots cannot crowd out the real
+    one; each session has its own rate limit (one challenge per second).
+  - A session that was live and then replaced by a newer one is retired (the last 8
+    per device) and never starts again, even with a still-valid `ch` in it.
+  - Every device after a reboot, and every device after a hub restart, goes through
+    this once (one extra round trip). A fresh challenge also bypasses the device's
+    once-per-10-s limit on hello requests.
 - The hub's command `seq` never goes backwards in normal use: it is saved in Home
   Assistant storage ahead of use in blocks of 1000 and continues from the saved value
   after a restart.

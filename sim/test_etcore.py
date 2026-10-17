@@ -279,6 +279,63 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(diag["unproven_dropped"], 0)
         self.assertEqual(diag["decrypt_failures"], 0, "replays/unproven counted as decrypt failures")
 
+    async def test_flood_of_old_boot_packets_cannot_block_a_reboot(self):
+        hub = await self.hub()
+        ip = self.ip()
+        old = []
+        for _ in range(5):  # recordings from five earlier boots
+            d = Device("relayAF", "switch.relay", ip, PSK)
+            self.devices.append(d)
+            self.assertTrue(await wait_for(lambda: packets(hub.rec.rx, ip, "lease")
+                                           and len({m["payload"]["n"][:12] for m in packets(hub.rec.rx, ip, "lease")}) > len(old), 5))
+            await asyncio.sleep(2.2)
+            old.append(packets(hub.rec.rx, ip, "lease")[-1]["_raw"])
+            d.kill()
+        attacker = sender_from(self.ip())
+        attacker.setblocking(False)
+        stop = False
+
+        async def flood():
+            while not stop:
+                for raw in old:
+                    attacker.sendto(raw, ("127.0.0.1", PORT))
+                await asyncio.sleep(0.005)
+
+        task = asyncio.create_task(flood())
+        try:
+            await asyncio.sleep(1)
+            d2 = Device("relayAF", "switch.relay", ip, PSK)
+            self.devices.append(d2)
+            ok = await wait_for(lambda: hub.devices.get("relayAF", {}).get("boot") == self._boot_of(d2, hub, ip), 8)
+        finally:
+            stop = True
+            await task
+            attacker.close()
+        print(f"\n    flood of {len(old)} old boots: {hub._unproven_count} packets dropped, rebooted device online {ok}")
+        self.assertTrue(ok, "a flood of old-boot packets kept the rebooted device from coming online")
+
+    def _boot_of(self, d, hub, ip):
+        for line in d.poll_lines():
+            pass
+        boots = [m["boot"] for m in packets(hub.rec.rx, ip, "hello")]
+        return boots[-1] if boots else None
+
+    async def test_without_a_key_everything_still_works(self):
+        hub = await self.hub(psk=None)
+        d = self.device("plainA", psk=None)
+        self.assertTrue(await wait_for(lambda: self.online(hub, "plainA"), 5), "no-key device never online")
+        self.assertEqual(hub.devices["plainA"].get("name"), "plainA")
+        hub.send_command("plainA", "switch.relay", {"on": True})
+        self.assertTrue(await wait_for(lambda: len(d.commands()) == 1, 2), "no-key command lost")
+        self.assertTrue(await wait_for(lambda: hub._pending == {}, 2), "no-key ack lost")
+        await hub.async_stop()
+        self.hubs.remove(hub)
+        hub = await self.hub(psk=None)
+        self.assertTrue(await wait_for(lambda: self.online(hub, "plainA") and hub.devices["plainA"].get("name"), 5),
+                        "no-key device not back after hub restart")
+        d.stop()
+        self.assertTrue(await wait_for(lambda: not self.online(hub, "plainA"), 1.5), "no-key bye ignored")
+
     async def test_fix0_forged_plaintext_lease_ignored_when_encrypted(self):
         hub = await self.hub()
         d = self.device("relayH")

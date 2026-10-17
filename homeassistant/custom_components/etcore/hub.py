@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import hmac
 import os
 import json
 import logging
@@ -41,8 +42,10 @@ CMD_RETRIES = 2
 # per device per window and report how many were held back.
 WARN_WINDOW = 300.0
 
-# A new device session is challenged at most this often (seconds).
+# A new device session is challenged at most this often (seconds), and has this
+# long to answer.
 CHALLENGE_INTERVAL = 1.0
+CHALLENGE_TTL = 10
 
 
 class _HubProtocol(asyncio.DatagramProtocol):
@@ -67,6 +70,7 @@ class EtCoreHub:
         self._site_key = hashlib.sha256(self._psk + b"\0etcore-announce").digest() if self._psk else None
         self._src_ip_cache: dict[str, tuple[str, float]] = {}
         self._hub_session = os.urandom(7)
+        self._ch_secret = os.urandom(32)  # per hub run: old runs' challenges are void
         self._transport: asyncio.DatagramTransport | None = None
         self._tasks: list[asyncio.Task] = []
         self._devices: dict[str, dict[str, Any]] = {}
@@ -258,26 +262,52 @@ class EtCoreHub:
 
         Packets recorded during an earlier boot decrypt fine and carry another
         session, so on their own they could keep a dead device "online". The hub
-        sends the new session a random challenge (unicast announce, bound to the
-        session by _ds); only a packet that carries it back starts the session.
+        sends the new session a challenge (unicast announce, bound to the session
+        by _ds); only a packet that carries it back starts the session.
+
+        The challenge is computed, not stored: time + HMAC(per-run secret, device,
+        session, time), valid for CHALLENGE_TTL; a session that was replaced is
+        retired for good. So recordings of many old boots
+        cannot push the real one out of a table, and each session has its own
+        rate limit, so a flood of them cannot use up the real session's turn.
         """
-        pending: dict[str, str] = dev.setdefault("challenges", {})
-        ch = pending.get(session)
-        if ch and payload.get("ch") == ch:
-            dev.pop("challenges", None)
+        # A session that was live and then replaced (the device rebooted) never
+        # starts again: its own recorded packets may still carry a valid challenge.
+        retired: list[str] = dev.setdefault("retired", [])
+        if session not in retired and self._check_challenge(dev["id"], session, payload.get("ch")):
+            dev.pop("challenged", None)
+            if dev.get("rx_session"):
+                retired.append(dev["rx_session"])
+                del retired[:-8]
             return True
         self._unproven_count += 1
-        if not ch:
-            ch = pending[session] = os.urandom(4).hex()
-            while len(pending) > 4:  # replays of several old boots: keep a few
-                pending.pop(next(iter(pending)))
-        now = time.time()
-        if ip and now - float(dev.get("challenged_at") or 0) >= CHALLENGE_INTERVAL:
-            dev["challenged_at"] = now
-            dev["told_hub_at"] = now
+        now = time.monotonic()
+        sent: dict[str, float] = dev.setdefault("challenged", {})
+        if ip and now - sent.get(session, -CHALLENGE_INTERVAL) >= CHALLENGE_INTERVAL:
+            sent.pop(session, None)
+            sent[session] = now
+            while len(sent) > 16:  # forgetting one only means it may be asked again sooner
+                sent.pop(next(iter(sent)))
+            dev["told_hub_at"] = time.time()
             self._send_announce(str(ip), hello=not dev.get("name"), dev_id=dev["id"],
-                                ds=session, ch=ch)
+                                ds=session, ch=self._make_challenge(dev["id"], session, int(now)))
         return False
+
+    def _make_challenge(self, dev_id: str, session: str, t: int) -> str:
+        t &= 0xFFFFFFFF
+        mac = hmac.new(self._ch_secret, f"{dev_id}|{session}|{t}".encode(), hashlib.sha256).hexdigest()[:16]
+        return f"{t:08x}{mac}"
+
+    def _check_challenge(self, dev_id: str, session: str, ch: Any) -> bool:
+        if not isinstance(ch, str) or len(ch) != 24:
+            return False
+        try:
+            t = int(ch[:8], 16)
+        except ValueError:
+            return False
+        if not 0 <= int(time.monotonic()) - t <= CHALLENGE_TTL:
+            return False
+        return hmac.compare_digest(ch, self._make_challenge(dev_id, session, t))
 
     def _encode_payload(self, dev_id: str, seq: int, payload: dict[str, Any]) -> dict[str, Any]:
         key = self._key_for(dev_id)

@@ -209,7 +209,8 @@ void ETCore::_handleAnnounce(JsonDocument& doc, uint32_t now) {
   // A new challenge is fresh by construction, so its hello request is never held
   // back; anything else (incl. a replayed announce) at most once per 10 s.
   const char* ch = payload["ch"] | "";
-  const bool newCh = unicast && _cryptoEnabled && ch[0] && strcmp(ch, _hubCh) != 0;
+  const bool newCh = unicast && _cryptoEnabled && ch[0] && strlen(ch) < sizeof(_hubCh) &&
+                     strcmp(ch, _hubCh) != 0;
   if ((payload["hello"] | false) && !_helloPending &&
       (newCh || !_helloReqSeen || now - _lastHelloReqMs >= 10000)) {
     _helloReqSeen = true;
