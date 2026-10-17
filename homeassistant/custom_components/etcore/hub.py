@@ -322,7 +322,8 @@ class EtCoreHub:
         # (the start-up announce) is often lost on WiFi.
         told = float(dev.get("told_hub_at") or 0)
         want_hello = mtype != "hello" and not dev.get("name")
-        if (mtype == "hello" and now - told >= 1.0) or not told or (want_hello and now - told >= 10.0):
+        lost = bool(payload.get("nohub")) and now - told >= 1.0  # device lost track of us
+        if (mtype == "hello" and now - told >= 1.0) or not told or lost or (want_hello and now - told >= 10.0):
             dev["told_hub_at"] = now
             self._send_announce(ip, hello=want_hello, dev_id=dev_id)
         # With a PSK only authenticated packets get this far.

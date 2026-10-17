@@ -491,6 +491,31 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         n = base64.b64decode(packets(hub.rec.tx, devs[0].ip, "cmd")[-1]["payload"]["n"])
         self.assertNotEqual(n[5:8], b"\0\0\0", f"hub session only 4 bytes: {n.hex()}")
 
+    async def test_device_finds_hub_again_when_it_goes_quiet(self):
+        # The hub "moved" (e.g. HA got a new address): the device must stop
+        # unicasting into the void and ask again by multicast; the hub answers.
+        hub = await self.hub()
+        d = await self._online_device(hub, "relayAC", env={"ETCORE_SIM_HUB_SILENT_MS": "3000"})
+        before = len(packets(hub.rec.tx, d.ip, "announce"))
+        g = group_listener()
+        flagged = []
+        try:
+            end = time.monotonic() + 6
+            while time.monotonic() < end:
+                try:
+                    data, a = g.recvfrom(4096)
+                    m = json.loads(data)
+                    if a[0] == d.ip and m.get("type") == "lease":
+                        flagged.append(m)
+                except BlockingIOError:
+                    await asyncio.sleep(0.05)
+        finally:
+            g.close()
+        self.assertTrue(flagged, "device never fell back to multicast after the hub went quiet")
+        self.assertGreater(len(packets(hub.rec.tx, d.ip, "announce")), before,
+                           "hub did not answer the device's search")
+        self.assertTrue(self.online(hub, "relayAC"))
+
     async def test_bug5_new_hub_learns_device_name_without_device_reboot(self):
         hub = await self.hub()
         d = self.device("relayG")

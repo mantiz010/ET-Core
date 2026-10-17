@@ -158,6 +158,14 @@ After answering an announce with `"hello": true` the library calls the sketch's
 `onSync` handler, which should send the current `state`, so a restarted hub shows
 the real state at once instead of a default until the next change or refresh.
 
+Finding the hub again: a device that has heard nothing authenticated from the hub
+(announce or command) for 100 s (`setHubSilentTimeout`) forgets the hub address,
+sends its leases multicast again with `"nohub": true` in the (encrypted) lease, and
+the hub answers that with a unicast announce (at most once per second per device).
+This is how devices follow Home Assistant to a new address. Where multicast to
+devices is lost (WiFi), a device whose hub sends it nothing does this once per
+100 s: one multicast lease and one unicast announce.
+
 Authentication (PSK set). The announce payload is encrypted like other payloads
 but with direction byte `3` in the nonce (`nonce[1..7]` hub session, `nonce[8..11]`
 the announce counter) and AAD `v1|announce|<id>|<seq>`:

@@ -77,15 +77,20 @@ void ETCore::setLeaseTtl(uint16_t seconds) {
   if (seconds >= 2) _leaseTtlSec = seconds;
 }
 
+void ETCore::setHubSilentTimeout(uint32_t ms) {
+  if (ms >= 1000) _hubSilentMs = ms;
+}
+
+// Called only for packets that authenticated as coming from the hub.
 void ETCore::_learnHub(IPAddress ip) {
-  if (!_hubKnown || _hubIp != ip) {
-    _hubIp = ip;
-    _hubKnown = true;
-  }
+  _hubIp = ip;
+  _hubKnown = true;
+  _lastHubRxMs = millis();
 }
 
 void ETCore::loop() {
   const uint32_t now = millis();
+  if (_hubKnown && now - _lastHubRxMs >= _hubSilentMs) _hubKnown = false;  // ask again
   if (now - _lastLeaseMs >= _leaseIntervalMs) {
     sendLease();
     _lastLeaseMs = now;
@@ -273,6 +278,7 @@ void ETCore::sendLease() {
   p["uptime"] = (uint32_t)(millis() / 1000);
   p["rssi"] = WiFi.RSSI();
   if (_hubCh[0]) p["ch"] = _hubCh;
+  if (!_hubKnown) p["nohub"] = true;  // multicast: the hub answers with an announce
   _sendEnvelope("lease", p, true);
 }
 

@@ -44,6 +44,7 @@ int main(int argc, char** argv) {
   if (argc > 4 && strcmp(argv[4], "-") != 0) core.enableEncryptionHex(argv[4]);
   if (argc > 5) core.setLeaseInterval((uint32_t)atoi(argv[5]));
   if (argc > 6) core.setLeaseTtl((uint16_t)atoi(argv[6]));
+  if (getenv("ETCORE_SIM_HUB_SILENT_MS")) core.setHubSilentTimeout((uint32_t)atoi(getenv("ETCORE_SIM_HUB_SILENT_MS")));
   core.begin(id, g_class, id, "sim-1");
   core.onCommand(onCommand);
   core.onSync(publish);

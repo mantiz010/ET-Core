@@ -38,6 +38,10 @@ public:
 
   void setLeaseInterval(uint32_t ms);
   void setLeaseTtl(uint16_t seconds);
+  // With no authenticated packet from the hub for this long (default 100 s, a bit
+  // over 3 hub announce periods) the device forgets the hub address and asks again
+  // by multicast, so it finds Home Assistant again after it moved address.
+  void setHubSilentTimeout(uint32_t ms);
 
 private:
   void _sendEnvelope(const char* type, JsonObject payload, bool multicast_fallback);
@@ -73,6 +77,8 @@ private:
   char _boot[17] = {0};
   uint8_t _session[7] = {0};  // random per boot: nonce bytes 1-7
   uint32_t _lastLeaseMs = 0;
+  uint32_t _lastHubRxMs = 0;
+  uint32_t _hubSilentMs = 100000;
   struct CmdSeen { char id[24]; bool ok; };
   CmdSeen _cmdHist[ETCORE_CMD_HISTORY] = {};
   uint8_t _cmdHistNext = 0;
