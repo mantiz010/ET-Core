@@ -375,6 +375,9 @@ class EtCoreHub:
             dev["features"] = payload.get("features", [])
             effects = payload.get("effects")
             dev["effects"] = [str(e) for e in effects] if isinstance(effects, list) else []
+            # The whole hello (minus the challenge) for the platforms: switch
+            # lists, fan presets, sensor metadata, model, ...
+            dev["hello"] = {k: v for k, v in payload.items() if k != "ch"}
 
         if mtype == "ack":
             self._handle_ack(dev_id, payload)
