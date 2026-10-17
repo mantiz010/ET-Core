@@ -143,3 +143,25 @@ Scripts: tools/ha_bench_light.py, tools/ha_wire_rtt.py.
 | HA restart -> state shown | 2.3 s, but it is the *saved* state, not asked from the device | 1.7 s, the device's real state |
 | 30 light commands | 30/30 | 30/30 |
 | Traffic, idle device | hub multicast ping every 10 s + device pong per ping | device lease every 2 s unicast, hub multicast announce every 30 s |
+
+## ET-Bus feature parity (2026-10-17 evening)
+
+Every ET-Bus device type, in the test HA 2026.10.1 with the C3 running
+examples/ParityTest (one type per build, tools/ha_parity_e2e.py):
+
+| Type | Checks |
+|---|---|
+| switch.multi, 3 named relays | 13/13: one entity each (named from the hello), each on/off, others unaffected |
+| fan.speed | 4/4: set 40 %, off, on, on at 75 % |
+| fan.preset (presets from the hello) | 4/4: preset list, turbo, off, on |
+| sensor.air (co2, temp, humidity) | 4/4: values, units ppm/°C/%, device classes, state class measurement |
+| sensor.temperature value style | 1/1: 19.25 °C |
+| light.rgb without an effect list (like RGB1) | 6/6: ET-Bus's 35 effects offered, effect + colour, speed slider confirmed by the device |
+| Device error (sendError) | logged once in HA, event fired |
+| Options flow | bad key rejected, valid change reloads, light back in 0.7 s |
+| etcore.send_command | command reached the device; unknown device -> clear error |
+| Single switch after the switch rewrite | same entity id, 10/10 toggles, ~24 ms |
+
+All 9 examples compile (incl. ports of the ET-Bus examples and the WiFi manager).
+Simulator 36/36. hw_check after: 40/40 commands, decrypt failures 0.
+Not ported on purpose: send_kate_command (Kate speaks ET-Bus), saved-state display.
