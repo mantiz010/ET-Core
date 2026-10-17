@@ -121,6 +121,15 @@ class EtCoreHub:
             return None
         return raw
 
+    @staticmethod
+    def _aad(mtype: str, dev_id: str, seq: Any) -> bytes:
+        """Envelope fields bound into the encryption (must match ETCore::_aad)."""
+        try:
+            seq_n = int(seq)
+        except (TypeError, ValueError):
+            seq_n = -1
+        return f"v1|{mtype}|{dev_id}|{seq_n}".encode("utf-8")
+
     def _key_for(self, dev_id: str) -> bytes | None:
         if not self._psk:
             return None
@@ -145,7 +154,8 @@ class EtCoreHub:
             tag = base64.b64decode(str(payload.get("tag") or ""), validate=True)
             if len(nonce) != 12 or len(tag) != 16 or nonce[0] != 1:
                 return False
-            plain = ChaCha20Poly1305(key).decrypt(nonce, ct + tag, None)
+            aad = self._aad(str(msg.get("type") or ""), dev_id, msg.get("seq"))
+            plain = ChaCha20Poly1305(key).decrypt(nonce, ct + tag, aad)
             msg["payload"] = json.loads(plain.decode("utf-8"))
             msg["_encrypted"] = True
             return isinstance(msg["payload"], dict)
@@ -166,7 +176,7 @@ class EtCoreHub:
         nonce[10] = (seq >> 16) & 0xFF
         nonce[11] = (seq >> 24) & 0xFF
         plain = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-        out = ChaCha20Poly1305(key).encrypt(bytes(nonce), plain, None)
+        out = ChaCha20Poly1305(key).encrypt(bytes(nonce), plain, self._aad("cmd", dev_id, seq))
         return {
             "_enc": 1,
             "alg": "C20P1305",

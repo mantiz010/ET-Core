@@ -16,6 +16,22 @@ from harness import Device, PORT, group_listener, make_hub, sender_from, wait_fo
 PSK = os.urandom(32).hex()  # test key only
 
 
+def packets(records, ip, mtype):
+    """Parsed packets of one type from/to one address (raw bytes kept as m["_raw"])."""
+    out = []
+    for raw, addr in records:
+        if addr[0] != ip:
+            continue
+        try:
+            m = json.loads(raw)
+        except ValueError:
+            continue
+        if m.get("type") == mtype:
+            m["_raw"] = raw
+            out.append(m)
+    return out
+
+
 class EtCoreSim(unittest.IsolatedAsyncioTestCase):
     _next_ip = 10
 
@@ -67,8 +83,7 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         hub.send_command("relayB", "switch.relay", {"cmd_id": "c1", "on": True})
         self.assertTrue(await wait_for(lambda: len(d.commands()) == 1, 3), "device got no command")
         self.assertEqual(json.loads(d.commands()[0])["on"], True)
-        self.assertTrue(await wait_for(lambda: any(b'"ack"' in m and b"relayB" in m for m, _ in hub.rec.rx), 3),
-                        "no ack from device")
+        self.assertTrue(await wait_for(lambda: packets(hub.rec.rx, d.ip, "ack"), 3), "no ack from device")
 
     async def test_bug1_commands_still_work_after_ha_restart(self):
         hub = await self.hub()
@@ -91,7 +106,7 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         d = self.device("relayD")
         self.assertTrue(await wait_for(lambda: self.online(hub, "relayD"), 5))
         await asyncio.sleep(2.5)
-        leases = [m for m, a in hub.rec.rx if a[0] == d.ip and b'"lease"' in m]
+        leases = [m["_raw"] for m in packets(hub.rec.rx, d.ip, "lease")]
         self.assertTrue(leases, "captured no lease")
         d.kill()
         attacker = sender_from(d.ip)
@@ -121,14 +136,36 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
             attacker.close()
         self.assertFalse(self.online(hub, "relayH"), "forged plaintext lease kept a dead device online")
 
+    async def test_fix_relabelled_packet_cannot_pass_as_lease(self):
+        hub = await self.hub()
+        d = self.device("relayI")
+        self.assertTrue(await wait_for(lambda: self.online(hub, "relayI"), 5))
+        hub.send_command("relayI", "switch.relay", {"cmd_id": "x", "on": True})
+        self.assertTrue(await wait_for(lambda: packets(hub.rec.rx, d.ip, "ack"), 3))
+        ack = packets(hub.rec.rx, d.ip, "ack")[-1]
+        ack.pop("_raw")
+        d.kill()
+        await wait_for(lambda: not self.online(hub, "relayI"), 10)
+        attacker = sender_from(d.ip)
+        try:
+            for i in range(4):  # an encrypted ack re-sent with "type": "lease"
+                fake = dict(ack, type="lease", seq=ack["seq"] + 100 + i)
+                attacker.sendto(json.dumps(fake).encode(), ("127.0.0.1", PORT))
+                fake = dict(ack, type="lease")
+                attacker.sendto(json.dumps(fake).encode(), ("127.0.0.1", PORT))
+                await asyncio.sleep(0.3)
+        finally:
+            attacker.close()
+        self.assertFalse(self.online(hub, "relayI"), "an ack relabelled as lease brought the device online")
+
     async def test_bug3_replayed_command_is_rejected(self):
         hub = await self.hub()
         d = self.device("relayE")
         self.assertTrue(await wait_for(lambda: self.online(hub, "relayE"), 5))
         hub.send_command("relayE", "switch.relay", {"cmd_id": "real", "on": True})
         self.assertTrue(await wait_for(lambda: len(d.commands()) == 1, 3))
-        raw, addr = [(m, a) for m, a in hub.rec.tx if a[0] == d.ip and b'"cmd"' in m][-1]
-        msg = json.loads(raw)
+        msg = packets(hub.rec.tx, d.ip, "cmd")[-1]
+        msg.pop("_raw")
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             for seq in (msg["seq"], msg["seq"] + 1000, 0):
@@ -151,7 +188,7 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
             while time.monotonic() < end:
                 try:
                     data, a = g.recvfrom(4096)
-                    if a[0] == d.ip and b'"lease"' in data:
+                    if a[0] == d.ip and json.loads(data).get("type") == "lease":
                         n += 1
                 except BlockingIOError:
                     await asyncio.sleep(0.05)

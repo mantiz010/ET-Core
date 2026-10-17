@@ -160,3 +160,7 @@ Encrypted mode:
 - With a PSK configured, the hub accepts `lease`, `state` and `ack` only encrypted;
   plaintext ones are dropped. `hello` stays plaintext and only updates name and
   features: it never marks a device online.
+- Associated data (AAD) for every encrypted payload is the UTF-8 string
+  `v1|<type>|<id>|<seq>` taken from the envelope (for `cmd`, `id` is the target
+  device). A packet whose `type`, `id` or `seq` was changed fails authentication.
+- Devices drop commands with `seq` 0 or `seq` not greater than the last accepted one.

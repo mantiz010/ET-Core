@@ -107,18 +107,19 @@ void ETCore::loop() {
   _learnHub(_udp.remoteIP());
 
   if (_cmdHandler) {
+    // seq is bound into the encryption (see _aad), so it cannot be rewritten.
     uint32_t seq = doc["seq"].as<uint32_t>();
-    if (seq && seq <= _lastCmdSeq) return;
+    if (seq == 0 || seq <= _lastCmdSeq) return;
 
     JsonObject payload = doc["payload"].as<JsonObject>();
     JsonDocument plainDoc;
     if (_cryptoEnabled) {
       if (payload["_enc"].as<int>() != 1) return;
-      if (!_decryptPayload(payload, plainDoc)) return;
+      if (!_decryptPayload("cmd", seq, payload, plainDoc)) return;
       payload = plainDoc.as<JsonObject>();
     }
 
-    if (seq) _lastCmdSeq = seq;
+    _lastCmdSeq = seq;
     _cmdHandler(doc["class"] | "", payload);
   }
 }
@@ -134,7 +135,7 @@ void ETCore::_sendEnvelope(const char* type, JsonObject payload, bool multicast_
 
   JsonObject out = doc["payload"].to<JsonObject>();
   if (_cryptoEnabled && strcmp(type, "hello") != 0) {
-    if (!_encryptPayload(payload, out)) return;
+    if (!_encryptPayload(type, _seq, payload, out)) return;
   } else {
     for (JsonPair kv : payload) {
       out[kv.key()] = kv.value();
@@ -250,7 +251,15 @@ bool ETCore::_b64decode(const char* in, uint8_t* out, size_t out_len, size_t* wr
   return true;
 }
 
-bool ETCore::_encryptPayload(JsonObject plain, JsonObject out) {
+// Associated data: the envelope fields the receiver acts on. Encrypting with them
+// bound in means a packet cannot be relabelled (ack -> lease) or have its seq
+// rewritten without failing authentication.
+size_t ETCore::_aad(const char* type, uint32_t seq, char* out, size_t out_len) {
+  int n = snprintf(out, out_len, "v1|%s|%s|%lu", type ? type : "", _id ? _id : "", (unsigned long)seq);
+  return (n > 0 && (size_t)n < out_len) ? (size_t)n : 0;
+}
+
+bool ETCore::_encryptPayload(const char* type, uint32_t seq, JsonObject plain, JsonObject out) {
   char pt[768];
   size_t pt_len = serializeJson(plain, pt, sizeof(pt));
   if (pt_len == 0 || pt_len >= sizeof(pt)) return false;
@@ -258,8 +267,11 @@ bool ETCore::_encryptPayload(JsonObject plain, JsonObject out) {
   uint8_t nonce[12];
   uint8_t ct[768];
   uint8_t tag[16];
-  _makeNonce(1, _seq, nonce);
-  if (!ETChaCha20Poly1305::encrypt(_key, nonce, nullptr, 0, (const uint8_t*)pt, pt_len, ct, tag)) {
+  char aad[128];
+  size_t aad_len = _aad(type, seq, aad, sizeof(aad));
+  if (!aad_len) return false;
+  _makeNonce(1, seq, nonce);
+  if (!ETChaCha20Poly1305::encrypt(_key, nonce, (const uint8_t*)aad, aad_len, (const uint8_t*)pt, pt_len, ct, tag)) {
     return false;
   }
 
@@ -278,7 +290,7 @@ bool ETCore::_encryptPayload(JsonObject plain, JsonObject out) {
   return true;
 }
 
-bool ETCore::_decryptPayload(JsonObject wrapper, JsonDocument& out) {
+bool ETCore::_decryptPayload(const char* type, uint32_t seq, JsonObject wrapper, JsonDocument& out) {
   if (wrapper["_enc"].as<int>() != 1) return false;
   const char* n64 = wrapper["n"] | "";
   const char* c64 = wrapper["ct"] | "";
@@ -297,7 +309,10 @@ bool ETCore::_decryptPayload(JsonObject wrapper, JsonDocument& out) {
   if (!_b64decode(t64, tag, sizeof(tag), &tag_len) || tag_len != sizeof(tag)) return false;
   if (nonce[0] != 2) return false;
 
-  if (!ETChaCha20Poly1305::decrypt(_key, nonce, nullptr, 0, ct, ct_len, tag, pt)) {
+  char aad[128];
+  size_t aad_len = _aad(type, seq, aad, sizeof(aad));
+  if (!aad_len) return false;
+  if (!ETChaCha20Poly1305::decrypt(_key, nonce, (const uint8_t*)aad, aad_len, ct, ct_len, tag, pt)) {
     return false;
   }
   pt[ct_len] = 0;

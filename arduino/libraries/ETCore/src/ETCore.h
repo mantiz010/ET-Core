@@ -38,8 +38,9 @@ private:
   void _makeSessionNonce();
   bool _parseHex32(const char* hex, uint8_t out[32]);
   void _deriveKey();
-  bool _encryptPayload(JsonObject plain, JsonObject out);
-  bool _decryptPayload(JsonObject wrapper, JsonDocument& out);
+  size_t _aad(const char* type, uint32_t seq, char* out, size_t out_len);
+  bool _encryptPayload(const char* type, uint32_t seq, JsonObject plain, JsonObject out);
+  bool _decryptPayload(const char* type, uint32_t seq, JsonObject wrapper, JsonDocument& out);
   void _makeNonce(uint8_t direction, uint32_t seq, uint8_t nonce[12]);
   bool _b64encode(const uint8_t* in, size_t in_len, char* out, size_t out_len);
   bool _b64decode(const char* in, uint8_t* out, size_t out_len, size_t* written);
