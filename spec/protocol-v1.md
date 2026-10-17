@@ -157,3 +157,6 @@ Encrypted mode:
 - `nonce[8..11]` is the sender's monotonic sequence.
 - Command counters are monotonic per hub boot/session.
 - State counters are monotonic per device boot.
+- With a PSK configured, the hub accepts `lease`, `state` and `ack` only encrypted;
+  plaintext ones are dropped. `hello` stays plaintext and only updates name and
+  features: it never marks a device online.

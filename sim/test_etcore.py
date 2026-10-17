@@ -104,6 +104,23 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
             attacker.close()
         self.assertFalse(self.online(hub, "relayD"), "replayed lease kept a dead device online")
 
+    async def test_fix0_forged_plaintext_lease_ignored_when_encrypted(self):
+        hub = await self.hub()
+        d = self.device("relayH")
+        self.assertTrue(await wait_for(lambda: self.online(hub, "relayH"), 5))
+        d.kill()
+        attacker = sender_from(d.ip)
+        forged = json.dumps({"v": 1, "type": "lease", "id": "relayH", "class": "switch.relay",
+                             "boot": "0", "seq": 999999, "payload": {"ttl": 6}}).encode()
+        try:
+            end = time.monotonic() + 12
+            while time.monotonic() < end:
+                attacker.sendto(forged, ("127.0.0.1", PORT))
+                await asyncio.sleep(1)
+        finally:
+            attacker.close()
+        self.assertFalse(self.online(hub, "relayH"), "forged plaintext lease kept a dead device online")
+
     async def test_bug3_replayed_command_is_rejected(self):
         hub = await self.hub()
         d = self.device("relayE")

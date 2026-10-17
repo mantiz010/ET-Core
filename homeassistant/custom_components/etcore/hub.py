@@ -129,6 +129,10 @@ class EtCoreHub:
     def _decode_payload(self, msg: dict[str, Any]) -> bool:
         payload = msg.get("payload")
         if not isinstance(payload, dict) or payload.get("_enc") != 1:
+            # With a PSK set, anything that proves a device is alive or reports its
+            # state must be encrypted; a plaintext one could come from anyone.
+            if self._psk and str(msg.get("type") or "") in ("lease", "state", "ack"):
+                return False
             return True
         dev_id = str(msg.get("id") or "")
         key = self._key_for(dev_id)
@@ -199,7 +203,8 @@ class EtCoreHub:
             dev["rssi"] = payload.get("rssi")
             dev["uptime"] = payload.get("uptime")
 
-        if mtype in ("hello", "lease", "state"):
+        # hello is plaintext by design, so with a PSK it only updates the name.
+        if mtype in ("lease", "state") or (mtype == "hello" and not self._psk):
             dev["online"] = True
             if not was_online:
                 self._fire_status(dev_id, "online")
