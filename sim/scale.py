@@ -77,7 +77,10 @@ async def main():
     for d in victims:
         d.kill()
     ids = {d.id for d in victims}
-    await wait_for(lambda: all(not hub.devices.get(i, {}).get("online") for i in ids), TTL + 10, 0.05)
+    # Wait for the status events themselves: the hub flips "online" first and the
+    # listeners run a moment later, so polling the flag can read before they land.
+    off_events = lambda: {st["id"] for _, st in offline_events if st["id"] in ids and not st["online"]}
+    await wait_for(lambda: len(off_events()) == len(ids), TTL + 10, 0.05)
     det = sorted(t - t_kill for t, st in offline_events if st["id"] in ids and not st["online"])
     if not det:
         print(f"unplug 10: NO offline events within {TTL + 10} s; still online: "
