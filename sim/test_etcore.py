@@ -89,6 +89,39 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         print(f"\n    offline detected {took:.1f}s after unplug (ttl 6s)")
         self.assertLess(took, 8.5)
 
+    async def test_bye_marks_device_offline_at_once(self):
+        hub = await self.hub()
+        d = await self._online_device(hub, "relayAD")
+        d.stop()  # a planned restart (OTA, reboot): the device says bye
+        t0 = time.monotonic()
+        self.assertTrue(await wait_for(lambda: not self.online(hub, "relayAD"), 6), "never went offline")
+        took = time.monotonic() - t0
+        print(f"\n    offline {took:.2f}s after bye")
+        self.assertLess(took, 1.0, "bye ignored: went offline only when the lease ran out")
+        status = [e for _, n, e in hub.hass.bus.events if n == "etcore_device_status" and e["id"] == "relayAD"]
+        self.assertEqual(status[-1]["reason"], "bye")
+
+    async def test_recorded_bye_cannot_knock_device_offline(self):
+        hub = await self.hub()
+        ip = self.ip()
+        d1 = Device("relayAE", "switch.relay", ip, PSK)
+        self.devices.append(d1)
+        self.assertTrue(await wait_for(lambda: self.online(hub, "relayAE"), 5))
+        d1.stop()
+        self.assertTrue(await wait_for(lambda: packets(hub.rec.rx, ip, "bye"), 2))
+        bye = packets(hub.rec.rx, ip, "bye")[-1]["_raw"]
+        d2 = Device("relayAE", "switch.relay", ip, PSK)
+        self.devices.append(d2)
+        self.assertTrue(await wait_for(lambda: self.online(hub, "relayAE"), 5))
+        attacker = sender_from(ip)
+        try:
+            for _ in range(3):
+                attacker.sendto(bye, ("127.0.0.1", PORT))
+                await asyncio.sleep(0.2)
+        finally:
+            attacker.close()
+        self.assertTrue(self.online(hub, "relayAE"), "a recorded bye knocked the device offline")
+
     async def test_command_reaches_device_and_is_acked(self):
         hub = await self.hub()
         d = self.device("relayB")

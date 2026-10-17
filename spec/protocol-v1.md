@@ -143,6 +143,20 @@ Device confirms command.
 }
 ```
 
+### bye
+
+Device to hub, just before a planned restart (OTA, `ESP.restart()`): the sketch
+calls `sendBye()`. The hub marks the device offline at once (status event reason
+`"bye"`) instead of when its lease runs out. Encrypted like every packet; only a bye
+of the device's current session with a rising `seq` counts, so a recorded one does
+nothing. If the device carries on (e.g. the OTA failed) its next lease brings it
+back online. A pulled plug sends nothing: the lease TTL covers that.
+
+```json
+{"v": 1, "type": "bye", "id": "relay4", "class": "switch.relay4", "boot": "...", "seq": 300,
+ "payload": {"reason": "restart"}}
+```
+
 ### announce
 
 Hub to devices. Sent multicast when the hub starts (`"hello": true`) and then every

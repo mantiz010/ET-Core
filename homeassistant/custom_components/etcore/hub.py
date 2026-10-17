@@ -352,6 +352,14 @@ class EtCoreHub:
             if not was_online:
                 self._fire_status(dev_id, "online")
 
+        # A planned restart (OTA, reboot): offline now, not when the lease runs out.
+        # Only an authenticated bye of the current session with a rising seq gets here.
+        if mtype == "bye":
+            dev["lease_expires"] = now
+            if was_online:
+                dev["online"] = False
+                self._fire_status(dev_id, "bye")
+
     async def _announcer(self) -> None:
         # First announce asks every device for a hello (names after an HA restart).
         self._send_announce(MULTICAST_GROUP, hello=True)

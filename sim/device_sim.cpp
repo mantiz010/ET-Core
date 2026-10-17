@@ -52,5 +52,6 @@ int main(int argc, char** argv) {
   printf("READY %s\n", id);
   fflush(stdout);
   while (g_run) { core.loop(); delay(2); }
+  core.sendBye();  // SIGTERM = planned restart; kill -9 = pulled plug
   return 0;
 }

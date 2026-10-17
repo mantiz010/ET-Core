@@ -54,7 +54,10 @@ void setup() {
   // Over-the-air updates (port 3232): arduino-cli upload --port <ip> --protocol network
   ArduinoOTA.setHostname("hwtest1");
   if (OTA_PASSWORD[0]) ArduinoOTA.setPassword(OTA_PASSWORD);
-  ArduinoOTA.onStart([]() { Serial.println("[HWTest] OTA update starting"); });
+  ArduinoOTA.onStart([]() {
+    Serial.println("[HWTest] OTA update starting");
+    etcore.sendBye();  // shows offline in HA at once, back when the new firmware starts
+  });
   ArduinoOTA.onEnd([]() { Serial.println("[HWTest] OTA update done, rebooting"); });
   ArduinoOTA.onError([](ota_error_t e) { Serial.printf("[HWTest] OTA error %u\n", e); });
   ArduinoOTA.begin();

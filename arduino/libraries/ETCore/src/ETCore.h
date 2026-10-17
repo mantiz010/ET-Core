@@ -35,6 +35,9 @@ public:
   void sendLease();
   void sendState(JsonObject payload);
   void sendAck(const char* cmd_id, bool ok);
+  // Call just before a planned restart (OTA, ESP.restart()): the hub shows the
+  // device offline at once instead of when its lease runs out.
+  void sendBye();
 
   void setLeaseInterval(uint32_t ms);
   void setLeaseTtl(uint16_t seconds);

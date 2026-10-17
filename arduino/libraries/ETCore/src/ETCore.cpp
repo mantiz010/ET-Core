@@ -286,6 +286,13 @@ void ETCore::sendState(JsonObject payload) {
   _sendEnvelope("state", payload, true);
 }
 
+void ETCore::sendBye() {
+  JsonDocument d;
+  JsonObject p = d.to<JsonObject>();
+  p["reason"] = "restart";
+  _sendEnvelope("bye", p, true);
+}
+
 void ETCore::_sendStale(const char* cmd_id) {
   JsonDocument d;
   JsonObject p = d.to<JsonObject>();
