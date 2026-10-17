@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
 from .hub import EtCoreHub
@@ -10,8 +11,22 @@ from .panel import async_setup_panel, async_unload_panel
 PLATFORMS: list[str] = ["switch", "light", "sensor"]
 
 
+class _CmdSeqStore:
+    """Keeps the hub's command seq across Home Assistant restarts."""
+
+    def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
+        self._store = Store(hass, 1, f"{DOMAIN}_cmd_seq_{entry_id}")
+
+    async def async_load(self) -> int:
+        data = await self._store.async_load()
+        return int((data or {}).get("next", 0))
+
+    async def async_save(self, value: int) -> None:
+        await self._store.async_save({"next": int(value)})
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    hub = EtCoreHub(hass, entry.data)
+    hub = EtCoreHub(hass, entry.data, counter_store=_CmdSeqStore(hass, entry.entry_id))
     await hub.async_start()
 
     hass.data.setdefault(DOMAIN, {})

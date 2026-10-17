@@ -21,9 +21,19 @@ except Exception:
 
 _LOGGER = logging.getLogger(__name__)
 
+# The command seq is saved ahead in blocks, so after a restart (or a crash) the hub
+# continues above anything it may already have sent. Devices drop commands whose seq
+# is not higher than the last one, so a seq that went backwards would lock them out.
+CMD_SEQ_BLOCK = 1000
+
 
 class EtCoreHub:
-    def __init__(self, hass: HomeAssistant, config: dict[str, Any] | None = None):
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        config: dict[str, Any] | None = None,
+        counter_store: Any = None,
+    ):
         self.hass = hass
         self._psk = self._parse_psk((config or {}).get(CONF_PSK_HEX))
         self._hub_session = os.urandom(4)
@@ -37,6 +47,9 @@ class EtCoreHub:
         self._decrypt_fail_count = 0
         self._replay_count = 0
         self._seq = 0
+        # Object with async_load() -> int and async_save(int); see __init__.py.
+        self._counter_store = counter_store
+        self._seq_reserved = 0
 
     @property
     def devices(self) -> dict[str, dict[str, Any]]:
@@ -49,6 +62,10 @@ class EtCoreHub:
         self._status_listeners.append(cb)
 
     async def async_start(self) -> None:
+        if self._counter_store is not None:
+            self._seq = int(await self._counter_store.async_load() or 0) & 0xFFFFFFFF
+            self._seq_reserved = self._seq + CMD_SEQ_BLOCK
+            await self._counter_store.async_save(self._seq_reserved)
         loop = asyncio.get_running_loop()
         self._sock = self._build_socket()
         self._tasks.append(self.hass.loop.create_task(self._receiver(loop)))
@@ -303,6 +320,9 @@ class EtCoreHub:
         self._seq = (self._seq + 1) & 0xFFFFFFFF
         if self._seq == 0:
             self._seq = 1
+        if self._counter_store is not None and self._seq >= self._seq_reserved:
+            self._seq_reserved = self._seq + CMD_SEQ_BLOCK
+            self.hass.loop.create_task(self._counter_store.async_save(self._seq_reserved))
         msg = {
             "v": 1,
             "type": "cmd",

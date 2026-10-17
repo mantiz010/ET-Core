@@ -77,7 +77,20 @@ class RecordingSocket:
         return getattr(self._s, name)
 
 
-def make_hub(loop, psk: str | None = None):
+class MemoryCounterStore:
+    """Stands in for Home Assistant's Store: survives a hub restart within one test."""
+
+    def __init__(self):
+        self.value = 0
+
+    async def async_load(self):
+        return self.value
+
+    async def async_save(self, value):
+        self.value = int(value)
+
+
+def make_hub(loop, psk: str | None = None, store=None):
     mod = load_hub_module()
 
     class LoopbackHub(mod.EtCoreHub):
@@ -101,7 +114,7 @@ def make_hub(loop, psk: str | None = None):
                     pass
             await super().async_stop()
 
-    return LoopbackHub(FakeHass(loop), {"psk_hex": psk} if psk else {})
+    return LoopbackHub(FakeHass(loop), {"psk_hex": psk} if psk else {}, counter_store=store)
 
 
 class Device:

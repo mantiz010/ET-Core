@@ -168,3 +168,6 @@ Encrypted mode:
   the last `seq`; an encrypted packet with the same session and a `seq` that is not
   higher is dropped. Known limit: a packet recorded during an *earlier* boot of the
   device carries a different session and is not caught by this check.
+- The hub's command `seq` never goes backwards: it is saved in Home Assistant
+  storage ahead of use in blocks of 1000 and continues from the saved value after a
+  restart. (If that storage is lost, devices ignore commands until they reboot.)

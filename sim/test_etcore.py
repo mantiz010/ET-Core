@@ -11,7 +11,7 @@ import socket
 import time
 import unittest
 
-from harness import Device, PORT, group_listener, make_hub, sender_from, wait_for
+from harness import Device, MemoryCounterStore, PORT, group_listener, make_hub, sender_from, wait_for
 
 PSK = os.urandom(32).hex()  # test key only
 
@@ -42,6 +42,7 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.devices: list[Device] = []
         self.hubs = []
+        self.store = MemoryCounterStore()  # Home Assistant's storage, kept across hub restarts
 
     async def asyncTearDown(self):
         for d in self.devices:
@@ -50,7 +51,7 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
             await h.async_stop()
 
     async def hub(self, psk=PSK):
-        h = make_hub(asyncio.get_running_loop(), psk)
+        h = make_hub(asyncio.get_running_loop(), psk, self.store)
         await h.async_start()
         self.hubs.append(h)
         await asyncio.sleep(0.2)
@@ -84,6 +85,21 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await wait_for(lambda: len(d.commands()) == 1, 3), "device got no command")
         self.assertEqual(json.loads(d.commands()[0])["on"], True)
         self.assertTrue(await wait_for(lambda: packets(hub.rec.rx, d.ip, "ack"), 3), "no ack from device")
+
+    async def test_cmd_seq_never_goes_back_across_restarts_and_blocks(self):
+        hub = await self.hub()
+        hub._devices["ghost"] = {"id": "ghost", "last_addr": "127.0.0.250"}  # nobody listens there
+        for _ in range(2500):
+            hub.send_command("ghost", "switch.relay", {"on": True})
+        await asyncio.sleep(0.1)
+        last = hub._seq
+        self.assertGreater(self.store.value, last, "saved reservation fell behind the seq in use")
+        await hub.async_stop()
+        self.hubs.remove(hub)
+        hub2 = await self.hub()
+        hub2._devices["ghost"] = {"id": "ghost", "last_addr": "127.0.0.250"}
+        hub2.send_command("ghost", "switch.relay", {"on": True})
+        self.assertGreater(hub2._seq, last, "seq went backwards after restart")
 
     async def test_bug1_commands_still_work_after_ha_restart(self):
         hub = await self.hub()
