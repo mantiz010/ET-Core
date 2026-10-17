@@ -58,13 +58,16 @@ async def main():
     log(f"state: {st}")
 
     # 1. Commands
+    # A command leaves _pending when acked *or* when it finally fails, so count
+    # failures from the hub's fail counter, not from _pending alone.
     lat, fail = [], 0
     for i in range(20):
-        n0 = len(hub._pending)
+        f0 = hub._cmd_fail_count
         t = time.monotonic()
         hub.send_command(DEV, "switch.relay", {"on": i % 2 == 0})
         cid = str(hub._seq)
-        if await wait_for(lambda: cid not in hub._pending, 2, 0.002):
+        done = await wait_for(lambda: cid not in hub._pending, 2, 0.002)
+        if done and hub._cmd_fail_count == f0:
             lat.append((time.monotonic() - t) * 1000)
         else:
             fail += 1
