@@ -5,6 +5,7 @@
 #include <WiFi.h>
 #include <ArduinoOTA.h>
 #include <ETCore.h>
+#include <esp_system.h>
 
 static const char* WIFI_SSID = "YOUR_WIFI_SSID";
 static const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
@@ -22,6 +23,8 @@ static void publishState() {
   p["commands"] = commands;
   p["heap"] = ESP.getFreeHeap();
   p["min_heap"] = ESP.getMinFreeHeap();
+  p["reset"] = (int)esp_reset_reason();  // 1 power-on, 3 software, 4 panic, 5-7 watchdog, 9 brownout
+  p["up"] = (uint32_t)(millis() / 1000);
   etcore.sendState(p);
 }
 
@@ -38,6 +41,7 @@ void setup() {
   Serial.begin(115200);
   delay(500);
   Serial.println("\n[HWTest] ET-Core hardware test " ETCORE_LIBRARY_VERSION);
+  Serial.printf("[HWTest] reset reason %d\n", (int)esp_reset_reason());
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
