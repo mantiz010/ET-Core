@@ -174,6 +174,31 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
             attacker.close()
         self.assertFalse(self.online(hub, "relayI"), "an ack relabelled as lease brought the device online")
 
+    async def test_fix_recorded_command_is_dead_after_device_reboot(self):
+        hub = await self.hub()
+        ip = self.ip()
+        d = Device("relayJ", "switch.relay", ip, PSK)
+        self.devices.append(d)
+        self.assertTrue(await wait_for(lambda: self.online(hub, "relayJ"), 5))
+        hub.send_command("relayJ", "switch.relay", {"cmd_id": "rec", "on": True})
+        self.assertTrue(await wait_for(lambda: len(d.commands()) == 1, 3))
+        recorded = packets(hub.rec.tx, ip, "cmd")[-1]["_raw"]
+        d.kill()
+        d2 = Device("relayJ", "switch.relay", ip, PSK)  # same device, rebooted
+        self.devices.append(d2)
+        self.assertTrue(await wait_for(lambda: any(l.startswith("READY") for l in d2.poll_lines()), 3))
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.sendto(recorded, (ip, PORT))
+            await asyncio.sleep(0.8)
+        finally:
+            s.close()
+        self.assertEqual(d2.commands(), [], "a command recorded before the reboot was executed")
+        # A fresh command from the hub still works once it has seen the new boot.
+        await asyncio.sleep(2.5)
+        hub.send_command("relayJ", "switch.relay", {"cmd_id": "new", "on": False})
+        self.assertTrue(await wait_for(lambda: len(d2.commands()) == 1, 3), "fresh command after reboot failed")
+
     async def test_bug3_replayed_command_is_rejected(self):
         hub = await self.hub()
         d = self.device("relayE")

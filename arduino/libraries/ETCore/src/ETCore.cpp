@@ -117,6 +117,11 @@ void ETCore::loop() {
       if (payload["_enc"].as<int>() != 1) return;
       if (!_decryptPayload("cmd", seq, payload, plainDoc)) return;
       payload = plainDoc.as<JsonObject>();
+      // The hub addresses each command to this boot's session (see hub _ds).
+      char ds[9];
+      snprintf(ds, sizeof(ds), "%02x%02x%02x%02x", _session[0], _session[1], _session[2], _session[3]);
+      if (strcmp(payload["_ds"] | "", ds) != 0) return;
+      payload.remove("_ds");
     }
 
     _lastCmdSeq = seq;

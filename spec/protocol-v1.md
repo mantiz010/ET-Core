@@ -171,3 +171,7 @@ Encrypted mode:
 - The hub's command `seq` never goes backwards: it is saved in Home Assistant
   storage ahead of use in blocks of 1000 and continues from the saved value after a
   restart. (If that storage is lost, devices ignore commands until they reboot.)
+- Encrypted commands carry `_ds`: the target device's current session (nonce bytes
+  1-4 of its own packets, 8 lowercase hex chars). Devices drop commands whose `_ds`
+  is not their own session, so commands recorded before a device reboot are dead.
+  The hub learns the session from the device's first encrypted packet after boot.

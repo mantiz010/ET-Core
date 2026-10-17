@@ -196,6 +196,10 @@ class EtCoreHub:
         if not key or ChaCha20Poly1305 is None:
             return payload
 
+        # Address the command to the device's current boot: a recorded command
+        # replayed after the device rebooted no longer matches and is dropped.
+        payload = dict(payload, _ds=str((self._devices.get(dev_id) or {}).get("rx_session") or ""))
+
         nonce = bytearray(12)
         nonce[0] = 2
         nonce[1:5] = self._hub_session
