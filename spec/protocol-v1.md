@@ -164,3 +164,7 @@ Encrypted mode:
   `v1|<type>|<id>|<seq>` taken from the envelope (for `cmd`, `id` is the target
   device). A packet whose `type`, `id` or `seq` was changed fails authentication.
 - Devices drop commands with `seq` 0 or `seq` not greater than the last accepted one.
+- Hub replay check: for each device the hub keeps the session (nonce bytes 1-4) and
+  the last `seq`; an encrypted packet with the same session and a `seq` that is not
+  higher is dropped. Known limit: a packet recorded during an *earlier* boot of the
+  device carries a different session and is not caught by this check.

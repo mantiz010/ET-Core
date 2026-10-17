@@ -35,6 +35,7 @@ class EtCoreHub:
         self._events: list[dict[str, Any]] = []
         self._rx_count = 0
         self._decrypt_fail_count = 0
+        self._replay_count = 0
         self._seq = 0
 
     @property
@@ -156,6 +157,16 @@ class EtCoreHub:
                 return False
             aad = self._aad(str(msg.get("type") or ""), dev_id, msg.get("seq"))
             plain = ChaCha20Poly1305(key).decrypt(nonce, ct + tag, aad)
+            # Replay check: nonce bytes 1-4 are the device's per-boot session and
+            # seq (authenticated via AAD) must keep rising within a session.
+            session = nonce[1:5].hex()
+            seq = int(msg.get("seq") or 0)
+            dev = self._devices.setdefault(dev_id, {"id": dev_id})
+            if dev.get("rx_session") == session and seq <= int(dev.get("rx_seq") or 0):
+                self._replay_count += 1
+                return False
+            dev["rx_session"] = session
+            dev["rx_seq"] = seq
             msg["payload"] = json.loads(plain.decode("utf-8"))
             msg["_encrypted"] = True
             return isinstance(msg["payload"], dict)
@@ -277,6 +288,7 @@ class EtCoreHub:
             "encrypted": bool(self._psk),
             "rx_count": self._rx_count,
             "decrypt_failures": self._decrypt_fail_count,
+            "replays_dropped": self._replay_count,
             "devices": devices,
             "events": list(reversed(self._events[-50:])),
         }
