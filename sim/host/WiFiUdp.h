@@ -47,6 +47,11 @@ public:
   IPAddress remoteIP() const { return _remote; }
   int available() override { return (int)(_buf.size() - _pos); }
   int read() override { return _pos < _buf.size() ? _buf[_pos++] : -1; }
+  int read(uint8_t* out, size_t n) {
+    size_t k = 0;
+    while (k < n && _pos < _buf.size()) out[k++] = _buf[_pos++];
+    return (int)k;
+  }
   int beginPacket(IPAddress ip, uint16_t port) { _out.clear(); _dst = ip; _dport = port; return 1; }
   size_t write(uint8_t c) override { _out.push_back(c); return 1; }
   size_t write(const uint8_t* b, size_t n) override { _out.insert(_out.end(), b, b + n); return n; }

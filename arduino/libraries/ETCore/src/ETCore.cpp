@@ -107,9 +107,16 @@ void ETCore::loop() {
 
   const int packetSize = _udp.parsePacket();
   if (!packetSize) return;
+  // Read the whole datagram, then parse: parsing straight from the UDP stream
+  // reads it a byte at a time (measured ~2-3 ms slower per command on a C3).
+  static char buf[ETCORE_MAX_PACKET + 1];
+  if (packetSize > ETCORE_MAX_PACKET) return;  // the next parsePacket() drops the rest
+  const int len = _udp.read((uint8_t*)buf, ETCORE_MAX_PACKET);
+  if (len <= 0) return;
+  buf[len] = 0;
 
   JsonDocument doc;
-  DeserializationError err = deserializeJson(doc, _udp);
+  DeserializationError err = deserializeJson(doc, (const char*)buf, (size_t)len);
   if (err) return;
 
   if ((int)(doc["v"] | 0) != 1) return;

@@ -10,6 +10,10 @@
 #ifndef ETCORE_DEFAULT_PORT
 #define ETCORE_DEFAULT_PORT 5560
 #endif
+// Largest datagram the device accepts (a command or announce is well under 1 KB).
+#ifndef ETCORE_MAX_PACKET
+#define ETCORE_MAX_PACKET 1500
+#endif
 // Recent command ids remembered so a resend is acked again but not re-run.
 #define ETCORE_CMD_HISTORY 4
 

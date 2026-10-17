@@ -98,5 +98,4 @@ void loop() {
   else if (!strcmp(effect, "blink")) led((t / 500) % 2 ? brightness : 0);
   else if (!strcmp(effect, "breathe")) led((uint8_t)((uint32_t)brightness * (t % 2000 < 1000 ? t % 1000 : 999 - t % 1000) / 999));
   else led(brightness);
-  delay(5);
 }
