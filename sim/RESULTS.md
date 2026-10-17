@@ -73,16 +73,19 @@ Not covered yet: the light platform with a real RGB device, the sidebar panel UI
 
 ## 0.3.0: closing the open items (2026-10-17)
 
-Changes (each with a simulator test that failed first, except the HA/panel ones,
-which were found by running them):
+Changes. Simulator tests were written first and seen failing for: announce attacks,
+earlier-boot replay, encrypted hello, 56-bit session, bye. Not seen failing first: the
+hub-silent fallback test (the code did not exist yet, so it could not pass) and the
+old-boot flood test (it passed on the old code too, by timing luck; the fix makes it
+safe by design). HA/panel items were found by running them.
 
 | Item | Before | Now |
 |---|---|---|
 | Announce | plaintext, anyone could point devices elsewhere | encrypted (site key for multicast, device key + `_ds` for unicast), carries the hub address; device follows it only from that address |
-| Earlier-boot lease replay | could keep an unplugged device online | new sessions must echo a hub challenge (`ch`) first |
+| Earlier-boot lease replay | could keep an unplugged device online | new sessions must echo a hub challenge (`ch`, HMAC, 10 s) first; replaced sessions retired |
 | hello | plaintext, a forged one could rename a device | encrypted; hub drops all plaintext with a key set |
 | Session | 32 bits (nonce reuse possible over many reboots) | 56 bits |
-| HA moves address | devices kept unicasting to the old one forever | after 100 s without the hub: multicast `nohub` lease, hub answers |
+| HA moves address | devices kept unicasting to the old one forever | after 100 s without the hub: multicast `nohub` lease, hub answers (simulator only, 3 s timeout, hub at the same address; a real HA address change is untested) |
 | Planned restart | offline only when the lease ran out (~6 s) | `bye`: offline at once |
 | Light | untested, no effects | effects from the device hello (`onHello`), tested in HA |
 | Sidebar panel | 401 in a real browser | works (checked with headless Chromium) |
