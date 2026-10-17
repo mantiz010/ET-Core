@@ -119,3 +119,11 @@ Home Assistant 2026.10.1 (throwaway, this PC) with the C3:
 | Light after HA restart | real state (green, brightness 120) 1.4 s after the API is up |
 | Sidebar panel | loads, shows device, counters and events |
 | HA log | no ET-Core warnings or errors |
+
+Later the same evening (head 34486e5, final 0.3.0 firmware on the C3):
+
+| Check | Result |
+|---|---|
+| Soak: 10 OTA reboots x 20 commands, then 30 min at 1 command/s | 1997/1997, 0 failed, 0 unexpected restarts (all resets = OTA), lowest free heap 174 KB; the early "burst after boot" failures did not come back |
+| hw_check on the final firmware | online 0.7 s, hub restart 1.6 s, bye on OTA, 40/40 commands, 0 decrypt failures |
+| Idle 10 min, no commands | 0 false offlines; 0 hub searches, i.e. the encrypted multicast announce reached the C3 every time (so the 100 s fallback was never needed here and is still exercised by the simulator only); command after idle acked in 20 ms |
