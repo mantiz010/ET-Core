@@ -34,7 +34,7 @@ void ETCore::begin(const char* device_id, const char* device_class, const char* 
   WiFi.setSleep(false);
 #endif
 
-  _udp.beginMulticast(_mcast, ETCORE_DEFAULT_PORT);
+  _udp.beginMulticast(_mcast, _port);
   sendHello();
   sendLease();
   _lastLeaseMs = millis();
@@ -71,6 +71,10 @@ void ETCore::disableEncryption() {
 
 bool ETCore::encryptionEnabled() const {
   return _cryptoEnabled;
+}
+
+void ETCore::setPort(uint16_t port) {
+  if (port) _port = port;
 }
 
 void ETCore::setLeaseInterval(uint32_t ms) {
@@ -258,7 +262,7 @@ void ETCore::_sendEnvelope(const char* type, JsonObject payload, bool multicast_
   IPAddress target = _hubKnown ? _hubIp : _mcast;
   if (!_hubKnown && !multicast_fallback) return;
 
-  _udp.beginPacket(target, ETCORE_DEFAULT_PORT);
+  _udp.beginPacket(target, _port);
   serializeJson(doc, _udp);
   _udp.endPacket();
 }
@@ -297,6 +301,71 @@ void ETCore::sendLease() {
 
 void ETCore::sendState(JsonObject payload) {
   _sendEnvelope("state", payload, true);
+}
+
+void ETCore::sendError(const char* code, const char* message) {
+  JsonDocument d;
+  JsonObject p = d.to<JsonObject>();
+  p["code"] = code && code[0] ? code : "error";
+  if (message && message[0]) p["message"] = message;
+  _sendEnvelope("error", p, true);
+}
+
+// Same payloads as the ET-Bus helpers, so ET-Bus sketches port with no other change.
+void ETCore::sendSwitchState(bool on) {
+  JsonDocument d;
+  JsonObject p = d.to<JsonObject>();
+  p["on"] = on;
+  sendState(p);
+}
+
+void ETCore::sendSwitchesState(const bool* states, uint8_t count) {
+  JsonDocument d;
+  JsonObject sw = d["switches"].to<JsonObject>();
+  char id[4];
+  for (uint8_t i = 0; i < count; i++) {
+    snprintf(id, sizeof(id), "%u", (unsigned)(i + 1));
+    sw[id] = states[i];
+  }
+  sendState(d.as<JsonObject>());
+}
+
+void ETCore::sendRgbStateFx(bool on, uint8_t r, uint8_t g, uint8_t b, uint8_t brightness,
+                            const char* effect, uint8_t speed) {
+  JsonDocument d;
+  JsonObject p = d.to<JsonObject>();
+  p["on"] = on;
+  p["r"] = r;
+  p["g"] = g;
+  p["b"] = b;
+  p["brightness"] = brightness;
+  p["effect"] = effect && effect[0] ? effect : "solid";
+  p["speed"] = speed;
+  sendState(p);
+}
+
+void ETCore::sendFanSpeed(bool on, uint8_t percent) {
+  JsonDocument d;
+  JsonObject p = d.to<JsonObject>();
+  p["on"] = on;
+  p["speed"] = percent > 100 ? 100 : percent;
+  sendState(p);
+}
+
+void ETCore::sendFanPreset(bool on, const char* preset) {
+  JsonDocument d;
+  JsonObject p = d.to<JsonObject>();
+  p["on"] = on;
+  p["preset"] = preset && preset[0] ? preset : "off";
+  sendState(p);
+}
+
+void ETCore::sendValue(float value, const char* unit) {
+  JsonDocument d;
+  JsonObject p = d.to<JsonObject>();
+  p["value"] = value;
+  if (unit && unit[0]) p["unit"] = unit;
+  sendState(p);
 }
 
 void ETCore::sendBye() {

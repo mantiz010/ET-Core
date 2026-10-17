@@ -336,6 +336,27 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         d.stop()
         self.assertTrue(await wait_for(lambda: not self.online(hub, "plainA"), 1.5), "no-key bye ignored")
 
+    async def test_device_error_is_logged_once_and_fired_as_event(self):
+        hub = await self.hub()
+        with self.assertLogs("etcore.hub", level="WARNING") as logs:
+            await self._online_device(hub, "errA", env={"ETCORE_SIM_ERROR": "1"})
+            await asyncio.sleep(3)
+        warn = [r.getMessage() for r in logs.records if "errA" in r.getMessage()]
+        self.assertEqual(len(warn), 1, f"device error logged {len(warn)} times: {warn}")
+        self.assertIn("CO2 sensor not found", warn[0])
+        ev = [e for _, n, e in hub.hass.bus.events if n == "etcore_device_error"]
+        self.assertTrue(ev and ev[0] == {"id": "errA", "code": "sensor", "message": "CO2 sensor not found"}, ev)
+
+    async def test_port_set_at_runtime(self):
+        port = PORT + 1
+        h = make_hub(asyncio.get_running_loop(), PSK, self.store, port=port)
+        await h.async_start()
+        self.hubs.append(h)
+        d = self.device("portA", env={"ETCORE_SIM_SETPORT": str(port)})
+        self.assertTrue(await wait_for(lambda: self.online(h, "portA"), 5), "device with setPort not seen by hub on that port")
+        h.send_command("portA", "switch.relay", {"on": True})
+        self.assertTrue(await wait_for(lambda: len(d.commands()) == 1, 2))
+
     async def test_fix0_forged_plaintext_lease_ignored_when_encrypted(self):
         hub = await self.hub()
         d = self.device("relayH")

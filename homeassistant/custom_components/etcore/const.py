@@ -1,5 +1,6 @@
 DOMAIN = "etcore"
 CONF_PSK_HEX = "psk_hex"
+CONF_PORT = "port"
 
 MULTICAST_GROUP = "239.10.0.2"
 PORT = 5560

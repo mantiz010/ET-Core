@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ET-Core",
+        "data": {
+          "psk_hex": "Network key (64 hex characters, same as the devices)",
+          "port": "UDP port (default 5560, same as the devices)"
+        }
+      }
+    },
+    "error": { "invalid_psk": "The key must be exactly 64 hex characters (or empty for no encryption)." }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "ET-Core settings",
+        "data": {
+          "psk_hex": "Network key (64 hex characters, same as the devices)",
+          "port": "UDP port (default 5560, same as the devices)"
+        }
+      }
+    },
+    "error": { "invalid_psk": "The key must be exactly 64 hex characters (or empty for no encryption)." }
+  },
+  "services": {
+    "send_command": {
+      "name": "Send command",
+      "description": "Send a command payload to an ET-Core device (encrypted, acknowledged, retried).",
+      "fields": {
+        "device_id": { "name": "Device id", "description": "The device's ET-Core id, e.g. relay4." },
+        "payload": { "name": "Payload", "description": "Command fields, e.g. {\"on\": true}." }
+      }
+    }
+  }
+}

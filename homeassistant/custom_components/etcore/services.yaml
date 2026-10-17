@@ -1,0 +1,12 @@
+send_command:
+  fields:
+    device_id:
+      required: true
+      example: "relay4"
+      selector:
+        text:
+    payload:
+      required: true
+      example: '{"switch_id": "1", "on": true}'
+      selector:
+        object:

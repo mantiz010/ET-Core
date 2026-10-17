@@ -45,13 +45,28 @@ int main(int argc, char** argv) {
   if (argc > 5) core.setLeaseInterval((uint32_t)atoi(argv[5]));
   if (argc > 6) core.setLeaseTtl((uint16_t)atoi(argv[6]));
   if (getenv("ETCORE_SIM_HUB_SILENT_MS")) core.setHubSilentTimeout((uint32_t)atoi(getenv("ETCORE_SIM_HUB_SILENT_MS")));
+  if (getenv("ETCORE_SIM_SETPORT")) core.setPort((uint16_t)atoi(getenv("ETCORE_SIM_SETPORT")));
   core.begin(id, g_class, id, "sim-1");
   core.onCommand(onCommand);
   core.onSync(publish);
   publish();
   printf("READY %s\n", id);
+  bool sentError = false;
   fflush(stdout);
-  while (g_run) { core.loop(); delay(2); }
+  uint32_t t0 = millis();
+  while (g_run) {
+    core.loop();
+    // ETCORE_SIM_ERROR=1: report a device problem 1.5 s after start, every 0.3 s after
+    if (getenv("ETCORE_SIM_ERROR") && millis() - t0 > 1500) {
+      static uint32_t last = 0;
+      if (!sentError || millis() - last > 300) {
+        core.sendError("sensor", "CO2 sensor not found");
+        sentError = true;
+        last = millis();
+      }
+    }
+    delay(2);
+  }
   core.sendBye();  // SIGTERM = planned restart; kill -9 = pulled plug
   return 0;
 }

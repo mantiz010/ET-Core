@@ -15,6 +15,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import (
     ANNOUNCE_INTERVAL,
+    CONF_PORT,
     CONF_PSK_HEX,
     DEFAULT_LEASE_TTL,
     LEASE_SWEEP_INTERVAL,
@@ -65,6 +66,7 @@ class EtCoreHub:
     ):
         self.hass = hass
         self._psk = self._parse_psk((config or {}).get(CONF_PSK_HEX))
+        self._port = int((config or {}).get(CONF_PORT) or PORT)
         # Key for multicast announces. The label starts with a 0 byte, which no
         # device id can contain, so it can never equal a device key.
         self._site_key = hashlib.sha256(self._psk + b"\0etcore-announce").digest() if self._psk else None
@@ -133,11 +135,11 @@ class EtCoreHub:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         except Exception:
             pass
-        sock.bind(("", PORT))
+        sock.bind(("", self._port))
         mreq = socket.inet_aton(MULTICAST_GROUP) + socket.inet_aton("0.0.0.0")
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
         sock.setblocking(False)
-        _LOGGER.info("ET-Core hub listening UDP *:%s mcast=%s", PORT, MULTICAST_GROUP)
+        _LOGGER.info("ET-Core hub listening UDP *:%s mcast=%s", self._port, MULTICAST_GROUP)
         return sock
 
     def _send_raw(self, data: bytes, addr: tuple) -> None:
@@ -389,6 +391,14 @@ class EtCoreHub:
             if not was_online:
                 self._fire_status(dev_id, "online")
 
+        # The device reports a problem (sendError): log it, rate-limited, and fire
+        # an event automations can use.
+        if mtype == "error":
+            code = str(payload.get("code") or "error")
+            message = str(payload.get("message") or "")
+            self._warn_limited(f"err:{dev_id}:{code}", "ET-Core device %s reports %s: %s", dev_id, code, message)
+            self.hass.bus.async_fire("etcore_device_error", {"id": dev_id, "code": code, "message": message})
+
         # A planned restart (OTA, reboot): offline now, not when the lease runs out.
         # Only an authenticated bye of the current session with a rising seq gets here.
         if mtype == "bye":
@@ -412,7 +422,7 @@ class EtCoreHub:
             return hit[0]
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
-            s.connect((target, PORT))  # no packet is sent; the kernel picks the route
+            s.connect((target, self._port))  # no packet is sent; the kernel picks the route
             ip = s.getsockname()[0]
         finally:
             s.close()
@@ -452,7 +462,7 @@ class EtCoreHub:
                     "tag": base64.b64encode(out[-16:]).decode("ascii"),
                 }
             msg = {"v": 1, "type": "announce", "id": to, "class": "hub", "seq": seq, "payload": payload}
-            self._send_raw(json.dumps(msg, separators=(",", ":")).encode("utf-8"), (target, PORT))
+            self._send_raw(json.dumps(msg, separators=(",", ":")).encode("utf-8"), (target, self._port))
         except OSError as exc:
             _LOGGER.debug("ET-Core announce to %s failed: %s", target, exc)
 
@@ -570,7 +580,7 @@ class EtCoreHub:
             "payload": self._encode_payload(dev_id, seq, pend["payload"]),
         }
         if ip:
-            self._send_raw(json.dumps(msg, separators=(",", ":")).encode("utf-8"), (ip, PORT))
+            self._send_raw(json.dumps(msg, separators=(",", ":")).encode("utf-8"), (ip, self._port))
         pend["tries"] += 1
         pend["timer"] = self.hass.loop.call_later(ACK_TIMEOUT, self._ack_timeout, cmd_id)
 

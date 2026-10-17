@@ -81,12 +81,11 @@ class MemoryCounterStore:
         self.value = int(value)
 
 
-def make_hub(loop, psk: str | None = None, store=None, lan: bool = False):
+def make_hub(loop, psk: str | None = None, store=None, lan: bool = False, port: int | None = None):
     """lan=True: talk on the real network (hardware tests) instead of loopback."""
     mod = load_hub_module()
 
-    port = 5560 if lan else PORT
-    mod.PORT = port  # hub.py sends and binds with this module-level constant
+    port = port or (5560 if lan else PORT)
 
     class LoopbackHub(mod.EtCoreHub):
         def _build_socket(self):
@@ -129,7 +128,10 @@ def make_hub(loop, psk: str | None = None, store=None, lan: bool = False):
                 return True
             return False
 
-    hub = LoopbackHub(FakeHass(loop), {"psk_hex": psk} if psk else {}, counter_store=store)
+    config = {"port": port}
+    if psk:
+        config["psk_hex"] = psk
+    hub = LoopbackHub(FakeHass(loop), config, counter_store=store)
     hub.rec = Recorder()
     hub.drop_rx, hub.drop_tx = {}, {}
     return hub

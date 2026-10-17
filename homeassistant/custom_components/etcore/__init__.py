@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import voluptuous as vol
+
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.storage import Store
 
@@ -27,7 +31,8 @@ class _CmdSeqStore:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    hub = EtCoreHub(hass, entry.data, counter_store=_CmdSeqStore(hass, entry.entry_id))
+    # Options (changed later in the UI) override what was entered at setup.
+    hub = EtCoreHub(hass, {**entry.data, **entry.options}, counter_store=_CmdSeqStore(hass, entry.entry_id))
     await hub.async_start()
 
     hass.data.setdefault(DOMAIN, {})
@@ -53,7 +58,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hub.register_listener(_sync_device_name)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await async_setup_panel(hass)
+    entry.async_on_unload(entry.add_update_listener(_async_options_changed))
+
+    if not hass.services.has_service(DOMAIN, "send_command"):
+        async def _send_command(call: ServiceCall) -> None:
+            dev_id = str(call.data["device_id"])
+            for h in hass.data.get(DOMAIN, {}).values():
+                if dev_id in h.devices:
+                    dev_class = str(h.devices[dev_id].get("class") or "")
+                    h.send_command(dev_id, dev_class, dict(call.data["payload"]))
+                    return
+            raise HomeAssistantError(f"ET-Core device {dev_id} is not known")
+
+        hass.services.async_register(
+            DOMAIN, "send_command", _send_command,
+            schema=vol.Schema({vol.Required("device_id"): cv.string, vol.Required("payload"): dict}),
+        )
     return True
+
+
+async def _async_options_changed(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -62,4 +87,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hub.async_stop()
     if not hass.data[DOMAIN]:
         await async_unload_panel(hass)
+        hass.services.async_remove(DOMAIN, "send_command")
     return unload_ok

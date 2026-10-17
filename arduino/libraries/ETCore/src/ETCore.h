@@ -42,9 +42,27 @@ public:
   void sendLease();
   void sendState(JsonObject payload);
   void sendAck(const char* cmd_id, bool ok);
+  // A problem the hub should log (rate-limited) and fire as etcore_device_error,
+  // e.g. sendError("sensor", "CO2 sensor not found").
+  void sendError(const char* code, const char* message = nullptr);
+
+  // State helpers with the same payloads as ET-Bus:
+  void sendSwitchState(bool on);                               // {"on"}
+  void sendSwitchesState(const bool* states, uint8_t count);   // {"switches": {"1": .., "2": ..}}
+  void sendRgbStateFx(bool on, uint8_t r, uint8_t g, uint8_t b, uint8_t brightness,
+                      const char* effect, uint8_t speed);      // light.rgb
+  void sendFanSpeed(bool on, uint8_t percent);                 // fan.speed
+  void sendFanPreset(bool on, const char* preset);             // fan.preset
+  void sendValue(float value, const char* unit = nullptr);     // sensor.<metric>: one value
+
   // Call just before a planned restart (OTA, ESP.restart()): the hub shows the
   // device offline at once instead of when its lease runs out.
   void sendBye();
+
+  // UDP port (default ETCORE_DEFAULT_PORT, 5560); call before begin(). Must match
+  // the port set in the Home Assistant integration.
+  void setPort(uint16_t port);
+  uint16_t port() const { return _port; }
 
   void setLeaseInterval(uint32_t ms);
   void setLeaseTtl(uint16_t seconds);
@@ -81,6 +99,7 @@ private:
   const char* _name = nullptr;
   const char* _fw = nullptr;
 
+  uint16_t _port = ETCORE_DEFAULT_PORT;
   uint32_t _seq = 0;
   uint32_t _rxSeq = 0;
   uint32_t _lastCmdSeq = 0;
