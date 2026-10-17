@@ -7,7 +7,11 @@ ET-Core uses UDP on a local LAN.
 Default multicast group: `239.10.0.2`  
 Default port: `5560`
 
-Devices multicast `hello` and `lease` until a hub address is learned. After learning the hub, devices may unicast `lease` and `state` to the hub for reliability.
+Devices multicast `hello` and `lease` until they learn the hub address from an
+authenticated `announce` or `cmd`; from then on everything goes unicast to the hub.
+Library 0.3.0 / integration 0.3.0 speak this version of the spec; devices with
+library 0.2.0 are not compatible (encrypted hello, authenticated announce, session
+challenge, 7-byte session).
 
 ## Envelope
 
@@ -28,7 +32,7 @@ Every message is JSON with this envelope:
 Fields:
 
 - `v`: protocol version.
-- `type`: `hello`, `lease`, `state`, `cmd`, `ack`, or `bye`.
+- `type`: `hello`, `lease`, `state`, `cmd`, `ack`, `bye` (device/hub) or `announce` (hub).
 - `id`: stable device id.
 - `class`: device class.
 - `boot`: random boot id.
@@ -52,7 +56,7 @@ Sent after boot and when the hub asks for discovery.
   "payload": {
     "name": "Relay Board 4",
     "fw": "relay4-1.0.0",
-    "lib": "ETCore-0.1.0",
+    "lib": "0.3.0",
     "features": ["lease", "ack", "state_on_change"],
     "channels": 4
   }

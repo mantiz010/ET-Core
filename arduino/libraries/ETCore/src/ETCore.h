@@ -6,7 +6,7 @@
 #include <WiFiUdp.h>
 #include <ETChaCha20Poly1305.h>
 
-#define ETCORE_LIBRARY_VERSION "0.2.0"
+#define ETCORE_LIBRARY_VERSION "0.3.0"
 #ifndef ETCORE_DEFAULT_PORT
 #define ETCORE_DEFAULT_PORT 5560
 #endif

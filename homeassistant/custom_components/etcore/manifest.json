@@ -1,7 +1,7 @@
 {
   "domain": "etcore",
   "name": "ET-Core",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "documentation": "https://github.com/mantiz010/ET-Core",
   "codeowners": ["@mantiz010"],
   "requirements": [],

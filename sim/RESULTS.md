@@ -70,3 +70,49 @@ platform made entities from lease/ack fields; state wrong for up to 60 s after a
 restart (onSync); device registry name not updated; multicast announce never reached
 the C3 over WiFi (unicast hello request). Scripts: tools/ha_e2e.py, tools/ha_restart_check.sh.
 Not covered yet: the light platform with a real RGB device, the sidebar panel UI.
+
+## 0.3.0: closing the open items (2026-10-17)
+
+Changes (each with a simulator test that failed first, except the HA/panel ones,
+which were found by running them):
+
+| Item | Before | Now |
+|---|---|---|
+| Announce | plaintext, anyone could point devices elsewhere | encrypted (site key for multicast, device key + `_ds` for unicast), carries the hub address; device follows it only from that address |
+| Earlier-boot lease replay | could keep an unplugged device online | new sessions must echo a hub challenge (`ch`) first |
+| hello | plaintext, a forged one could rename a device | encrypted; hub drops all plaintext with a key set |
+| Session | 32 bits (nonce reuse possible over many reboots) | 56 bits |
+| HA moves address | devices kept unicasting to the old one forever | after 100 s without the hub: multicast `nohub` lease, hub answers |
+| Planned restart | offline only when the lease ran out (~6 s) | `bye`: offline at once |
+| Light | untested, no effects | effects from the device hello (`onHello`), tested in HA |
+| Sidebar panel | 401 in a real browser | works (checked with headless Chromium) |
+| Name after HA restart | could fall back to the raw id | device registered with the hello name |
+| HA 2026.10 | deprecated `async_get_device` (removed 2027.8) | `async_get_device_by_identifier` |
+| decrypt_failures | also counted replays/unproven | only real failures |
+
+Simulator: 32/32 tests. Scale, 250 devices (loopback): all online 2.6 s, 125 pkt/s,
+hub 2.7% of a core, 0 false offline, acks ~3 ms, HA restart -> all 250 online, named
+and with state in 2.0 s (hub sends ~340 packets for it), unplug -> offline 4.7-6.0 s.
+
+ESP32-C3 on WiFi, real hub on the LAN (sim/hw_check.py):
+
+| Check | Result |
+|---|---|
+| New hub -> online + name + state | 0.4-0.5 s (challenge round trip included) |
+| 20 commands | 20/20, ack median 9-12 ms |
+| Hub restart (as HA restart) | online + name + state 0.4-1.8 s |
+| OTA start -> offline (bye) | 1.7 s after espota starts (its login takes that long) |
+| After OTA -> new boot online | 2.2 s after flashing ends |
+| Counters | decrypt failures 0, replays 0, commands failed 0 |
+
+Home Assistant 2026.10.1 (throwaway, this PC) with the C3:
+
+| Check | Result |
+|---|---|
+| Switch on/off x10 | 10/10, ~24 ms service call -> device state |
+| Switch silent -> unavailable / back | 6.0 s / 1.6 s |
+| Switch after HA restart | real state 2.1-2.7 s after the API is up, name "ET-Core HW Test" |
+| Light (LightTest sketch) on/off, brightness, RGB, 3 effects | 10/10, ~26 ms each |
+| Light after HA restart | real state (green, brightness 120) 1.4 s after the API is up |
+| Sidebar panel | loads, shows device, counters and events |
+| HA log | no ET-Core warnings or errors |
