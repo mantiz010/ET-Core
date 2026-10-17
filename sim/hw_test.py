@@ -17,7 +17,9 @@ import statistics
 import sys
 import time
 
-from harness import MemoryCounterStore, PORT, make_hub, wait_for
+from harness import MemoryCounterStore, make_hub, wait_for
+
+PORT = 5560  # real devices on the LAN
 
 PSK = open(sys.argv[1]).read().strip()
 DEV = sys.argv[2] if len(sys.argv) > 2 else "hwtest1"

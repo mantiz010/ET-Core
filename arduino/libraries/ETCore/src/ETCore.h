@@ -7,7 +7,9 @@
 #include <ETChaCha20Poly1305.h>
 
 #define ETCORE_LIBRARY_VERSION "0.2.0"
+#ifndef ETCORE_DEFAULT_PORT
 #define ETCORE_DEFAULT_PORT 5560
+#endif
 // Recent command ids remembered so a resend is acked again but not re-run.
 #define ETCORE_CMD_HISTORY 4
 

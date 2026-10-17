@@ -18,7 +18,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 COMPONENT = HERE.parent / "homeassistant" / "custom_components" / "etcore"
 DEVICE_BIN = HERE / "device_sim"
-GROUP, PORT = "239.10.0.2", 5560
+# The simulator uses its own port so it never mixes with real ET-Core devices or a
+# test Home Assistant on this machine (both use 5560). device_sim is built with it.
+GROUP = "239.10.0.2"
+PORT = int(os.environ.get("ETCORE_SIM_PORT", "15560"))
 
 
 def load_hub_module():
@@ -81,6 +84,9 @@ class MemoryCounterStore:
 def make_hub(loop, psk: str | None = None, store=None, lan: bool = False):
     """lan=True: talk on the real network (hardware tests) instead of loopback."""
     mod = load_hub_module()
+
+    port = 5560 if lan else PORT
+    mod.PORT = port  # hub.py sends and binds with this module-level constant
 
     class LoopbackHub(mod.EtCoreHub):
         def _build_socket(self):
