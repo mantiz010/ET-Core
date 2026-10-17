@@ -28,3 +28,25 @@ platforms, config flow, panel). The harness loads only `hub.py`; no Docker or
 Python 3.12+ on this PC to run a test Home Assistant. Known issue there: the sensor
 platform makes an entity from every field of every packet type (lease ttl/uptime/rssi,
 ack cmd_id/ok), not just `state`.
+
+## Hardware: ESP32-C3 ("hwtest1", examples/HWTest), 2026-10-17
+
+Real hub.py on the LAN (this PC), encrypted, device on WiFi (RSSI -55 to -77 dBm).
+
+| Test | Result |
+|---|---|
+| Join + first lease | online, name/fw learned |
+| Unplug -> offline | 7.0 s after the last packet (ET-Bus 1.7: 42 s) |
+| Quick replug (< 6 s) | never shown offline (correct: within the lease TTL) |
+| Simulated HA restart | online again 0.6 s, name relearned, next command acked |
+| HA restored from backup (hub seq behind) | stale ack -> hub moved up -> command ran, < 1 s |
+| 15 OTA reboots x 20 commands right after boot | 300/300, 0 failed, 0 unexpected restarts |
+| 20 min, 1 command/s | 1198/1198, 0 failed, 0 restarts |
+| Free heap | 186.7 KB steady; lowest ever 174 KB |
+| Typical ack | ~10 ms |
+
+Open: in the first two runs (first boot after USB flash, and one OTA cycle right after a
+78 s OTA) 11-19 of 20 commands right after boot failed and the device's command count
+restarted, which looks like an unseen restart or a WiFi stall. Not reproduced in ~40
+later reboots and ~1800 commands, including after adding reset-reason reporting. Signal
+was weaker then (-69 to -77 dBm vs -55). Keep hw_soak.py running on future firmware.
