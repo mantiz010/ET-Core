@@ -127,3 +127,19 @@ Later the same evening (head 34486e5, final 0.3.0 firmware on the C3):
 | Soak: 10 OTA reboots x 20 commands, then 30 min at 1 command/s | 1997/1997, 0 failed, 0 unexpected restarts (all resets = OTA), lowest free heap 174 KB; the early "burst after boot" failures did not come back |
 | hw_check on the final firmware | online 0.7 s, hub restart 1.6 s, bye on OTA, 40/40 commands, 0 decrypt failures |
 | Idle 10 min, no commands | 0 false offlines; 0 hub searches, i.e. the encrypted multicast announce reached the C3 every time (so the 100 s fallback was never needed here and is still exercised by the simulator only); command after idle acked in 20 ms |
+
+## ET-Core 0.3.0 vs ET-Bus 1.7.1, same C3, same test HA (2026-10-17)
+
+ET-Bus ran on port 5556 so the real HA never saw it; both as an RGB light (ET-Bus only
+creates switch entities for multi-switch boards, so a single switch could not be compared).
+Scripts: tools/ha_bench_light.py, tools/ha_wire_rtt.py.
+
+| | ET-Bus 1.7.1 | ET-Core 0.3.0 |
+|---|---|---|
+| Command round trip on the wire (HA packet out -> device reply in), median of 20, per run | 5.7 / 6.6 / 7.0 ms | 6.3 / 6.7 / 6.9 ms (was 7.8-10.8 ms before reading whole datagrams) |
+| HA shows the new state | at once, *before* the device answers (optimistic, 3 ms) | when the device confirms it (~24 ms) |
+| Device goes silent -> unavailable | 40.1 s | 5.4 s |
+| Device back -> available | 9.9 s (waits for the next ping) | 1.0 s |
+| HA restart -> state shown | 2.3 s, but it is the *saved* state, not asked from the device | 1.7 s, the device's real state |
+| 30 light commands | 30/30 | 30/30 |
+| Traffic, idle device | hub multicast ping every 10 s + device pong per ping | device lease every 2 s unicast, hub multicast announce every 30 s |
