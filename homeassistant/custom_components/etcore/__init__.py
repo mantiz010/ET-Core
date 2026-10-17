@@ -42,7 +42,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if not name:
             return
         reg = dr.async_get(hass)
-        device = reg.async_get_device(identifiers={(DOMAIN, dev_id)})
+        by_ident = getattr(reg, "async_get_device_by_identifier", None)  # HA 2026.10+
+        if by_ident:
+            device = by_ident((DOMAIN, dev_id), entry.entry_id)
+        else:
+            device = reg.async_get_device(identifiers={(DOMAIN, dev_id)})
         if device and device.name != name and not device.name_by_user:
             reg.async_update_device(device.id, name=name)
 

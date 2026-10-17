@@ -62,7 +62,7 @@ class EtCoreSensor(SensorEntity):
         self._attr_available = False
         self._attr_device_info = {
             "identifiers": {(DOMAIN, dev_id)},
-            "name": dev_id,
+            "name": (hub.devices.get(dev_id) or {}).get("name") or dev_id,
             "manufacturer": "ElectronicsTech",
             "model": "ET-Core Sensor",
         }

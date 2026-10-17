@@ -338,6 +338,8 @@ class EtCoreHub:
             dev["name"] = payload.get("name", dev_id)
             dev["fw"] = payload.get("fw")
             dev["features"] = payload.get("features", [])
+            effects = payload.get("effects")
+            dev["effects"] = [str(e) for e in effects] if isinstance(effects, list) else []
 
         if mtype == "ack":
             self._handle_ack(dev_id, payload)

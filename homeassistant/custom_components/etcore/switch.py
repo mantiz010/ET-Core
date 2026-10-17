@@ -64,7 +64,9 @@ class EtCoreSwitch(SwitchEntity):
         self._attr_available = False
         self._attr_device_info = {
             "identifiers": {(DOMAIN, dev_id)},
-            "name": dev_id,
+            # The hello's name when known (the entity is usually created from the
+            # hello); __init__.py renames the device if the hello comes later.
+            "name": name or dev_id,
             "manufacturer": "ElectronicsTech",
             "model": "ET-Core Switch",
         }
@@ -88,7 +90,7 @@ class EtCoreSwitch(SwitchEntity):
         self.async_write_ha_state()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        self._hub.send_command(self._dev_id, self._dev_class, {"cmd_id": str(id(self)), "on": True})
+        self._hub.send_command(self._dev_id, self._dev_class, {"on": True})
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        self._hub.send_command(self._dev_id, self._dev_class, {"cmd_id": str(id(self)), "on": False})
+        self._hub.send_command(self._dev_id, self._dev_class, {"on": False})

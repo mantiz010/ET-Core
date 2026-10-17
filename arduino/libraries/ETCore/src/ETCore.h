@@ -17,6 +17,7 @@ class ETCore {
 public:
   typedef void (*CommandHandler)(const char* dev_class, JsonObject payload);
   typedef void (*SyncHandler)();
+  typedef void (*HelloHandler)(JsonObject payload);
 
   ETCore();
 
@@ -26,6 +27,8 @@ public:
   // Called when the hub asks for a hello (it just started or does not know us):
   // the sketch should send its current state with sendState().
   void onSync(SyncHandler cb);
+  // Lets the sketch add fields to its hello, e.g. a light's "effects" list.
+  void onHello(HelloHandler cb);
 
   bool enableEncryptionHex(const char* psk_hex);
   void disableEncryption();
@@ -103,4 +106,5 @@ private:
 
   CommandHandler _cmdHandler = nullptr;
   SyncHandler _syncHandler = nullptr;
+  HelloHandler _helloHandler = nullptr;
 };

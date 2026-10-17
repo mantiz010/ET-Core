@@ -48,6 +48,10 @@ void ETCore::onSync(SyncHandler cb) {
   _syncHandler = cb;
 }
 
+void ETCore::onHello(HelloHandler cb) {
+  _helloHandler = cb;
+}
+
 bool ETCore::enableEncryptionHex(const char* psk_hex) {
   if (!_parseHex32(psk_hex, _psk)) {
     disableEncryption();
@@ -268,6 +272,7 @@ void ETCore::sendHello() {
     features.add("chacha20_poly1305");
     p["enc"] = "chacha20_poly1305";
   }
+  if (_helloHandler) _helloHandler(p);
   _sendEnvelope("hello", p, true);
 }
 

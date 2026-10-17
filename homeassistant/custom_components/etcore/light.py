@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.light import ATTR_BRIGHTNESS, ATTR_RGB_COLOR, ColorMode, LightEntity
+from homeassistant.components.light import (
+    ATTR_BRIGHTNESS,
+    ATTR_EFFECT,
+    ATTR_RGB_COLOR,
+    ColorMode,
+    LightEntity,
+    LightEntityFeature,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -63,10 +70,13 @@ class EtCoreLight(LightEntity):
         self._attr_is_on = False
         self._attr_brightness = 255
         self._attr_rgb_color = (255, 255, 255)
+        self._attr_effect = None
         self._attr_available = False
         self._attr_device_info = {
             "identifiers": {(DOMAIN, dev_id)},
-            "name": dev_id,
+            # The hello's name when known (the entity is usually created from the
+            # hello); __init__.py renames the device if the hello comes later.
+            "name": name or dev_id,
             "manufacturer": "ElectronicsTech",
             "model": "ET-Core Light",
         }
@@ -75,6 +85,15 @@ class EtCoreLight(LightEntity):
     @property
     def is_on(self) -> bool:
         return bool(self._attr_is_on)
+
+    @property
+    def effect_list(self) -> list[str] | None:
+        # From the device's hello ("effects": [...]), so a new firmware can add some.
+        return list(self._hub.devices.get(self._dev_id, {}).get("effects") or []) or None
+
+    @property
+    def supported_features(self) -> LightEntityFeature:
+        return LightEntityFeature.EFFECT if self.effect_list else LightEntityFeature(0)
 
     @property
     def available(self) -> bool:
@@ -95,17 +114,21 @@ class EtCoreLight(LightEntity):
                 max(0, min(255, int(payload["g"]))),
                 max(0, min(255, int(payload["b"]))),
             )
+        if "effect" in payload:
+            self._attr_effect = str(payload["effect"]) if payload["effect"] else None
         self.refresh_availability()
         self.async_write_ha_state()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        payload: dict[str, Any] = {"cmd_id": str(id(self)), "on": True}
+        payload: dict[str, Any] = {"on": True}
         if ATTR_BRIGHTNESS in kwargs:
             payload["brightness"] = int(kwargs[ATTR_BRIGHTNESS])
         if ATTR_RGB_COLOR in kwargs:
             r, g, b = kwargs[ATTR_RGB_COLOR]
             payload.update({"r": int(r), "g": int(g), "b": int(b)})
+        if ATTR_EFFECT in kwargs:
+            payload["effect"] = str(kwargs[ATTR_EFFECT])
         self._hub.send_command(self._dev_id, self._dev_class, payload)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        self._hub.send_command(self._dev_id, self._dev_class, {"cmd_id": str(id(self)), "on": False})
+        self._hub.send_command(self._dev_id, self._dev_class, {"on": False})
