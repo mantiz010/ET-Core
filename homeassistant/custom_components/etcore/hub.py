@@ -81,6 +81,7 @@ class EtCoreHub:
         self._decrypt_fail_count = 0
         self._replay_count = 0
         self._unproven_count = 0
+        self._nohub_count = 0
         self._warned: dict[str, tuple[float, int]] = {}
         self._pending: dict[str, dict[str, Any]] = {}
         self._cmd_fail_count = 0
@@ -355,6 +356,8 @@ class EtCoreHub:
         told = float(dev.get("told_hub_at") or 0)
         want_hello = mtype != "hello" and not dev.get("name")
         lost = bool(payload.get("nohub")) and now - told >= 1.0  # device lost track of us
+        if lost:
+            self._nohub_count += 1
         if (mtype == "hello" and now - told >= 1.0) or not told or lost or (want_hello and now - told >= 10.0):
             dev["told_hub_at"] = now
             self._send_announce(ip, hello=want_hello, dev_id=dev_id)
@@ -513,6 +516,7 @@ class EtCoreHub:
             "decrypt_failures": self._decrypt_fail_count,
             "replays_dropped": self._replay_count,
             "unproven_dropped": self._unproven_count,
+            "hub_searches_answered": self._nohub_count,
             "commands_failed": self._cmd_fail_count,
             "commands_pending": len(self._pending),
             "devices": devices,
