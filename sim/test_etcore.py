@@ -112,6 +112,14 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.2)
         self.assertLessEqual(threading.active_count(), before, "hub stop left receiver threads running")
 
+    async def test_wrong_key_device_does_not_flood_the_log(self):
+        await self.hub()
+        with self.assertLogs("etcore.hub", level="WARNING") as logs:
+            self.device("relayK", psk=os.urandom(32).hex(), lease_ms=500)  # wrong key, fast leases
+            await asyncio.sleep(4)
+        warnings = [r for r in logs.records if "relayK" in r.getMessage()]
+        self.assertEqual(len(warnings), 1, f"{len(warnings)} warnings for one wrong-key device in 4 s")
+
     async def test_bug1_commands_still_work_after_ha_restart(self):
         hub = await self.hub()
         d = self.device("relayC")

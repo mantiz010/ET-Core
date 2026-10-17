@@ -33,6 +33,10 @@ _LOGGER = logging.getLogger(__name__)
 # is not higher than the last one, so a seq that went backwards would lock them out.
 CMD_SEQ_BLOCK = 1000
 
+# A misconfigured device repeats the same failure with every packet; log it once
+# per device per window and report how many were held back.
+WARN_WINDOW = 300.0
+
 
 class _HubProtocol(asyncio.DatagramProtocol):
     def __init__(self, hub: "EtCoreHub") -> None:
@@ -61,6 +65,7 @@ class EtCoreHub:
         self._rx_count = 0
         self._decrypt_fail_count = 0
         self._replay_count = 0
+        self._warned: dict[str, tuple[float, int]] = {}
         self._seq = 0
         self._announce_seq = 0
         # Object with async_load() -> int and async_save(int); see __init__.py.
@@ -159,6 +164,18 @@ class EtCoreHub:
             seq_n = -1
         return f"v1|{mtype}|{dev_id}|{seq_n}".encode("utf-8")
 
+    def _warn_limited(self, key: str, msg: str, *args: Any) -> None:
+        now = time.monotonic()
+        last, held = self._warned.get(key, (0.0, 0))
+        if last and now - last < WARN_WINDOW:
+            self._warned[key] = (last, held + 1)
+            return
+        self._warned[key] = (now, 0)
+        if held:
+            msg += " (%d more like this since the last warning)"
+            args = (*args, held)
+        _LOGGER.warning(msg, *args)
+
     def _key_for(self, dev_id: str) -> bytes | None:
         if not self._psk:
             return None
@@ -175,7 +192,7 @@ class EtCoreHub:
         dev_id = str(msg.get("id") or "")
         key = self._key_for(dev_id)
         if not key or ChaCha20Poly1305 is None:
-            _LOGGER.warning("ET-Core encrypted payload from %s ignored: crypto not configured", dev_id)
+            self._warn_limited(f"nokey:{dev_id}", "ET-Core encrypted payload from %s ignored: crypto not configured", dev_id)
             return False
         try:
             nonce = base64.b64decode(str(payload.get("n") or ""), validate=True)
@@ -199,7 +216,7 @@ class EtCoreHub:
             msg["_encrypted"] = True
             return isinstance(msg["payload"], dict)
         except Exception as exc:
-            _LOGGER.warning("ET-Core decrypt failed for %s: %s", dev_id, exc.__class__.__name__)
+            self._warn_limited(f"dec:{dev_id}", "ET-Core decrypt failed for %s (wrong key?): %s", dev_id, exc.__class__.__name__)
             return False
 
     def _encode_payload(self, dev_id: str, seq: int, payload: dict[str, Any]) -> dict[str, Any]:
