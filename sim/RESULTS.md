@@ -21,4 +21,10 @@ marked all 10 offline). 12 later runs clean.
 Not measured here (needs real hardware/WiFi): airtime of 125 small unicast packets/s on
 one access point, ESP32 CPU/heap with encryption, multicast announce delivery on WiFi.
 
-Tests: `python3 -m unittest -v test_etcore` — 18/18.
+Tests: `python3 -m unittest -v test_etcore` — 20/20.
+
+Not run yet: the Home Assistant entity layer (`__init__.py`, switch/light/sensor
+platforms, config flow, panel). The harness loads only `hub.py`; no Docker or
+Python 3.12+ on this PC to run a test Home Assistant. Known issue there: the sensor
+platform makes an entity from every field of every packet type (lease ttl/uptime/rssi,
+ack cmd_id/ok), not just `state`.
