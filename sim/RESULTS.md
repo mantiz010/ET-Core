@@ -50,3 +50,23 @@ Open: in the first two runs (first boot after USB flash, and one OTA cycle right
 restarted, which looks like an unseen restart or a WiFi stall. Not reproduced in ~40
 later reboots and ~1800 commands, including after adding reset-reason reporting. Signal
 was weaker then (-69 to -77 dBm vs -55). Keep hw_soak.py running on future firmware.
+
+## Home Assistant 2026.10.1 (throwaway instance on this PC) + real ESP32-C3
+
+The integration finally ran inside Home Assistant (same version as production).
+
+| Check | Result |
+|---|---|
+| Config flow with PSK | entry created, hub listening |
+| Entity | `switch.hwtest1`, named from the device hello ("ET-Core HW Test") |
+| HA on/off x10 | 10/10; HA service call -> state reported back by the device: ~23 ms |
+| Device silent (traffic blocked) | unavailable after 5.0-5.8 s |
+| Device back | available again after 1.1-1.3 s with the right state |
+| HA restart with the device ON | shows "on" 1.2 s after HA's API is up |
+| HA log | no ET-Core errors |
+
+Bugs this found and fixed (72faad4 + next): entity kept the raw id as name; sensor
+platform made entities from lease/ack fields; state wrong for up to 60 s after an HA
+restart (onSync); device registry name not updated; multicast announce never reached
+the C3 over WiFi (unicast hello request). Scripts: tools/ha_e2e.py, tools/ha_restart_check.sh.
+Not covered yet: the light platform with a real RGB device, the sidebar panel UI.

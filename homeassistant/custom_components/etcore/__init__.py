@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
@@ -32,6 +33,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = hub
 
+    @callback
+    def _sync_device_name(msg: dict) -> None:
+        # Entities are created from the first lease, often before the hello; give
+        # the device the name from its hello once the hub knows it.
+        dev_id = str(msg.get("id") or "")
+        name = (hub.devices.get(dev_id) or {}).get("name")
+        if not name:
+            return
+        reg = dr.async_get(hass)
+        device = reg.async_get_device(identifiers={(DOMAIN, dev_id)})
+        if device and device.name != name and not device.name_by_user:
+            reg.async_update_device(device.id, name=name)
+
+    hub.register_listener(_sync_device_name)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await async_setup_panel(hass)
     return True

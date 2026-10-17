@@ -50,12 +50,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 class EtCoreSensor(SensorEntity):
     _attr_should_poll = False
+    _attr_has_entity_name = True
 
     def __init__(self, hub: EtCoreHub, dev_id: str, key: str):
         self._hub = hub
         self._dev_id = dev_id
         self._key = key
-        self._attr_name = f"{dev_id} {key}".replace("_", " ").title()
+        self._attr_name = key.replace("_", " ").capitalize()
         self._attr_unique_id = f"etcore_{dev_id}_{key}"
         self._attr_native_value = None
         self._attr_available = False
@@ -66,10 +67,6 @@ class EtCoreSensor(SensorEntity):
             "model": "ET-Core Sensor",
         }
 
-    @property
-    def name(self) -> str:
-        dev_name = (self._hub.devices.get(self._dev_id) or {}).get("name") or self._dev_id
-        return f"{dev_name} {self._key.replace('_', ' ')}"
 
     @property
     def available(self) -> bool:

@@ -48,6 +48,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 class EtCoreLight(LightEntity):
     _attr_should_poll = False
+    # The device's main feature: the entity takes the device name, which
+    # __init__.py keeps in step with the device's hello.
+    _attr_has_entity_name = True
+    _attr_name = None
     _attr_supported_color_modes = {ColorMode.RGB}
     _attr_color_mode = ColorMode.RGB
 
@@ -55,7 +59,6 @@ class EtCoreLight(LightEntity):
         self._hub = hub
         self._dev_id = dev_id
         self._dev_class = dev_class
-        self._attr_name = name
         self._attr_unique_id = f"etcore_{dev_id}_light"
         self._attr_is_on = False
         self._attr_brightness = 255
@@ -68,10 +71,6 @@ class EtCoreLight(LightEntity):
             "model": "ET-Core Light",
         }
 
-    @property
-    def name(self) -> str:
-        # The hello may arrive after the entity was created from a lease.
-        return (self._hub.devices.get(self._dev_id) or {}).get("name") or self._dev_id
 
     @property
     def is_on(self) -> bool:
