@@ -59,6 +59,10 @@ class EtCoreHub:
     ):
         self.hass = hass
         self._psk = self._parse_psk((config or {}).get(CONF_PSK_HEX))
+        # Key for multicast announces. The label starts with a 0 byte, which no
+        # device id can contain, so it can never equal a device key.
+        self._site_key = hashlib.sha256(self._psk + b"\0etcore-announce").digest() if self._psk else None
+        self._src_ip_cache: dict[str, tuple[str, float]] = {}
         self._hub_session = os.urandom(7)
         self._transport: asyncio.DatagramTransport | None = None
         self._tasks: list[asyncio.Task] = []
@@ -139,6 +143,8 @@ class EtCoreHub:
 
         if not isinstance(msg, dict) or msg.get("v") != 1:
             return
+        if msg.get("type") == "announce":
+            return  # our own multicast coming back, or another hub
 
         msg["_src_ip"] = addr[0]
         if not self._decode_payload(msg):
@@ -282,7 +288,7 @@ class EtCoreHub:
         want_hello = mtype != "hello" and not dev.get("name")
         if (mtype == "hello" and now - told >= 1.0) or not told or (want_hello and now - told >= 10.0):
             dev["told_hub_at"] = now
-            self._send_announce(ip, hello=want_hello)
+            self._send_announce(ip, hello=want_hello, dev_id=dev_id)
         # With a PSK only authenticated packets get this far.
         dev["class"] = msg.get("class") or dev.get("class")
         dev["boot"] = msg.get("boot") or dev.get("boot")
@@ -316,13 +322,51 @@ class EtCoreHub:
             await asyncio.sleep(ANNOUNCE_INTERVAL)
             self._send_announce(MULTICAST_GROUP, hello=False)
 
-    def _send_announce(self, target: str, *, hello: bool) -> None:
+    def _source_ip(self, target: str) -> str:
+        """The address our packets to target leave from (what the device sees)."""
+        now = time.monotonic()
+        hit = self._src_ip_cache.get(target)
+        if hit and now - hit[1] < 60:
+            return hit[0]
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect((target, PORT))  # no packet is sent; the kernel picks the route
+            ip = s.getsockname()[0]
+        finally:
+            s.close()
+        self._src_ip_cache[target] = (ip, now)
+        return ip
+
+    def _send_announce(self, target: str, *, hello: bool, dev_id: str | None = None) -> None:
+        """Multicast (dev_id None, site key) or unicast to one device (its key).
+
+        With a PSK the payload is encrypted and carries the hub's own address, so
+        a device only follows an announce that really came from this hub; a
+        unicast one also carries _ds, the device's current session.
+        """
         if not self._transport:
             return
-        self._announce_seq += 1
-        msg = {"v": 1, "type": "announce", "id": "hub", "class": "hub",
-               "seq": self._announce_seq, "payload": {"hello": hello}}
+        self._announce_seq = (self._announce_seq + 1) & 0xFFFFFFFF
+        seq = self._announce_seq
+        to = dev_id or "hub"
         try:
+            payload: dict[str, Any] = {"hello": hello, "hub": self._source_ip(target)}
+            key = self._key_for(dev_id) if dev_id else self._site_key
+            if key and ChaCha20Poly1305 is not None:
+                if dev_id:
+                    payload["_ds"] = str((self._devices.get(dev_id) or {}).get("rx_session") or "")
+                nonce = bytes([3]) + self._hub_session + seq.to_bytes(4, "little")
+                out = ChaCha20Poly1305(key).encrypt(
+                    nonce, json.dumps(payload, separators=(",", ":")).encode("utf-8"),
+                    self._aad("announce", to, seq))
+                payload = {
+                    "_enc": 1,
+                    "alg": "C20P1305",
+                    "n": base64.b64encode(nonce).decode("ascii"),
+                    "ct": base64.b64encode(out[:-16]).decode("ascii"),
+                    "tag": base64.b64encode(out[-16:]).decode("ascii"),
+                }
+            msg = {"v": 1, "type": "announce", "id": to, "class": "hub", "seq": seq, "payload": payload}
             self._send_raw(json.dumps(msg, separators=(",", ":")).encode("utf-8"), (target, PORT))
         except OSError as exc:
             _LOGGER.debug("ET-Core announce to %s failed: %s", target, exc)

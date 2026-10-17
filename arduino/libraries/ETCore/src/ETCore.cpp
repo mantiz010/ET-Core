@@ -62,6 +62,7 @@ void ETCore::disableEncryption() {
   _cryptoEnabled = false;
   for (uint8_t i = 0; i < sizeof(_psk); i++) _psk[i] = 0;
   for (uint8_t i = 0; i < sizeof(_key); i++) _key[i] = 0;
+  for (uint8_t i = 0; i < sizeof(_siteKey); i++) _siteKey[i] = 0;
 }
 
 bool ETCore::encryptionEnabled() const {
@@ -106,16 +107,8 @@ void ETCore::loop() {
 
   const char* type = doc["type"] | "";
 
-  // The hub announces itself at start and every 30 s. Learning its address moves
-  // leases from multicast to unicast. Never answered, except that an announce
-  // with "hello" (hub just started) gets one hello back after a random delay so
-  // a big site does not answer all at once.
   if (strcmp(type, "announce") == 0) {
-    _learnHub(_udp.remoteIP());
-    if (doc["payload"]["hello"] | false) {
-      _helloPending = true;
-      _helloDueMs = now + (esp_random() % 2000);
-    }
+    _handleAnnounce(doc, now);
     return;
   }
 
@@ -175,6 +168,41 @@ void ETCore::loop() {
       _cmdHistNext = (uint8_t)((_cmdHistNext + 1) % ETCORE_CMD_HISTORY);
     }
     _curCmd[0] = 0;
+  }
+}
+
+// The hub announces itself: multicast at start and every 30 s (site key), and
+// unicast to one device when it first hears it (that device's key, addressed to
+// this boot with _ds). With a key set, an announce is only believed if it
+// decrypts and the hub address inside it is the address it came from, so a
+// forged or recorded announce sent from elsewhere cannot point the device away.
+// Never answered, except that "hello": true gets one hello (+ onSync) back, at
+// most once per 10 s, after a random delay so a big site does not answer at once.
+void ETCore::_handleAnnounce(JsonDocument& doc, uint32_t now) {
+  const char* to = doc["id"] | "";
+  const bool unicast = _id && strcmp(to, _id) == 0;
+  if (!unicast && strcmp(to, "hub") != 0) return;
+  JsonObject payload = doc["payload"].as<JsonObject>();
+  JsonDocument plainDoc;
+  if (_cryptoEnabled) {
+    uint32_t seq = doc["seq"].as<uint32_t>();
+    if (!_decryptPayload("announce", seq, payload, plainDoc, unicast ? _key : _siteKey, 3, to)) return;
+    payload = plainDoc.as<JsonObject>();
+    IPAddress claimed;
+    if (!claimed.fromString(payload["hub"] | "") || claimed != _udp.remoteIP()) return;
+    if (unicast) {
+      char ds[15];
+      _sessionHex(ds);
+      if (strcmp(payload["_ds"] | "", ds) != 0) return;
+    }
+  }
+  _learnHub(_udp.remoteIP());
+  if ((payload["hello"] | false) && !_helloPending &&
+      (!_helloReqSeen || now - _lastHelloReqMs >= 10000)) {
+    _helloReqSeen = true;
+    _lastHelloReqMs = now;
+    _helloPending = true;
+    _helloDueMs = now + (unicast ? esp_random() % 100 : esp_random() % 2000);
   }
 }
 
@@ -284,6 +312,11 @@ void ETCore::_deriveKey() {
   memcpy(input, _psk, 32);
   if (id_len) memcpy(input + 32, _id, id_len);
   mbedtls_sha256(input, 32 + id_len, _key, 0);
+  // The site key for hub multicast announces. The label starts with a 0 byte,
+  // which no device id can contain, so no device key can ever equal it.
+  static const char label[] = "\0etcore-announce";
+  memcpy(input + 32, label, sizeof(label) - 1);
+  mbedtls_sha256(input, 32 + sizeof(label) - 1, _siteKey, 0);
   for (size_t i = 0; i < sizeof(input); i++) input[i] = 0;
 }
 
@@ -320,8 +353,9 @@ bool ETCore::_b64decode(const char* in, uint8_t* out, size_t out_len, size_t* wr
 // Associated data: the envelope fields the receiver acts on. Encrypting with them
 // bound in means a packet cannot be relabelled (ack -> lease) or have its seq
 // rewritten without failing authentication.
-size_t ETCore::_aad(const char* type, uint32_t seq, char* out, size_t out_len) {
-  int n = snprintf(out, out_len, "v1|%s|%s|%lu", type ? type : "", _id ? _id : "", (unsigned long)seq);
+size_t ETCore::_aad(const char* type, uint32_t seq, char* out, size_t out_len, const char* id) {
+  if (!id) id = _id ? _id : "";
+  int n = snprintf(out, out_len, "v1|%s|%s|%lu", type ? type : "", id, (unsigned long)seq);
   return (n > 0 && (size_t)n < out_len) ? (size_t)n : 0;
 }
 
@@ -356,7 +390,9 @@ bool ETCore::_encryptPayload(const char* type, uint32_t seq, JsonObject plain, J
   return true;
 }
 
-bool ETCore::_decryptPayload(const char* type, uint32_t seq, JsonObject wrapper, JsonDocument& out) {
+bool ETCore::_decryptPayload(const char* type, uint32_t seq, JsonObject wrapper, JsonDocument& out,
+                             const uint8_t* key, uint8_t direction, const char* aad_id) {
+  if (!key) key = _key;
   if (wrapper["_enc"].as<int>() != 1) return false;
   const char* n64 = wrapper["n"] | "";
   const char* c64 = wrapper["ct"] | "";
@@ -373,12 +409,12 @@ bool ETCore::_decryptPayload(const char* type, uint32_t seq, JsonObject wrapper,
   if (!_b64decode(n64, nonce, sizeof(nonce), &n_len) || n_len != sizeof(nonce)) return false;
   if (!_b64decode(c64, ct, sizeof(ct), &ct_len)) return false;
   if (!_b64decode(t64, tag, sizeof(tag), &tag_len) || tag_len != sizeof(tag)) return false;
-  if (nonce[0] != 2) return false;
+  if (nonce[0] != direction) return false;
 
   char aad[128];
-  size_t aad_len = _aad(type, seq, aad, sizeof(aad));
+  size_t aad_len = _aad(type, seq, aad, sizeof(aad), aad_id);
   if (!aad_len) return false;
-  if (!ETChaCha20Poly1305::decrypt(_key, nonce, (const uint8_t*)aad, aad_len, ct, ct_len, tag, pt)) {
+  if (!ETChaCha20Poly1305::decrypt(key, nonce, (const uint8_t*)aad, aad_len, ct, ct_len, tag, pt)) {
     return false;
   }
   pt[ct_len] = 0;

@@ -102,6 +102,9 @@ def make_hub(loop, psk: str | None = None, store=None, lan: bool = False):
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 0)
             return sock
 
+        def _source_ip(self, target):
+            return super()._source_ip(target) if lan else "127.0.0.1"
+
         # drop_rx / drop_tx: number of packets of a type to lose ("network loss").
         def _handle_datagram(self, data, addr):
             self.rec.rx.append((bytes(data), addr))

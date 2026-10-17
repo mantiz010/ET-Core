@@ -32,6 +32,18 @@ def packets(records, ip, mtype):
     return out
 
 
+def site_announce(psk_hex, key_label, seq, payload, hub_session=b"\x07" * 7):
+    """An announce encrypted the way the hub does it, with a chosen key label."""
+    import base64, hashlib
+    from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
+    key = hashlib.sha256(bytes.fromhex(psk_hex) + key_label).digest()
+    nonce = bytes([3]) + hub_session + seq.to_bytes(4, "little")
+    out = ChaCha20Poly1305(key).encrypt(nonce, json.dumps(payload).encode(), f"v1|announce|hub|{seq}".encode())
+    return json.dumps({"v": 1, "type": "announce", "id": "hub", "class": "hub", "seq": seq, "payload": {
+        "_enc": 1, "alg": "C20P1305", "n": base64.b64encode(nonce).decode(),
+        "ct": base64.b64encode(out[:-16]).decode(), "tag": base64.b64encode(out[-16:]).decode()}}).encode()
+
+
 class EtCoreSim(unittest.IsolatedAsyncioTestCase):
     _next_ip = 10
 
@@ -303,6 +315,65 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(hub.devices["relayW"].get("name"), "relayW", "forged hello renamed the device")
         hello = packets(hub.rec.rx, d.ip, "hello")[0]
         self.assertEqual(hello["payload"].get("_enc"), 1, "hello sent in plaintext with a key set")
+
+    async def _announce_attack(self, hub, d, packet_for):
+        """Send announces from another address; the device must keep talking to the hub."""
+        attacker_ip = self.ip()
+        attacker = sender_from(attacker_ip)
+        attacker.setblocking(False)
+        stolen = 0
+        try:
+            end = time.monotonic() + 8
+            while time.monotonic() < end:
+                attacker.sendto(packet_for(attacker_ip), (d.ip, PORT))
+                await asyncio.sleep(0.5)
+                while True:
+                    try:
+                        data, a = attacker.recvfrom(4096)
+                        stolen += a[0] == d.ip
+                    except BlockingIOError:
+                        break
+        finally:
+            attacker.close()
+        self.assertEqual(stolen, 0, f"device sent {stolen} packets to the forged hub address")
+        self.assertTrue(self.online(hub, d.id), "device went offline: its leases were redirected")
+
+    async def test_forged_plaintext_announce_cannot_redirect_device(self):
+        hub = await self.hub()
+        d = await self._online_device(hub, "relayX")
+        await self._announce_attack(hub, d, lambda ip: json.dumps(
+            {"v": 1, "type": "announce", "id": "hub", "class": "hub", "seq": 99999,
+             "payload": {"hello": True, "hub": ip}}).encode())
+
+    async def test_replayed_genuine_announce_cannot_redirect_device(self):
+        hub = await self.hub()
+        d = await self._online_device(hub, "relayY")
+        await hub.async_stop()
+        self.hubs.remove(hub)
+        hub = await self.hub()  # new hub: it announces to the device again
+        self.assertTrue(await wait_for(lambda: packets(hub.rec.tx, d.ip, "announce"), 5))
+        recorded = packets(hub.rec.tx, d.ip, "announce")[-1]["_raw"]
+        self.assertTrue(await wait_for(lambda: self.online(hub, "relayY"), 5))
+        await self._announce_attack(hub, d, lambda ip: recorded)
+
+    async def test_device_named_hub_cannot_forge_site_announce(self):
+        hub = await self.hub()
+        d = await self._online_device(hub, "relayZ")
+        # "hub" as a device id: its device key is sha256(psk || "hub").
+        await self._announce_attack(hub, d, lambda ip: site_announce(PSK, b"hub", 4000000, {"hello": True, "hub": ip}))
+
+    async def test_genuine_multicast_announce_alone_is_followed(self):
+        hub = await self.hub()
+        d = await self._online_device(hub, "relayAA")
+        await hub.async_stop()
+        self.hubs.remove(hub)
+        h2 = make_hub(asyncio.get_running_loop(), PSK, self.store)
+        orig = h2._send_announce
+        h2._send_announce = lambda target, **kw: None if kw.get("dev_id") else orig(target, **kw)
+        await h2.async_start()  # only the encrypted multicast announce goes out
+        self.hubs.append(h2)
+        self.assertTrue(await wait_for(lambda: h2.devices.get("relayAA", {}).get("name") == "relayAA", 5),
+                        "device ignored the hub's genuine multicast announce")
 
     async def test_commands_recover_after_ha_restored_from_backup(self):
         hub = await self.hub()

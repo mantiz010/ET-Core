@@ -158,13 +158,29 @@ After answering an announce with `"hello": true` the library calls the sketch's
 `onSync` handler, which should send the current `state`, so a restarted hub shows
 the real state at once instead of a default until the next change or refresh.
 
-```json
-{"v": 1, "type": "announce", "id": "hub", "class": "hub", "seq": 7, "payload": {"hello": false}}
-```
+Authentication (PSK set). The announce payload is encrypted like other payloads
+but with direction byte `3` in the nonce (`nonce[1..7]` hub session, `nonce[8..11]`
+the announce counter) and AAD `v1|announce|<id>|<seq>`:
 
-Known limit: `announce` is not authenticated, so a forged one can point devices at
-the wrong address (their leases stop reaching the hub: denial of service, not
-control). Devices only learn the hub address from a `cmd` after it authenticated.
+- Multicast: envelope `id` is `"hub"`, key is the site key
+  `sha256(psk || "\0etcore-announce")`. The label starts with a 0 byte, which no
+  device id can contain, so no device key equals it.
+- Unicast: envelope `id` is the target device, key is that device's key, and the
+  payload carries `_ds` (the device's current session); other sessions ignore it.
+- The payload carries `hub`: the address the hub sends from. A device only follows
+  an announce that decrypts *and* whose `hub` equals the packet's source address, so
+  a forged announce, or a genuine one recorded and re-sent from another address,
+  cannot point devices elsewhere.
+- Devices answer `"hello": true` at most once per 10 s (a replay from the hub's own
+  address can do no more than that).
+- With a PSK the device ignores plaintext announces. Without a PSK (not recommended)
+  announces are plaintext and not authenticated.
+
+```json
+{"v": 1, "type": "announce", "id": "hub", "class": "hub", "seq": 7,
+ "payload": {"_enc": 1, "alg": "C20P1305", "n": "...", "ct": "...", "tag": "..."}}
+```
+decrypted payload: `{"hello": false, "hub": "192.168.1.8"}` (unicast adds `"_ds"`).
 
 ### Command delivery
 
@@ -188,7 +204,7 @@ Encrypted mode:
 - Device key: `sha256(master_psk || device_id)`.
 - Payload wrapper: `{ "_enc": 1, "alg": "C20P1305", "n": "...", "ct": "...", "tag": "..." }`.
 - Nonce is 12 bytes and base64 encoded in `n`.
-- `nonce[0]` is the direction: `1` device to hub, `2` hub to device.
+- `nonce[0]` is the direction: `1` device to hub, `2` hub to device (cmd), `3` hub announce.
 - `nonce[1..7]` is fresh random session data generated at boot/start (56 bits).
 - `nonce[8..11]` is the sender's monotonic sequence.
 - Command counters are monotonic per hub boot/session.

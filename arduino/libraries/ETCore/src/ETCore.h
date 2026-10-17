@@ -47,9 +47,11 @@ private:
   void _makeSessionNonce();
   bool _parseHex32(const char* hex, uint8_t out[32]);
   void _deriveKey();
-  size_t _aad(const char* type, uint32_t seq, char* out, size_t out_len);
+  size_t _aad(const char* type, uint32_t seq, char* out, size_t out_len, const char* id = nullptr);
   bool _encryptPayload(const char* type, uint32_t seq, JsonObject plain, JsonObject out);
-  bool _decryptPayload(const char* type, uint32_t seq, JsonObject wrapper, JsonDocument& out);
+  bool _decryptPayload(const char* type, uint32_t seq, JsonObject wrapper, JsonDocument& out,
+                       const uint8_t* key = nullptr, uint8_t direction = 2, const char* aad_id = nullptr);
+  void _handleAnnounce(JsonDocument& doc, uint32_t now);
   void _sessionHex(char out[15]);
   void _makeNonce(uint8_t direction, uint32_t seq, uint8_t nonce[12]);
   bool _b64encode(const uint8_t* in, size_t in_len, char* out, size_t out_len);
@@ -85,6 +87,9 @@ private:
   bool _cryptoEnabled = false;
   uint8_t _psk[32] = {0};
   uint8_t _key[32] = {0};
+  uint8_t _siteKey[32] = {0};  // hub multicast announces: sha256(psk || "\0etcore-announce")
+  uint32_t _lastHelloReqMs = 0;
+  bool _helloReqSeen = false;
 
   CommandHandler _cmdHandler = nullptr;
   SyncHandler _syncHandler = nullptr;
