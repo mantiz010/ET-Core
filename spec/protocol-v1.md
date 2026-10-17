@@ -187,8 +187,10 @@ Encrypted mode:
 - Command counters are monotonic per hub boot/session.
 - State counters are monotonic per device boot.
 - With a PSK configured, the hub accepts `lease`, `state` and `ack` only encrypted;
-  plaintext ones are dropped. `hello` stays plaintext and only updates name and
-  features: it never marks a device online.
+  plaintext ones are dropped. `hello` stays plaintext and only updates name, fw and
+  features (and gets a unicast announce back): it never marks a device online and
+  never changes the device address, class or boot, and it is not passed to the
+  entity platforms. Known limit: a forged hello can change the displayed name.
 - Associated data (AAD) for every encrypted payload is the UTF-8 string
   `v1|<type>|<id>|<seq>` taken from the envelope (for `cmd`, `id` is the target
   device). A packet whose `type`, `id` or `seq` was changed fails authentication.

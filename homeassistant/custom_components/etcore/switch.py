@@ -26,7 +26,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         if msg.get("type") in ("hello", "lease", "state"):
             key = (dev_id, "main")
             if key not in entities:
-                ent = EtCoreSwitch(hub, dev_id, dev_class, payload.get("name", dev_id))
+                ent = EtCoreSwitch(hub, dev_id, dev_class, hub.devices.get(dev_id, {}).get("name") or payload.get("name", dev_id))
                 entities[key] = ent
                 async_add_entities([ent])
             ent = entities[key]

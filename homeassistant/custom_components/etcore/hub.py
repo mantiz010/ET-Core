@@ -148,6 +148,10 @@ class EtCoreHub:
         self._record_message(msg, addr[0])
         self._remember_event(msg)
 
+        # Entities are only created/updated from authenticated packets when a PSK
+        # is set; they read the name the hello gave from hub.devices.
+        if self._psk and not msg.get("_encrypted"):
+            return
         for cb in list(self._message_listeners):
             self.hass.add_job(cb, msg)
 
@@ -274,10 +278,14 @@ class EtCoreHub:
             if now - float(dev.get("told_hub_at") or 0) >= 1.0:
                 dev["told_hub_at"] = now
                 self._send_announce(ip, hello=False)
-        dev["class"] = msg.get("class") or dev.get("class")
-        dev["boot"] = msg.get("boot") or dev.get("boot")
-        dev["last_addr"] = ip
-        dev["last_seen"] = now
+        # With a PSK only authenticated packets may set where commands go, the class
+        # (which picks the entity type) or liveness. A plaintext hello cannot.
+        authentic = not self._psk or bool(msg.get("_encrypted"))
+        if authentic:
+            dev["class"] = msg.get("class") or dev.get("class")
+            dev["boot"] = msg.get("boot") or dev.get("boot")
+            dev["last_addr"] = ip
+            dev["last_seen"] = now
 
         if mtype == "hello":
             dev["name"] = payload.get("name", dev_id)

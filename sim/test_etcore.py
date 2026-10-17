@@ -272,6 +272,23 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         hub.send_command("relayJ", "switch.relay", {"cmd_id": "new", "on": False})
         self.assertTrue(await wait_for(lambda: len(d2.commands()) == 1, 3), "fresh command after reboot failed")
 
+    async def test_forged_hello_cannot_redirect_commands(self):
+        hub = await self.hub()
+        d = await self._online_device(hub, "relayQ")
+        attacker_ip = self.ip()
+        attacker = sender_from(attacker_ip)
+        forged = json.dumps({"v": 1, "type": "hello", "id": "relayQ", "class": "light.rgb", "boot": "x",
+                             "seq": 1, "payload": {"name": "relayQ"}}).encode()
+        try:
+            attacker.sendto(forged, ("127.0.0.1", PORT))
+            await asyncio.sleep(0.3)
+        finally:
+            attacker.close()
+        self.assertEqual(hub.devices["relayQ"]["last_addr"], d.ip, "forged hello moved the device address")
+        self.assertEqual(hub.devices["relayQ"]["class"], "switch.relay", "forged hello changed the class")
+        hub.send_command("relayQ", "switch.relay", {"on": True})
+        self.assertTrue(await wait_for(lambda: len(d.commands()) == 1, 2), "command went elsewhere")
+
     async def test_bug3_replayed_command_is_rejected(self):
         hub = await self.hub()
         d = self.device("relayE")
