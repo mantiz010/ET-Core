@@ -43,7 +43,10 @@ Fields:
 
 ### hello
 
-Sent after boot and when the hub asks for discovery.
+Sent after boot and when the hub asks for it (announce with `"hello": true`). With a
+PSK the payload is encrypted like every other packet (shown decrypted here); it also
+carries `ch` once the hub has challenged this boot. A sketch can add fields with
+`onHello` (e.g. a light's `"effects": ["none", "blink"]`).
 
 ```json
 {
@@ -164,8 +167,8 @@ back online. A pulled plug sends nothing: the lease TTL covers that.
 ### announce
 
 Hub to devices. Sent multicast when the hub starts (`"hello": true`) and then every
-30 s (`"hello": false`), and unicast to a device when it says hello or is first
-heard by this hub run. Devices learn the hub address from it and send leases,
+30 s (`"hello": false`), and unicast to a device when it says hello, is first
+heard by this hub run (as the session challenge), or searches with `nohub`. Devices learn the hub address from it and send leases,
 state and acks unicast from then on. Devices never answer a periodic announce; an
 announce with `"hello": true` gets one `hello` back after a random delay (0-2 s for
 multicast, 0-100 ms for unicast).
