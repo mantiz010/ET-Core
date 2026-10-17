@@ -3,11 +3,13 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
+#include <ArduinoOTA.h>
 #include <ETCore.h>
 
 static const char* WIFI_SSID = "YOUR_WIFI_SSID";
 static const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
 static const char* ETCORE_PSK_HEX = "";  // 64 hex chars, same as the hub
+static const char* OTA_PASSWORD = "";    // after the first USB flash, update over WiFi
 
 ETCore etcore;
 bool on = false;
@@ -45,12 +47,21 @@ void setup() {
   }
   Serial.printf("\n[HWTest] WiFi %s RSSI %d\n", WiFi.localIP().toString().c_str(), WiFi.RSSI());
   if (strlen(ETCORE_PSK_HEX) == 64) etcore.enableEncryptionHex(ETCORE_PSK_HEX);
+  // Over-the-air updates (port 3232): arduino-cli upload --port <ip> --protocol network
+  ArduinoOTA.setHostname("hwtest1");
+  if (OTA_PASSWORD[0]) ArduinoOTA.setPassword(OTA_PASSWORD);
+  ArduinoOTA.onStart([]() { Serial.println("[HWTest] OTA update starting"); });
+  ArduinoOTA.onEnd([]() { Serial.println("[HWTest] OTA update done, rebooting"); });
+  ArduinoOTA.onError([](ota_error_t e) { Serial.printf("[HWTest] OTA error %u\n", e); });
+  ArduinoOTA.begin();
+
   etcore.begin("hwtest1", "switch.relay", "ET-Core HW Test", "hwtest-1");
   etcore.onCommand(onCommand);
   publishState();
 }
 
 void loop() {
+  ArduinoOTA.handle();
   etcore.loop();
   static uint32_t last = 0;
   if (millis() - last > 60000) {  // slow refresh with heap numbers

@@ -48,8 +48,8 @@ async def main():
     store = MemoryCounterStore()
     hub = await start_hub(loop, store)
     log(f"hub up on UDP {PORT}, waiting for {DEV} (power it on / reset it)")
-    if not await wait_for(lambda: dev(hub).get("online"), 600, 0.1):
-        log("FAIL device never came online in 10 min"); return
+    if not await wait_for(lambda: dev(hub).get("online"), 3600, 0.1):
+        log("FAIL device never came online in 60 min"); return
     d = dev(hub)
     log(f"ONLINE {DEV} at {d.get('last_addr')} name={d.get('name')!r} fw={d.get('fw')} rssi={d.get('rssi')} "
         f"lease_ttl={d.get('lease_ttl')}")
