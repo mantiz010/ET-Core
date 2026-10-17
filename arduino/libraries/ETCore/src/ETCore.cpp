@@ -91,6 +91,10 @@ void ETCore::loop() {
     sendLease();
     _lastLeaseMs = now;
   }
+  if (_helloPending && (int32_t)(now - _helloDueMs) >= 0) {
+    _helloPending = false;
+    sendHello();
+  }
 
   const int packetSize = _udp.parsePacket();
   if (!packetSize) return;
@@ -102,9 +106,21 @@ void ETCore::loop() {
   if ((int)(doc["v"] | 0) != 1) return;
 
   const char* type = doc["type"] | "";
-  if (strcmp(type, "cmd") != 0) return;
 
-  _learnHub(_udp.remoteIP());
+  // The hub announces itself at start and every 30 s. Learning its address moves
+  // leases from multicast to unicast. Never answered, except that an announce
+  // with "hello" (hub just started) gets one hello back after a random delay so
+  // a big site does not answer all at once.
+  if (strcmp(type, "announce") == 0) {
+    _learnHub(_udp.remoteIP());
+    if (doc["payload"]["hello"] | false) {
+      _helloPending = true;
+      _helloDueMs = now + (esp_random() % 2000);
+    }
+    return;
+  }
+
+  if (strcmp(type, "cmd") != 0) return;
 
   if (_cmdHandler) {
     // seq is bound into the encryption (see _aad), so it cannot be rewritten.
@@ -125,6 +141,7 @@ void ETCore::loop() {
     }
 
     _lastCmdSeq = seq;
+    _learnHub(_udp.remoteIP());  // only after the command checked out
     _cmdHandler(doc["class"] | "", payload);
   }
 }

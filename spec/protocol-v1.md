@@ -143,6 +143,22 @@ Device confirms command.
 }
 ```
 
+### announce
+
+Hub to devices. Sent multicast when the hub starts (`"hello": true`) and then every
+30 s (`"hello": false`), and unicast to a device when it says hello or is first
+heard by this hub run. Devices learn the hub address from it and send leases,
+state and acks unicast from then on. Devices never answer a periodic announce; an
+announce with `"hello": true` gets one `hello` back after a random 0-2 s delay.
+
+```json
+{"v": 1, "type": "announce", "id": "hub", "class": "hub", "seq": 7, "payload": {"hello": false}}
+```
+
+Known limit: `announce` is not authenticated, so a forged one can point devices at
+the wrong address (their leases stop reaching the hub: denial of service, not
+control). Devices only learn the hub address from a `cmd` after it authenticated.
+
 ## Security Rules
 
 ET-Core crypto must not reuse an AEAD nonce for the same key.

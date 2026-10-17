@@ -61,6 +61,8 @@ private:
   char _boot[17] = {0};
   uint8_t _session[4] = {0};
   uint32_t _lastLeaseMs = 0;
+  bool _helloPending = false;
+  uint32_t _helloDueMs = 0;
   uint32_t _leaseIntervalMs = 2000;
   uint16_t _leaseTtlSec = 6;
 

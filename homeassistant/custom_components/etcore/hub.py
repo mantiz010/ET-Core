@@ -12,7 +12,14 @@ from typing import Any, Callable
 
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_PSK_HEX, DEFAULT_LEASE_TTL, LEASE_SWEEP_INTERVAL, MULTICAST_GROUP, PORT
+from .const import (
+    ANNOUNCE_INTERVAL,
+    CONF_PSK_HEX,
+    DEFAULT_LEASE_TTL,
+    LEASE_SWEEP_INTERVAL,
+    MULTICAST_GROUP,
+    PORT,
+)
 
 try:
     from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
@@ -47,6 +54,7 @@ class EtCoreHub:
         self._decrypt_fail_count = 0
         self._replay_count = 0
         self._seq = 0
+        self._announce_seq = 0
         # Object with async_load() -> int and async_save(int); see __init__.py.
         self._counter_store = counter_store
         self._seq_reserved = 0
@@ -70,6 +78,7 @@ class EtCoreHub:
         self._sock = self._build_socket()
         self._tasks.append(self.hass.loop.create_task(self._receiver(loop)))
         self._tasks.append(self.hass.loop.create_task(self._lease_sweeper()))
+        self._tasks.append(self.hass.loop.create_task(self._announcer()))
 
     async def async_stop(self) -> None:
         for task in self._tasks:
@@ -228,6 +237,14 @@ class EtCoreHub:
 
         dev = self._devices.setdefault(dev_id, {"id": dev_id})
         was_online = bool(dev.get("online", False))
+
+        # Tell a device where the hub is when it says hello (it just booted) or the
+        # first time this hub run hears it, so it can switch to unicast without
+        # waiting for the next periodic announce. At most once a second per device.
+        if mtype == "hello" or not dev.get("told_hub_at"):
+            if now - float(dev.get("told_hub_at") or 0) >= 1.0:
+                dev["told_hub_at"] = now
+                self._send_announce(ip, hello=False)
         dev["class"] = msg.get("class") or dev.get("class")
         dev["boot"] = msg.get("boot") or dev.get("boot")
         dev["last_addr"] = ip
@@ -250,6 +267,24 @@ class EtCoreHub:
             dev["online"] = True
             if not was_online:
                 self._fire_status(dev_id, "online")
+
+    async def _announcer(self) -> None:
+        # First announce asks every device for a hello (names after an HA restart).
+        self._send_announce(MULTICAST_GROUP, hello=True)
+        while True:
+            await asyncio.sleep(ANNOUNCE_INTERVAL)
+            self._send_announce(MULTICAST_GROUP, hello=False)
+
+    def _send_announce(self, target: str, *, hello: bool) -> None:
+        if not self._sock:
+            return
+        self._announce_seq += 1
+        msg = {"v": 1, "type": "announce", "id": "hub", "class": "hub",
+               "seq": self._announce_seq, "payload": {"hello": hello}}
+        try:
+            self._sock.sendto(json.dumps(msg, separators=(",", ":")).encode("utf-8"), (target, PORT))
+        except OSError as exc:
+            _LOGGER.debug("ET-Core announce to %s failed: %s", target, exc)
 
     async def _lease_sweeper(self) -> None:
         while True:

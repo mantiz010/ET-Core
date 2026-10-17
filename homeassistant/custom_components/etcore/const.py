@@ -6,3 +6,4 @@ PORT = 5560
 
 LEASE_SWEEP_INTERVAL = 1
 DEFAULT_LEASE_TTL = 6
+ANNOUNCE_INTERVAL = 30  # seconds; one multicast for the whole site, never answered
