@@ -101,6 +101,17 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         hub2.send_command("ghost", "switch.relay", {"on": True})
         self.assertGreater(hub2._seq, last, "seq went backwards after restart")
 
+    async def test_hub_stop_leaves_no_thread_behind(self):
+        import threading
+        before = threading.active_count()
+        for _ in range(4):  # e.g. the integration being reloaded
+            h = make_hub(asyncio.get_running_loop(), PSK, self.store)
+            await h.async_start()
+            await asyncio.sleep(0.1)
+            await h.async_stop()
+        await asyncio.sleep(0.2)
+        self.assertLessEqual(threading.active_count(), before, "hub stop left receiver threads running")
+
     async def test_bug1_commands_still_work_after_ha_restart(self):
         hub = await self.hub()
         d = self.device("relayC")

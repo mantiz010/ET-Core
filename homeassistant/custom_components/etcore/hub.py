@@ -34,6 +34,14 @@ _LOGGER = logging.getLogger(__name__)
 CMD_SEQ_BLOCK = 1000
 
 
+class _HubProtocol(asyncio.DatagramProtocol):
+    def __init__(self, hub: "EtCoreHub") -> None:
+        self._hub = hub
+
+    def datagram_received(self, data: bytes, addr: tuple) -> None:
+        self._hub._handle_datagram(data, addr)
+
+
 class EtCoreHub:
     def __init__(
         self,
@@ -44,7 +52,7 @@ class EtCoreHub:
         self.hass = hass
         self._psk = self._parse_psk((config or {}).get(CONF_PSK_HEX))
         self._hub_session = os.urandom(4)
-        self._sock: socket.socket | None = None
+        self._transport: asyncio.DatagramTransport | None = None
         self._tasks: list[asyncio.Task] = []
         self._devices: dict[str, dict[str, Any]] = {}
         self._message_listeners: list[Callable[[dict[str, Any]], None]] = []
@@ -75,8 +83,10 @@ class EtCoreHub:
             self._seq_reserved = self._seq + CMD_SEQ_BLOCK
             await self._counter_store.async_save(self._seq_reserved)
         loop = asyncio.get_running_loop()
-        self._sock = self._build_socket()
-        self._tasks.append(self.hass.loop.create_task(self._receiver(loop)))
+        # Event-loop UDP (no executor thread blocked in recvfrom).
+        self._transport, _ = await loop.create_datagram_endpoint(
+            lambda: _HubProtocol(self), sock=self._build_socket()
+        )
         self._tasks.append(self.hass.loop.create_task(self._lease_sweeper()))
         self._tasks.append(self.hass.loop.create_task(self._announcer()))
 
@@ -84,9 +94,9 @@ class EtCoreHub:
         for task in self._tasks:
             task.cancel()
         self._tasks.clear()
-        if self._sock:
-            self._sock.close()
-            self._sock = None
+        if self._transport:
+            self._transport.close()
+            self._transport = None
 
     def _build_socket(self) -> socket.socket:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -98,41 +108,33 @@ class EtCoreHub:
         sock.bind(("", PORT))
         mreq = socket.inet_aton(MULTICAST_GROUP) + socket.inet_aton("0.0.0.0")
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-        sock.setblocking(True)
+        sock.setblocking(False)
         _LOGGER.info("ET-Core hub listening UDP *:%s mcast=%s", PORT, MULTICAST_GROUP)
         return sock
 
-    async def _receiver(self, loop) -> None:
-        if not self._sock:
+    def _send_raw(self, data: bytes, addr: tuple) -> None:
+        if self._transport:
+            self._transport.sendto(data, addr)
+
+    def _handle_datagram(self, data: bytes, addr: tuple) -> None:
+        try:
+            msg = json.loads(data.decode("utf-8"))
+        except Exception:
             return
 
-        while True:
-            try:
-                data, addr = await loop.run_in_executor(None, self._sock.recvfrom, 2048)
-            except asyncio.CancelledError:
-                return
-            except OSError:
-                await asyncio.sleep(1)
-                continue
+        if not isinstance(msg, dict) or msg.get("v") != 1:
+            return
 
-            try:
-                msg = json.loads(data.decode("utf-8"))
-            except Exception:
-                continue
+        msg["_src_ip"] = addr[0]
+        if not self._decode_payload(msg):
+            self._decrypt_fail_count += 1
+            return
+        self._rx_count += 1
+        self._record_message(msg, addr[0])
+        self._remember_event(msg)
 
-            if not isinstance(msg, dict) or msg.get("v") != 1:
-                continue
-
-            msg["_src_ip"] = addr[0]
-            if not self._decode_payload(msg):
-                self._decrypt_fail_count += 1
-                continue
-            self._rx_count += 1
-            self._record_message(msg, addr[0])
-            self._remember_event(msg)
-
-            for cb in list(self._message_listeners):
-                self.hass.add_job(cb, msg)
+        for cb in list(self._message_listeners):
+            self.hass.add_job(cb, msg)
 
     def _parse_psk(self, value: Any) -> bytes | None:
         psk = str(value or "").strip()
@@ -276,13 +278,13 @@ class EtCoreHub:
             self._send_announce(MULTICAST_GROUP, hello=False)
 
     def _send_announce(self, target: str, *, hello: bool) -> None:
-        if not self._sock:
+        if not self._transport:
             return
         self._announce_seq += 1
         msg = {"v": 1, "type": "announce", "id": "hub", "class": "hub",
                "seq": self._announce_seq, "payload": {"hello": hello}}
         try:
-            self._sock.sendto(json.dumps(msg, separators=(",", ":")).encode("utf-8"), (target, PORT))
+            self._send_raw(json.dumps(msg, separators=(",", ":")).encode("utf-8"), (target, PORT))
         except OSError as exc:
             _LOGGER.debug("ET-Core announce to %s failed: %s", target, exc)
 
@@ -350,7 +352,7 @@ class EtCoreHub:
         }
 
     def send_command(self, dev_id: str, dev_class: str, payload: dict[str, Any]) -> None:
-        if not self._sock:
+        if not self._transport:
             return
         dev = self._devices.get(dev_id) or {}
         ip = dev.get("last_addr")
@@ -370,4 +372,4 @@ class EtCoreHub:
             "seq": self._seq,
             "payload": self._encode_payload(dev_id, self._seq, payload),
         }
-        self._sock.sendto(json.dumps(msg, separators=(",", ":")).encode("utf-8"), (ip, PORT))
+        self._send_raw(json.dumps(msg, separators=(",", ":")).encode("utf-8"), (ip, PORT))

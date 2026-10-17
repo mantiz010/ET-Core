@@ -56,25 +56,12 @@ class FakeHass:
         self.loop.call_soon(cb, *args)
 
 
-class RecordingSocket:
-    """Wraps the hub socket: records every datagram in and out (raw bytes)."""
+class Recorder:
+    """Every datagram the hub received (rx) and sent (tx), raw bytes + address."""
 
-    def __init__(self, sock):
-        self._s = sock
+    def __init__(self):
         self.rx: list[tuple[bytes, tuple]] = []
         self.tx: list[tuple[bytes, tuple]] = []
-
-    def recvfrom(self, n):
-        data, addr = self._s.recvfrom(n)
-        self.rx.append((data, addr))
-        return data, addr
-
-    def sendto(self, data, addr):
-        self.tx.append((bytes(data), addr))
-        return self._s.sendto(data, addr)
-
-    def __getattr__(self, name):
-        return getattr(self._s, name)
 
 
 class MemoryCounterStore:
@@ -103,18 +90,19 @@ def make_hub(loop, psk: str | None = None, store=None):
                 pass
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, lo)
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 0)
-            self.rec = RecordingSocket(sock)
-            return self.rec
+            return sock
 
-        async def async_stop(self):
-            if self._sock:
-                try:
-                    self._sock.shutdown(socket.SHUT_RDWR)  # wake a blocked recvfrom
-                except OSError:
-                    pass
-            await super().async_stop()
+        def _handle_datagram(self, data, addr):
+            self.rec.rx.append((bytes(data), addr))
+            super()._handle_datagram(data, addr)
 
-    return LoopbackHub(FakeHass(loop), {"psk_hex": psk} if psk else {}, counter_store=store)
+        def _send_raw(self, data, addr):
+            self.rec.tx.append((bytes(data), addr))
+            super()._send_raw(data, addr)
+
+    hub = LoopbackHub(FakeHass(loop), {"psk_hex": psk} if psk else {}, counter_store=store)
+    hub.rec = Recorder()
+    return hub
 
 
 class Device:
