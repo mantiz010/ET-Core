@@ -308,6 +308,18 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
                         "device ignored commands after HA was restored from a backup")
         self.assertEqual(json.loads(d.commands()[-1])["on"], False)
 
+    async def test_names_learned_even_if_startup_multicast_is_lost(self):
+        hub = await self.hub()
+        d = await self._online_device(hub, "relayS")
+        await hub.async_stop()
+        self.hubs.remove(hub)
+        h2 = make_hub(asyncio.get_running_loop(), PSK, self.store)
+        h2.drop_tx["announce"] = 1  # the start-up multicast never arrives (WiFi)
+        await h2.async_start()
+        self.hubs.append(h2)
+        self.assertTrue(await wait_for(lambda: h2.devices.get("relayS", {}).get("name") == "relayS", 6),
+                        f"name not learned without the multicast: {h2.devices.get('relayS')}")
+
     async def test_bug3_replayed_command_is_rejected(self):
         hub = await self.hub()
         d = self.device("relayE")

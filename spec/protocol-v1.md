@@ -150,6 +150,10 @@ Hub to devices. Sent multicast when the hub starts (`"hello": true`) and then ev
 heard by this hub run. Devices learn the hub address from it and send leases,
 state and acks unicast from then on. Devices never answer a periodic announce; an
 announce with `"hello": true` gets one `hello` back after a random 0-2 s delay.
+Multicast is often lost on WiFi (seen on the hardware test: an ESP32-C3 received no
+multicast announce at all), so the hub also asks by unicast: the unicast announce it
+sends on first contact carries `"hello": true` while it does not know the device's
+name, repeated at most every 10 s until a hello arrives.
 
 ```json
 {"v": 1, "type": "announce", "id": "hub", "class": "hub", "seq": 7, "payload": {"hello": false}}

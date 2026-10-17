@@ -273,11 +273,14 @@ class EtCoreHub:
 
         # Tell a device where the hub is when it says hello (it just booted) or the
         # first time this hub run hears it, so it can switch to unicast without
-        # waiting for the next periodic announce. At most once a second per device.
-        if mtype == "hello" or not dev.get("told_hub_at"):
-            if now - float(dev.get("told_hub_at") or 0) >= 1.0:
-                dev["told_hub_at"] = now
-                self._send_announce(ip, hello=False)
+        # waiting for the next periodic announce. If we do not know its name yet,
+        # ask for a hello in the same unicast and keep asking every 10 s: multicast
+        # (the start-up announce) is often lost on WiFi.
+        told = float(dev.get("told_hub_at") or 0)
+        want_hello = mtype != "hello" and not dev.get("name")
+        if (mtype == "hello" and now - told >= 1.0) or not told or (want_hello and now - told >= 10.0):
+            dev["told_hub_at"] = now
+            self._send_announce(ip, hello=want_hello)
         # With a PSK only authenticated packets may set where commands go, the class
         # (which picks the entity type) or liveness. A plaintext hello cannot.
         authentic = not self._psk or bool(msg.get("_encrypted"))
