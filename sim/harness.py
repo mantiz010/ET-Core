@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import json
 import os
 import socket
 import subprocess
@@ -92,30 +93,48 @@ def make_hub(loop, psk: str | None = None, store=None):
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 0)
             return sock
 
+        # drop_rx / drop_tx: number of packets of a type to lose ("network loss").
         def _handle_datagram(self, data, addr):
             self.rec.rx.append((bytes(data), addr))
+            if self._lose(self.drop_rx, data):
+                return
             super()._handle_datagram(data, addr)
 
         def _send_raw(self, data, addr):
             self.rec.tx.append((bytes(data), addr))
+            if self._lose(self.drop_tx, data):
+                return
             super()._send_raw(data, addr)
+
+        @staticmethod
+        def _lose(rules, data):
+            try:
+                mtype = json.loads(data).get("type")
+            except ValueError:
+                return False
+            if rules.get(mtype, 0) > 0:
+                rules[mtype] -= 1
+                return True
+            return False
 
     hub = LoopbackHub(FakeHass(loop), {"psk_hex": psk} if psk else {}, counter_store=store)
     hub.rec = Recorder()
+    hub.drop_rx, hub.drop_tx = {}, {}
     return hub
 
 
 class Device:
     """A simulated device process running the real ETCore library."""
 
-    def __init__(self, dev_id, dev_class, ip, psk=None, lease_ms=None, ttl=None):
+    def __init__(self, dev_id, dev_class, ip, psk=None, lease_ms=None, ttl=None, env=None):
         args = [str(DEVICE_BIN), dev_id, dev_class, ip, psk or "-"]
         if lease_ms is not None:
             args += [str(lease_ms)]
             if ttl is not None:
                 args += [str(ttl)]
         self.id, self.ip = dev_id, ip
-        self.proc = subprocess.Popen(args, stdout=subprocess.PIPE, text=True, bufsize=1)
+        self.proc = subprocess.Popen(args, stdout=subprocess.PIPE, text=True, bufsize=1,
+                                     env={**os.environ, **(env or {})})
         os.set_blocking(self.proc.stdout.fileno(), False)
         self.lines: list[str] = []
 

@@ -13,6 +13,7 @@ static ETCore core;
 static const char* g_class = "";
 static bool g_on = false;
 static volatile bool g_run = true;
+static bool g_noack = false;  // ETCORE_SIM_NOACK=1: sketch never calls sendAck
 
 static void publish() {
   JsonDocument d;
@@ -28,7 +29,7 @@ static void onCommand(const char* cls, JsonObject payload) {
   fflush(stdout);
   if (strcmp(cls, g_class) != 0) return;
   if (payload["on"].is<bool>()) g_on = payload["on"].as<bool>();
-  core.sendAck(payload["cmd_id"] | "", true);
+  if (!g_noack) core.sendAck(payload["cmd_id"] | "", true);
   publish();
 }
 
@@ -36,6 +37,7 @@ int main(int argc, char** argv) {
   if (argc < 4) { fprintf(stderr, "usage: device_sim id class 127.0.0.x [psk|-] [lease_ms] [ttl]\n"); return 2; }
   signal(SIGTERM, [](int) { g_run = false; });
   signal(SIGINT, [](int) { g_run = false; });
+  g_noack = getenv("ETCORE_SIM_NOACK") != nullptr;
   const char* id = argv[1];
   g_class = argv[2];
   snprintf(g_sim_local_ip, sizeof g_sim_local_ip, "%s", argv[3]);

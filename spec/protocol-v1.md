@@ -159,6 +159,19 @@ Known limit: `announce` is not authenticated, so a forged one can point devices 
 the wrong address (their leases stop reaching the hub: denial of service, not
 control). Devices only learn the hub address from a `cmd` after it authenticated.
 
+### Command delivery
+
+- The hub assigns every command a unique `cmd_id` (any `cmd_id` from the caller is
+  replaced).
+- If no `ack` with that `cmd_id` arrives within 300 ms the hub resends, up to 2
+  times. Each resend has a new `seq` and the same `cmd_id`.
+- The device remembers its last 4 `cmd_id`s: a resend of one of them is acked again
+  (with the original `ok`) but not executed again.
+- The library sends `ack` (`ok: true`) after the sketch's command handler unless the
+  sketch already called `sendAck(cmd_id, ...)` for that command (e.g. `ok: false`).
+- After the last retry the hub fires `etcore_command_failed`
+  (`id`, `class`, `cmd_id`, `payload`) and logs one warning.
+
 ## Security Rules
 
 ET-Core crypto must not reuse an AEAD nonce for the same key.

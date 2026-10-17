@@ -120,6 +120,60 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         warnings = [r for r in logs.records if "relayK" in r.getMessage()]
         self.assertEqual(len(warnings), 1, f"{len(warnings)} warnings for one wrong-key device in 4 s")
 
+    async def _online_device(self, hub, dev_id, **kw):
+        d = self.device(dev_id, **kw)
+        self.assertTrue(await wait_for(lambda: self.online(hub, dev_id), 5))
+        return d
+
+    async def test_ack_sent_by_library_when_sketch_forgets(self):
+        hub = await self.hub()
+        d = await self._online_device(hub, "relayL", env={"ETCORE_SIM_NOACK": "1"})
+        hub.send_command("relayL", "switch.relay", {"on": True})
+        self.assertTrue(await wait_for(lambda: packets(hub.rec.rx, d.ip, "ack"), 2), "no ack")
+        await asyncio.sleep(1.2)
+        self.assertEqual(len(d.commands()), 1)
+        self.assertEqual(hub._pending, {}, "hub still waiting for an ack")
+
+    async def test_lost_command_is_resent(self):
+        hub = await self.hub()
+        d = await self._online_device(hub, "relayM")
+        hub.drop_tx["cmd"] = 1  # first transmission lost
+        hub.send_command("relayM", "switch.relay", {"on": True})
+        self.assertTrue(await wait_for(lambda: len(d.commands()) == 1, 2), "command never arrived")
+        await asyncio.sleep(1.2)
+        self.assertEqual(len(d.commands()), 1, "executed more than once")
+        self.assertEqual(hub._pending, {})
+
+    async def test_lost_ack_resend_is_not_executed_twice(self):
+        hub = await self.hub()
+        d = await self._online_device(hub, "relayN")
+        hub.drop_rx["ack"] = 1  # device's first ack lost
+        hub.send_command("relayN", "switch.relay", {"on": True})
+        self.assertTrue(await wait_for(lambda: hub._pending == {}, 2), "never acked")
+        await asyncio.sleep(0.5)
+        self.assertEqual(len(d.commands()), 1, f"resend executed again: {d.commands()}")
+        self.assertGreaterEqual(len(packets(hub.rec.tx, d.ip, "cmd")), 2, "hub never resent")
+
+    async def test_dead_device_command_fails_visibly(self):
+        hub = await self.hub()
+        d = await self._online_device(hub, "relayO")
+        d.kill()
+        hub.send_command("relayO", "switch.relay", {"on": True})
+        failed = lambda: [e for _, n, e in hub.hass.bus.events if n == "etcore_command_failed"]
+        self.assertTrue(await wait_for(failed, 3), "no etcore_command_failed event")
+        self.assertEqual(failed()[0]["id"], "relayO")
+        self.assertEqual(len(packets(hub.rec.tx, d.ip, "cmd")), 3, "expected 1 send + 2 retries")
+
+    async def test_each_command_gets_its_own_cmd_id(self):
+        hub = await self.hub()
+        d = await self._online_device(hub, "relayP")
+        for on in (True, False, True):
+            hub.send_command("relayP", "switch.relay", {"cmd_id": "same-from-entity", "on": on})
+            await asyncio.sleep(0.2)
+        self.assertTrue(await wait_for(lambda: len(d.commands()) == 3, 2))
+        ids = [json.loads(c)["cmd_id"] for c in d.commands()]
+        self.assertEqual(len(set(ids)), 3, f"cmd_ids not unique: {ids}")
+
     async def test_bug1_commands_still_work_after_ha_restart(self):
         hub = await self.hub()
         d = self.device("relayC")

@@ -8,6 +8,8 @@
 
 #define ETCORE_LIBRARY_VERSION "0.2.0"
 #define ETCORE_DEFAULT_PORT 5560
+// Recent command ids remembered so a resend is acked again but not re-run.
+#define ETCORE_CMD_HISTORY 4
 
 class ETCore {
 public:
@@ -61,6 +63,12 @@ private:
   char _boot[17] = {0};
   uint8_t _session[4] = {0};
   uint32_t _lastLeaseMs = 0;
+  struct CmdSeen { char id[24]; bool ok; };
+  CmdSeen _cmdHist[ETCORE_CMD_HISTORY] = {};
+  uint8_t _cmdHistNext = 0;
+  char _curCmd[24] = {0};
+  bool _curAcked = false;
+  bool _curOk = true;
   bool _helloPending = false;
   uint32_t _helloDueMs = 0;
   uint32_t _leaseIntervalMs = 2000;

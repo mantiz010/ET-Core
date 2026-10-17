@@ -33,6 +33,10 @@ _LOGGER = logging.getLogger(__name__)
 # is not higher than the last one, so a seq that went backwards would lock them out.
 CMD_SEQ_BLOCK = 1000
 
+# Commands are resent if no ack arrives in time (spec: 300 ms, 2 retries).
+ACK_TIMEOUT = 0.3
+CMD_RETRIES = 2
+
 # A misconfigured device repeats the same failure with every packet; log it once
 # per device per window and report how many were held back.
 WARN_WINDOW = 300.0
@@ -66,6 +70,8 @@ class EtCoreHub:
         self._decrypt_fail_count = 0
         self._replay_count = 0
         self._warned: dict[str, tuple[float, int]] = {}
+        self._pending: dict[str, dict[str, Any]] = {}
+        self._cmd_fail_count = 0
         self._seq = 0
         self._announce_seq = 0
         # Object with async_load() -> int and async_save(int); see __init__.py.
@@ -99,6 +105,10 @@ class EtCoreHub:
         for task in self._tasks:
             task.cancel()
         self._tasks.clear()
+        for pend in self._pending.values():
+            if pend["timer"]:
+                pend["timer"].cancel()
+        self._pending.clear()
         if self._transport:
             self._transport.close()
             self._transport = None
@@ -274,6 +284,9 @@ class EtCoreHub:
             dev["fw"] = payload.get("fw")
             dev["features"] = payload.get("features", [])
 
+        if mtype == "ack":
+            self._handle_ack(dev_id, payload)
+
         if mtype == "lease":
             ttl = int(payload.get("ttl") or DEFAULT_LEASE_TTL)
             dev["lease_ttl"] = max(2, ttl)
@@ -364,29 +377,85 @@ class EtCoreHub:
             "rx_count": self._rx_count,
             "decrypt_failures": self._decrypt_fail_count,
             "replays_dropped": self._replay_count,
+            "commands_failed": self._cmd_fail_count,
+            "commands_pending": len(self._pending),
             "devices": devices,
             "events": list(reversed(self._events[-50:])),
         }
 
-    def send_command(self, dev_id: str, dev_class: str, payload: dict[str, Any]) -> None:
-        if not self._transport:
-            return
-        dev = self._devices.get(dev_id) or {}
-        ip = dev.get("last_addr")
-        if not ip:
-            return
+    def _next_seq(self) -> int:
         self._seq = (self._seq + 1) & 0xFFFFFFFF
         if self._seq == 0:
             self._seq = 1
-        if self._counter_store is not None and self._seq >= self._seq_reserved:
+        # Save the next block when this one is half used, so the (async) save is
+        # done long before the seq could reach the saved value.
+        if self._counter_store is not None and self._seq >= self._seq_reserved - CMD_SEQ_BLOCK // 2:
             self._seq_reserved = self._seq + CMD_SEQ_BLOCK
             self.hass.loop.create_task(self._counter_store.async_save(self._seq_reserved))
+        return self._seq
+
+    def send_command(self, dev_id: str, dev_class: str, payload: dict[str, Any]) -> None:
+        """Send a command and keep resending until the device acks it.
+
+        The hub assigns cmd_id. A resend uses a new seq (devices drop old ones) but
+        the same cmd_id, which the device recognises and only acks again.
+        """
+        if not self._transport:
+            return
+        if not (self._devices.get(dev_id) or {}).get("last_addr"):
+            return
+        cmd_id = str(self._next_seq())
+        self._pending[cmd_id] = {
+            "dev_id": dev_id,
+            "class": dev_class,
+            "payload": dict(payload, cmd_id=cmd_id),
+            "tries": 0,
+            "timer": None,
+        }
+        self._transmit(cmd_id, first=True)
+
+    def _transmit(self, cmd_id: str, first: bool = False) -> None:
+        pend = self._pending.get(cmd_id)
+        if not pend or not self._transport:
+            return
+        dev_id = pend["dev_id"]
+        ip = (self._devices.get(dev_id) or {}).get("last_addr")
+        seq = int(cmd_id) if first else self._next_seq()
         msg = {
             "v": 1,
             "type": "cmd",
             "id": dev_id,
-            "class": dev_class,
-            "seq": self._seq,
-            "payload": self._encode_payload(dev_id, self._seq, payload),
+            "class": pend["class"],
+            "seq": seq,
+            "payload": self._encode_payload(dev_id, seq, pend["payload"]),
         }
-        self._send_raw(json.dumps(msg, separators=(",", ":")).encode("utf-8"), (ip, PORT))
+        if ip:
+            self._send_raw(json.dumps(msg, separators=(",", ":")).encode("utf-8"), (ip, PORT))
+        pend["tries"] += 1
+        pend["timer"] = self.hass.loop.call_later(ACK_TIMEOUT, self._ack_timeout, cmd_id)
+
+    def _ack_timeout(self, cmd_id: str) -> None:
+        pend = self._pending.get(cmd_id)
+        if not pend:
+            return
+        if pend["tries"] <= CMD_RETRIES:
+            self._transmit(cmd_id)
+            return
+        self._pending.pop(cmd_id, None)
+        self._cmd_fail_count += 1
+        self.hass.bus.async_fire("etcore_command_failed", {
+            "id": pend["dev_id"], "class": pend["class"], "cmd_id": cmd_id,
+            "payload": {k: v for k, v in pend["payload"].items() if k != "cmd_id"},
+        })
+        self._warn_limited(f"cmdfail:{pend['dev_id']}",
+                           "ET-Core command to %s not acknowledged after %d tries",
+                           pend["dev_id"], pend["tries"])
+
+    def _handle_ack(self, dev_id: str, payload: dict[str, Any]) -> None:
+        cmd_id = str(payload.get("cmd_id") or "")
+        pend = self._pending.get(cmd_id)
+        if not pend or pend["dev_id"] != dev_id:
+            return
+        self._pending.pop(cmd_id, None)
+        if pend["timer"]:
+            pend["timer"].cancel()

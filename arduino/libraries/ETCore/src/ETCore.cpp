@@ -142,7 +142,31 @@ void ETCore::loop() {
 
     _lastCmdSeq = seq;
     _learnHub(_udp.remoteIP());  // only after the command checked out
+
+    // A resend after a lost ack carries the same cmd_id with a new seq:
+    // answer it again, but do not run the command twice.
+    const char* cmd_id = payload["cmd_id"] | "";
+    if (cmd_id[0]) {
+      for (uint8_t i = 0; i < ETCORE_CMD_HISTORY; i++) {
+        if (strcmp(_cmdHist[i].id, cmd_id) == 0) {
+          sendAck(cmd_id, _cmdHist[i].ok);
+          return;
+        }
+      }
+    }
+
+    snprintf(_curCmd, sizeof(_curCmd), "%s", cmd_id);
+    _curAcked = false;
+    _curOk = true;
     _cmdHandler(doc["class"] | "", payload);
+    // The sketch may call sendAck(cmd_id, false) itself; otherwise ack as handled.
+    if (_curCmd[0] && !_curAcked) sendAck(_curCmd, true);
+    if (_curCmd[0]) {
+      snprintf(_cmdHist[_cmdHistNext].id, sizeof(_cmdHist[0].id), "%s", _curCmd);
+      _cmdHist[_cmdHistNext].ok = _curOk;
+      _cmdHistNext = (uint8_t)((_cmdHistNext + 1) % ETCORE_CMD_HISTORY);
+    }
+    _curCmd[0] = 0;
   }
 }
 
@@ -205,6 +229,10 @@ void ETCore::sendState(JsonObject payload) {
 }
 
 void ETCore::sendAck(const char* cmd_id, bool ok) {
+  if (_curCmd[0] && cmd_id && strcmp(cmd_id, _curCmd) == 0) {
+    _curAcked = true;
+    _curOk = ok;
+  }
   JsonDocument d;
   JsonObject p = d.to<JsonObject>();
   p["cmd_id"] = cmd_id ? cmd_id : "";
