@@ -32,7 +32,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         if dev_id not in entities:
             entities[dev_id] = EtCoreEffectSpeed(hub, dev_id, dev_class, info)
             async_add_entities([entities[dev_id]])
-        entities[dev_id].set_value(payload["speed"])
+        entities[dev_id].update_from_device(payload["speed"])
 
     @callback
     def handle_status(data: dict[str, Any]) -> None:
@@ -66,7 +66,7 @@ class EtCoreEffectSpeed(NumberEntity):
     def available(self) -> bool:
         return bool((self._hub.devices.get(self._dev_id) or {}).get("online", False))
 
-    def set_value(self, value: Any) -> None:
+    def update_from_device(self, value: Any) -> None:
         self._attr_native_value = max(1, min(255, int(value)))
         self.async_write_ha_state()
 
