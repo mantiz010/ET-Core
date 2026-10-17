@@ -32,7 +32,7 @@ Every message is JSON with this envelope:
 Fields:
 
 - `v`: protocol version.
-- `type`: `hello`, `lease`, `state`, `cmd`, `ack`, `bye` (device/hub) or `announce` (hub).
+- `type`: `hello`, `lease`, `state`, `cmd`, `ack`, `error`, `bye` (device/hub) or `announce` (hub).
 - `id`: stable device id.
 - `class`: device class.
 - `boot`: random boot id.
@@ -163,6 +163,23 @@ back online. A pulled plug sends nothing: the lease TTL covers that.
 {"v": 1, "type": "bye", "id": "relay4", "class": "switch.relay4", "boot": "...", "seq": 300,
  "payload": {"reason": "restart"}}
 ```
+
+### error
+
+Device to hub (`sendError(code, message)`), encrypted. The hub logs it (once per
+device and code per 5 min) and fires `etcore_device_error` (`id`, `code`, `message`).
+
+```json
+{"v": 1, "type": "error", "id": "air1", "class": "sensor.air", "boot": "...", "seq": 40,
+ "payload": {"code": "sensor", "message": "CO2 sensor not found"}}
+```
+
+### Device classes and payloads
+
+Same as ET-Bus 1.7; see docs/porting-from-etbus.md for the table (switch,
+switch.multi with `switches` / `switch_id`, light.rgb with `effects` / `speed`,
+fan.speed, fan.preset with `presets`, sensor value and multi-reading styles).
+Home Assistant creates a device's entities once it has its hello.
 
 ### announce
 
