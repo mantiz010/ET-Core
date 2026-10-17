@@ -189,7 +189,7 @@ Encrypted mode:
 - Payload wrapper: `{ "_enc": 1, "alg": "C20P1305", "n": "...", "ct": "...", "tag": "..." }`.
 - Nonce is 12 bytes and base64 encoded in `n`.
 - `nonce[0]` is the direction: `1` device to hub, `2` hub to device.
-- `nonce[1..4]` is fresh random session data generated at boot/start.
+- `nonce[1..7]` is fresh random session data generated at boot/start (56 bits).
 - `nonce[8..11]` is the sender's monotonic sequence.
 - Command counters are monotonic per hub boot/session.
 - State counters are monotonic per device boot.
@@ -202,7 +202,7 @@ Encrypted mode:
   `v1|<type>|<id>|<seq>` taken from the envelope (for `cmd`, `id` is the target
   device). A packet whose `type`, `id` or `seq` was changed fails authentication.
 - Devices drop commands with `seq` 0 or `seq` not greater than the last accepted one.
-- Hub replay check: for each device the hub keeps the session (nonce bytes 1-4) and
+- Hub replay check: for each device the hub keeps the session (nonce bytes 1-7) and
   the last `seq`; an encrypted packet with the same session and a `seq` that is not
   higher is dropped. Known limit: a packet recorded during an *earlier* boot of the
   device carries a different session and is not caught by this check.
@@ -216,6 +216,6 @@ Encrypted mode:
   moves its seq above N, saves a new block and resends. A replayed command only
   produces the same reply.
 - Encrypted commands carry `_ds`: the target device's current session (nonce bytes
-  1-4 of its own packets, 8 lowercase hex chars). Devices drop commands whose `_ds`
+  1-7 of its own packets, 14 lowercase hex chars). Devices drop commands whose `_ds`
   is not their own session, so commands recorded before a device reboot are dead.
   The hub learns the session from the device's first encrypted packet after boot.

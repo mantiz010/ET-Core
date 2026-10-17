@@ -369,6 +369,18 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
             g.close()
         self.assertEqual(n, 0, f"{n} leases multicast in 5s while the hub was known")
 
+    async def test_session_uses_all_seven_spare_nonce_bytes(self):
+        import base64
+        hub = await self.hub()
+        devs = [await self._online_device(hub, f"relayV{i}") for i in range(3)]
+        hub.send_command("relayV0", "switch.relay", {"on": True})
+        await asyncio.sleep(0.5)
+        for d in devs:
+            n = base64.b64decode(packets(hub.rec.rx, d.ip, "lease")[-1]["payload"]["n"])
+            self.assertNotEqual(n[5:8], b"\0\0\0", f"device session only 4 bytes: {n.hex()}")
+        n = base64.b64decode(packets(hub.rec.tx, devs[0].ip, "cmd")[-1]["payload"]["n"])
+        self.assertNotEqual(n[5:8], b"\0\0\0", f"hub session only 4 bytes: {n.hex()}")
+
     async def test_bug5_new_hub_learns_device_name_without_device_reboot(self):
         hub = await self.hub()
         d = self.device("relayG")

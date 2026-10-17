@@ -50,6 +50,7 @@ private:
   size_t _aad(const char* type, uint32_t seq, char* out, size_t out_len);
   bool _encryptPayload(const char* type, uint32_t seq, JsonObject plain, JsonObject out);
   bool _decryptPayload(const char* type, uint32_t seq, JsonObject wrapper, JsonDocument& out);
+  void _sessionHex(char out[15]);
   void _makeNonce(uint8_t direction, uint32_t seq, uint8_t nonce[12]);
   bool _b64encode(const uint8_t* in, size_t in_len, char* out, size_t out_len);
   bool _b64decode(const char* in, uint8_t* out, size_t out_len, size_t* written);
@@ -68,7 +69,7 @@ private:
   uint32_t _rxSeq = 0;
   uint32_t _lastCmdSeq = 0;
   char _boot[17] = {0};
-  uint8_t _session[4] = {0};
+  uint8_t _session[7] = {0};  // random per boot: nonce bytes 1-7
   uint32_t _lastLeaseMs = 0;
   struct CmdSeen { char id[24]; bool ok; };
   CmdSeen _cmdHist[ETCORE_CMD_HISTORY] = {};

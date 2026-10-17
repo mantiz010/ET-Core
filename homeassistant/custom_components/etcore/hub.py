@@ -59,7 +59,7 @@ class EtCoreHub:
     ):
         self.hass = hass
         self._psk = self._parse_psk((config or {}).get(CONF_PSK_HEX))
-        self._hub_session = os.urandom(4)
+        self._hub_session = os.urandom(7)
         self._transport: asyncio.DatagramTransport | None = None
         self._tasks: list[asyncio.Task] = []
         self._devices: dict[str, dict[str, Any]] = {}
@@ -216,9 +216,9 @@ class EtCoreHub:
                 return False
             aad = self._aad(str(msg.get("type") or ""), dev_id, msg.get("seq"))
             plain = ChaCha20Poly1305(key).decrypt(nonce, ct + tag, aad)
-            # Replay check: nonce bytes 1-4 are the device's per-boot session and
+            # Replay check: nonce bytes 1-7 are the device's per-boot session and
             # seq (authenticated via AAD) must keep rising within a session.
-            session = nonce[1:5].hex()
+            session = nonce[1:8].hex()
             seq = int(msg.get("seq") or 0)
             dev = self._devices.setdefault(dev_id, {"id": dev_id})
             if dev.get("rx_session") == session and seq <= int(dev.get("rx_seq") or 0):
@@ -244,7 +244,7 @@ class EtCoreHub:
 
         nonce = bytearray(12)
         nonce[0] = 2
-        nonce[1:5] = self._hub_session
+        nonce[1:8] = self._hub_session
         nonce[8] = seq & 0xFF
         nonce[9] = (seq >> 8) & 0xFF
         nonce[10] = (seq >> 16) & 0xFF

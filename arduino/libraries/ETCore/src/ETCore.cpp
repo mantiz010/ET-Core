@@ -16,15 +16,9 @@ void ETCore::_makeBootId() {
 }
 
 void ETCore::_makeSessionNonce() {
-#if defined(ARDUINO_ARCH_ESP32)
-  uint32_t r = esp_random();
-#else
-  uint32_t r = micros() ^ millis();
-#endif
-  _session[0] = (uint8_t)r;
-  _session[1] = (uint8_t)(r >> 8);
-  _session[2] = (uint8_t)(r >> 16);
-  _session[3] = (uint8_t)(r >> 24);
+  // 56 random bits per boot, so two boots of one device (same key) practically
+  // never share a nonce, even over many thousands of restarts.
+  for (uint8_t i = 0; i < sizeof(_session); i++) _session[i] = (uint8_t)esp_random();
 }
 
 void ETCore::begin(const char* device_id, const char* device_class, const char* device_name, const char* fw_version) {
@@ -141,8 +135,8 @@ void ETCore::loop() {
       if (!_decryptPayload("cmd", seq, payload, plainDoc)) return;
       payload = plainDoc.as<JsonObject>();
       // The hub addresses each command to this boot's session (see hub _ds).
-      char ds[9];
-      snprintf(ds, sizeof(ds), "%02x%02x%02x%02x", _session[0], _session[1], _session[2], _session[3]);
+      char ds[15];
+      _sessionHex(ds);
       if (strcmp(payload["_ds"] | "", ds) != 0) return;
       payload.remove("_ds");
       // A genuine command for this boot but with an old seq: the hub's counter went
@@ -293,15 +287,13 @@ void ETCore::_deriveKey() {
   for (size_t i = 0; i < sizeof(input); i++) input[i] = 0;
 }
 
+void ETCore::_sessionHex(char out[15]) {
+  for (uint8_t i = 0; i < sizeof(_session); i++) snprintf(out + i * 2, 3, "%02x", _session[i]);
+}
+
 void ETCore::_makeNonce(uint8_t direction, uint32_t seq, uint8_t nonce[12]) {
   nonce[0] = direction;
-  nonce[1] = _session[0];
-  nonce[2] = _session[1];
-  nonce[3] = _session[2];
-  nonce[4] = _session[3];
-  nonce[5] = 0;
-  nonce[6] = 0;
-  nonce[7] = 0;
+  memcpy(nonce + 1, _session, sizeof(_session));
   nonce[8] = (uint8_t)seq;
   nonce[9] = (uint8_t)(seq >> 8);
   nonce[10] = (uint8_t)(seq >> 16);
