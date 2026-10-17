@@ -136,8 +136,24 @@
     const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     const ago = (sec) => sec == null ? "" : `${Math.max(0, Number(sec)).toFixed(1)}s`;
 
+    // This page runs in Home Assistant's sidebar iframe (same origin). An iframe
+    // sends no auth header, so take the logged-in user's token from the HA
+    // frontend around it; the diagnostics API itself stays authenticated.
+    function haToken() {
+      try {
+        return window.parent.document.querySelector("home-assistant").hass.auth.data.access_token;
+      } catch (e) {
+        return null;
+      }
+    }
+
     async function load() {
-      const res = await fetch("/etcore/api/diag", { cache: "no-store" });
+      const token = haToken();
+      const res = await fetch("/etcore/api/diag", {
+        cache: "no-store",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const hub = data.hubs?.[0] || { devices: [], events: [] };
       const devices = hub.devices || [];
@@ -146,7 +162,9 @@
       $("online").textContent = online;
       $("rx").textContent = hub.rx_count || 0;
       $("fails").textContent = hub.decrypt_failures || 0;
-      $("status").textContent = `Encryption ${hub.encrypted ? "enabled" : "off"} | ${new Date().toLocaleTimeString()}`;
+      $("status").textContent = `Encryption ${hub.encrypted ? "enabled" : "off"} | replays dropped ${hub.replays_dropped || 0}` +
+        ` | unproven ${hub.unproven_dropped || 0} | commands failed ${hub.commands_failed || 0}` +
+        ` | ${new Date().toLocaleTimeString()}`;
 
       $("deviceRows").innerHTML = devices.length ? devices.map(d => `
         <tr>

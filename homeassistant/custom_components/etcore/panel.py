@@ -22,9 +22,12 @@ _HTML_CACHE: str | None = None
 
 
 class EtCoreHtmlView(HomeAssistantView):
+    # The sidebar loads this page in an iframe, which cannot send the auth header.
+    # It is a fixed page with no data in it; it reads the logged-in user's token
+    # from the HA frontend and calls the diagnostics API, which needs auth.
     url = VIEW_URL
     name = "etcore:html"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request: web.Request) -> web.Response:
         global _HTML_CACHE
