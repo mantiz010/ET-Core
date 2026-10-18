@@ -58,6 +58,14 @@ static void publish() {
 }
 
 static void onHello(JsonObject p) {
+  // ETCORE_SIM_EFFECTS=N: a long effect list like the WS2812 example (52 effects).
+  if (const char* n = getenv("ETCORE_SIM_EFFECTS")) {
+    JsonArray fx = p["effects"].to<JsonArray>();
+    for (int i = 0; i < atoi(n); i++) {
+      char name[24]; snprintf(name, sizeof name, "effect_name_%02d", i);
+      fx.add(name);
+    }
+  }
   if (!g_rich) return;
   if (strcmp(g_class, "fan.preset") == 0) {
     JsonArray a = p["presets"].to<JsonArray>();

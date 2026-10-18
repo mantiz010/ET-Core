@@ -471,12 +471,20 @@ size_t ETCore::_aad(const char* type, uint32_t seq, char* out, size_t out_len, c
 }
 
 bool ETCore::_encryptPayload(const char* type, uint32_t seq, JsonObject plain, JsonObject out) {
-  char pt[768];
+  // Static: too big for the loop task's stack. Sends all happen from loop().
+  // A hello with a long effect list is ~800 bytes; the packet then goes out as
+  // IP fragments, which the hub reassembles.
+  static char pt[ETCORE_MAX_PLAIN];
+  static uint8_t ct[ETCORE_MAX_PLAIN];
+  static char c64[ETCORE_MAX_PLAIN * 4 / 3 + 8];
   size_t pt_len = serializeJson(plain, pt, sizeof(pt));
-  if (pt_len == 0 || pt_len >= sizeof(pt)) return false;
+  if (pt_len == 0 || pt_len >= sizeof(pt)) {
+    log_e("ETCore: '%s' message too big to send (%u bytes, max %u)", type,
+          (unsigned)measureJson(plain), (unsigned)(sizeof(pt) - 1));
+    return false;
+  }
 
   uint8_t nonce[12];
-  uint8_t ct[768];
   uint8_t tag[16];
   char aad[128];
   size_t aad_len = _aad(type, seq, aad, sizeof(aad));
@@ -487,7 +495,6 @@ bool ETCore::_encryptPayload(const char* type, uint32_t seq, JsonObject plain, J
   }
 
   char n64[32];
-  char c64[1100];
   char t64[32];
   if (!_b64encode(nonce, sizeof(nonce), n64, sizeof(n64))) return false;
   if (!_b64encode(ct, pt_len, c64, sizeof(c64))) return false;

@@ -104,6 +104,15 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         state = next(m for m in got if m["type"] == "state")
         self.assertEqual(state["payload"].get("value"), 21.5)
 
+    async def test_hello_with_long_effect_list_arrives(self):
+        # The WS2812 example lists 52 effects: its hello is ~800 bytes encrypted,
+        # more than the old 768-byte send buffer, and was silently never sent.
+        hub = await self.hub()
+        self.device("fxBig", "light.rgb", env={"ETCORE_SIM_EFFECTS": "60"})
+        self.assertTrue(await wait_for(lambda: (hub.devices.get("fxBig") or {}).get("name"), 5), "hello never arrived")
+        fx = (hub.devices["fxBig"].get("hello") or {}).get("effects") or []
+        self.assertEqual(len(fx), 60)
+
     async def test_forgotten_device_comes_back_complete(self):
         # Removed in HA while it was still out there: it must come back as a whole
         # device (name, class, state), and removal tells the platforms.

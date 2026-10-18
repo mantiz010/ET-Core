@@ -7,6 +7,7 @@
 //
 // Needs the FastLED library (Library Manager: "FastLED").
 #include <WiFi.h>
+#include <ArduinoOTA.h>
 #include <Preferences.h>
 #include <FastLED.h>
 #include <ETCore.h>
@@ -17,13 +18,14 @@
 static const char* WIFI_SSID  = "YOUR_WIFI_SSID";
 static const char* WIFI_PASS  = "YOUR_WIFI_PASSWORD";
 static const char* ETCORE_KEY = "";  // 64 hex characters
+static const char* OTA_PASSWORD = "";  // password for WiFi uploads ("" = none)
 
 // -----------------------------
 // DEVICE
 // -----------------------------
 static const char* DEVICE_ID   = "ws2812_1";       // unique on your network
 static const char* DEVICE_NAME = "WS2812 Strip";
-static const char* FIRMWARE    = "ws2812-2.0";
+static const char* FIRMWARE    = "ws2812-2.1";
 
 // -----------------------------
 // STRIP
@@ -470,9 +472,19 @@ void setup() {
   etcore.onSync(publishState);
   etcore.begin(DEVICE_ID, "light.rgb", DEVICE_NAME, FIRMWARE);
   publishState();
+
+  // WiFi uploads: in the Arduino IDE pick Tools > Port > the network port named
+  // after DEVICE_ID, then Upload as usual.
+  ArduinoOTA.setHostname(DEVICE_ID);
+  if (OTA_PASSWORD[0]) ArduinoOTA.setPassword(OTA_PASSWORD);
+  ArduinoOTA.onStart([]() { FastLED.clear(true); Serial.println("[OTA] update starting"); });
+  ArduinoOTA.onError([](ota_error_t e) { Serial.printf("[OTA] failed (%u)\n", e); });
+  ArduinoOTA.begin();
+  Serial.printf("[OTA] ready: %s.local\n", DEVICE_ID);
 }
 
 void loop() {
+  ArduinoOTA.handle();
   etcore.loop();
   serviceLeds();
   serviceSave();

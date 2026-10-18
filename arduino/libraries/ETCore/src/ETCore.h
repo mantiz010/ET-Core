@@ -11,6 +11,9 @@
 #define ETCORE_DEFAULT_PORT 5560
 #endif
 // Largest datagram the device accepts (a command or announce is well under 1 KB).
+#ifndef ETCORE_MAX_PLAIN
+#define ETCORE_MAX_PLAIN 2048  // largest message a device sends (before encryption)
+#endif
 #ifndef ETCORE_MAX_PACKET
 #define ETCORE_MAX_PACKET 1500
 #endif

@@ -21,6 +21,7 @@ inline uint32_t micros() {
   static const auto t0 = steady_clock::now();
   return (uint32_t)duration_cast<microseconds>(steady_clock::now() - t0).count();
 }
+#define log_e(...) (fprintf(stderr, __VA_ARGS__), fputc('\n', stderr))
 inline void delay(uint32_t ms) { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
 inline uint32_t esp_random() {
   uint32_t v = 0;
