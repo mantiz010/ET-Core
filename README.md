@@ -100,7 +100,7 @@ For Arduino IDE or `arduino-cli`, make both libraries available:
 Example compile command from this repo:
 
 ```bash
-arduino-cli compile --fqbn esp32:esp32:esp32 --libraries /home/mantiz010/projects/ET-Core/arduino/libraries /home/mantiz010/projects/ET-Core/examples/RelayOne
+arduino-cli compile --fqbn esp32:esp32:esp32 --libraries /home/mantiz010/projects/ET-Core/arduino/libraries /home/mantiz010/projects/ET-Core/arduino/libraries/ETCore/examples/RelayOne
 ```
 
 ## Home Assistant Install
@@ -130,7 +130,7 @@ The diagnostics API is:
 The starter firmware is:
 
 ```text
-examples/RelayOne/RelayOne.ino
+arduino/libraries/ETCore/examples/RelayOne/RelayOne.ino
 ```
 
 Set your WiFi values before flashing.
@@ -154,6 +154,6 @@ Working v0.2 code pass:
 - Vendored `ETChaCha20Poly1305` library is used for ESP32 ChaCha20-Poly1305.
 - Home Assistant custom integration with switch, RGB light, and dynamic sensor entities.
 - Optional PSK can be entered in the Home Assistant config flow.
-- `examples/RelayOne` compiles on `esp32:esp32:esp32`.
+- `arduino/libraries/ETCore/examples/RelayOne` compiles on `esp32:esp32:esp32`.
 
 See `TODO.md` for the next work.

@@ -6,193 +6,950 @@
   <title>ET-Core</title>
   <style>
     :root {
-      --bg: #081018;
-      --panel: #111b25;
-      --panel2: #172331;
-      --line: #2b3b4d;
-      --text: #edf5ff;
-      --muted: #8ea3b8;
-      --blue: #25a7f0;
-      --good: #35d07f;
-      --bad: #ff5e5e;
+      --bg: #f3f6f9;
+      --panel: #ffffff;
+      --panel2: #eef2f6;
+      --line: #d9e1ea;
+      --text: #14202c;
+      --muted: #607387;
+      --accent: #0b84d6;
+      --accent-soft: rgba(11, 132, 214, 0.12);
+      --good: #1a9c5b;
+      --good-soft: rgba(26, 156, 91, 0.12);
+      --bad: #d23c3c;
+      --bad-soft: rgba(210, 60, 60, 0.12);
+      --warn: #b7800c;
+      --warn-soft: rgba(183, 128, 12, 0.14);
+      --tx: #7a4fd6;
+      --shadow: 0 1px 2px rgba(20, 32, 44, 0.06), 0 2px 8px rgba(20, 32, 44, 0.04);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    :root[data-theme="dark"] {
+      --bg: #0b1219;
+      --panel: #121c26;
+      --panel2: #18242f;
+      --line: #263544;
+      --text: #e8f0f8;
+      --muted: #8a9db0;
+      --accent: #3aaef5;
+      --accent-soft: rgba(58, 174, 245, 0.14);
+      --good: #3ccf86;
+      --good-soft: rgba(60, 207, 134, 0.13);
+      --bad: #ff6b6b;
+      --bad-soft: rgba(255, 107, 107, 0.13);
       --warn: #f0bd45;
+      --warn-soft: rgba(240, 189, 69, 0.14);
+      --tx: #a98bff;
+      --shadow: none;
     }
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 2;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 16px 20px;
-      background: rgba(8, 16, 24, 0.96);
-      border-bottom: 1px solid var(--line);
-    }
-    h1 { margin: 0; font-size: 22px; letter-spacing: 0; }
-    .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); }
+    body { font: 14px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    button, input, select { font: inherit; color: inherit; }
     button {
-      border: 1px solid var(--line);
-      background: var(--panel2);
-      color: var(--text);
-      border-radius: 6px;
-      padding: 9px 12px;
-      cursor: pointer;
+      border: 1px solid var(--line); background: var(--panel); border-radius: 8px;
+      padding: 7px 12px; cursor: pointer; white-space: nowrap;
     }
-    main { padding: 20px; display: grid; gap: 18px; }
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(120px, 1fr));
-      gap: 12px;
+    button:hover { border-color: var(--accent); }
+    button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+    input[type=search], select {
+      border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 7px 10px; min-width: 0;
     }
-    .stat, .section {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-    }
-    .stat { padding: 14px; }
-    .label { color: var(--muted); font-size: 12px; text-transform: uppercase; }
-    .value { font-size: 28px; font-weight: 700; margin-top: 4px; }
-    .section h2 {
-      margin: 0;
-      padding: 14px 16px;
-      font-size: 15px;
-      border-bottom: 1px solid var(--line);
-    }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid rgba(43, 59, 77, 0.7); font-size: 13px; }
-    th { color: var(--muted); font-weight: 600; }
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      min-width: 68px;
-      justify-content: center;
-      border-radius: 999px;
-      padding: 3px 8px;
-      font-size: 12px;
-      border: 1px solid var(--line);
-    }
-    .online { color: var(--good); border-color: rgba(53, 208, 127, 0.45); }
-    .offline { color: var(--bad); border-color: rgba(255, 94, 94, 0.45); }
-    .events { padding: 8px 0; max-height: 360px; overflow: auto; }
-    .event {
-      display: grid;
-      grid-template-columns: 90px 100px 1fr 120px;
-      gap: 10px;
-      padding: 8px 14px;
-      border-bottom: 1px solid rgba(43, 59, 77, 0.45);
-      font-size: 13px;
-    }
+    .mono { font-family: var(--mono); font-size: 12px; }
     .muted { color: var(--muted); }
-    .empty { padding: 18px; color: var(--muted); }
-    @media (max-width: 800px) {
-      .stats { grid-template-columns: repeat(2, 1fr); }
-      header { align-items: flex-start; flex-direction: column; }
-      .event { grid-template-columns: 1fr; }
-      table { display: block; overflow-x: auto; }
+
+    header {
+      position: sticky; top: 0; z-index: 5; background: var(--bg);
+      padding: 14px 20px 0; border-bottom: 1px solid var(--line);
+    }
+    .top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .logo {
+      width: 34px; height: 34px; border-radius: 9px; background: var(--accent);
+      display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 13px; letter-spacing: -0.5px;
+    }
+    h1 { margin: 0; font-size: 19px; }
+    .hubline { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; align-items: center; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+      border: 1px solid var(--line); background: var(--panel); font-size: 12px; color: var(--muted);
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+    .dot.good { background: var(--good); } .dot.bad { background: var(--bad); } .dot.warn { background: var(--warn); }
+    .dot.live { background: var(--good); animation: pulse 2s infinite; }
+    @keyframes pulse { 50% { opacity: 0.35; } }
+    nav { display: flex; gap: 2px; margin-top: 12px; overflow-x: auto; }
+    nav button {
+      border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none;
+      padding: 9px 14px; color: var(--muted); font-weight: 600;
+    }
+    nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
+    nav .count { font-weight: 500; font-size: 12px; margin-left: 4px; color: var(--muted); }
+
+    main { padding: 18px 20px 40px; max-width: 1500px; }
+    .tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; box-shadow: var(--shadow); }
+    .tile .k { color: var(--muted); font-size: 12px; }
+    .tile .v { font-size: 24px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .tile .v small { font-size: 13px; font-weight: 500; color: var(--muted); }
+    .tile.bad .v { color: var(--bad); }
+
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .toolbar input[type=search] { flex: 1 1 220px; max-width: 360px; }
+    .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; max-width: 100%; }
+    .seg button { border: 0; border-radius: 0; border-right: 1px solid var(--line); padding: 6px 11px; }
+    .seg button:last-child { border-right: 0; }
+    .spacer { flex: 1; }
+
+    /* Device cards */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+    .card {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+      display: flex; flex-direction: column; min-width: 0;
+    }
+    .card.off { opacity: 0.72; }
+    .card-h { display: flex; gap: 10px; padding: 14px 14px 10px; align-items: flex-start; cursor: pointer; }
+    .icon {
+      width: 38px; height: 38px; border-radius: 10px; flex: none; display: grid; place-items: center;
+      background: var(--accent-soft); color: var(--accent);
+    }
+    .icon svg { width: 22px; height: 22px; fill: currentColor; }
+    .card.off .icon { background: var(--panel2); color: var(--muted); }
+    .titles { min-width: 0; flex: 1; }
+    .name { font-weight: 650; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sub { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pill {
+      font-size: 11px; font-weight: 650; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.3px; flex: none;
+    }
+    .pill.online { background: var(--good-soft); color: var(--good); }
+    .pill.offline { background: var(--bad-soft); color: var(--bad); }
+    .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 0 14px 10px; }
+    .fact { background: var(--panel2); border-radius: 8px; padding: 6px 8px; min-width: 0; }
+    .fact .k { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
+    .fact .v { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lease { height: 3px; background: var(--panel2); margin: 0 14px; border-radius: 2px; overflow: hidden; }
+    .lease > div { height: 100%; background: var(--good); transition: width 0.9s linear; }
+    .controls { padding: 10px 14px 14px; display: grid; gap: 10px; border-top: 1px solid var(--line); margin-top: 10px; }
+    .ctl { display: grid; gap: 6px; }
+    .ctl-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .ctl-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ctl-val { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .ctl input[type=range] { width: 100%; accent-color: var(--accent); }
+    .ctl select { width: 100%; }
+    .sensor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
+    .sensor { background: var(--panel2); border-radius: 8px; padding: 7px 9px; min-width: 0; }
+    .sensor .k { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sensor .v { font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; }
+    .toggle {
+      position: relative; width: 44px; height: 24px; border-radius: 999px; border: 0; padding: 0;
+      background: var(--line); transition: background 0.15s; flex: none;
+    }
+    .toggle::after {
+      content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
+      background: #fff; transition: left 0.15s; box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    }
+    .toggle.is-on { background: var(--accent); }
+    .toggle.is-on::after { left: 23px; }
+    .toggle:disabled { opacity: 0.4; cursor: default; }
+    .color { width: 44px; height: 30px; border: 1px solid var(--line); border-radius: 8px; padding: 2px; background: var(--panel); flex: none; }
+    .nocontrols { color: var(--muted); font-size: 12px; }
+    .busy { opacity: 0.6; }
+
+    /* Log */
+    .log { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+    .row {
+      display: grid; grid-template-columns: 92px 34px 92px minmax(120px, 210px) 1fr 70px;
+      gap: 10px; padding: 7px 12px; border-bottom: 1px solid var(--line); align-items: center; cursor: pointer; font-size: 13px;
+    }
+    .row:hover { background: var(--panel2); }
+    .row .t { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+    .row .sum { font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row .r { text-align: right; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+    .dir { font-family: var(--mono); font-size: 11px; font-weight: 700; text-align: center; border-radius: 5px; padding: 1px 0; }
+    .dir.rx { color: var(--good); background: var(--good-soft); }
+    .dir.tx { color: var(--tx); background: rgba(122, 79, 214, 0.12); }
+    .dir.hub { color: var(--warn); background: var(--warn-soft); }
+    .type { font-weight: 650; font-size: 12px; }
+    .type.error, .type.cmd_failed { color: var(--bad); }
+    .type.status { color: var(--warn); }
+    .type.command { color: var(--tx); }
+    .detail { grid-column: 1 / -1; cursor: text; }
+    pre {
+      margin: 0; background: var(--panel2); border-radius: 8px; padding: 10px; overflow: auto;
+      font-family: var(--mono); font-size: 12px; max-height: 340px; white-space: pre-wrap; word-break: break-word;
+    }
+    .loghead { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+    .empty { padding: 28px; text-align: center; color: var(--muted); }
+
+    /* Health */
+    .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
+    .box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+    .box h2 { margin: 0; padding: 12px 14px; font-size: 14px; border-bottom: 1px solid var(--line); }
+    .kv { display: grid; grid-template-columns: 1fr auto; }
+    .kv > div { padding: 8px 14px; border-bottom: 1px solid var(--line); }
+    .kv .why { grid-column: 1 / -1; padding-top: 0; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); }
+    .kv .n { text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; }
+    .kv .label { border-bottom: 0; }
+    .n.bad { color: var(--bad); } .n.good { color: var(--good); }
+    .tablewrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; font-size: 13px; }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    /* Drawer */
+    .scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 20; display: none; }
+    .drawer {
+      position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100%); background: var(--bg);
+      border-left: 1px solid var(--line); z-index: 21; transform: translateX(100%); transition: transform 0.18s;
+      display: flex; flex-direction: column;
+    }
+    .drawer.open { transform: none; }
+    .drawer.open + .scrim, .scrim.open { display: block; }
+    .drawer-h { display: flex; gap: 10px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .drawer-b { padding: 16px; overflow: auto; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+    .drawer-b > * { flex: none; }
+    .drawer h3 { margin: 0 0 6px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+    .links { display: flex; gap: 8px; flex-wrap: wrap; }
+    a { color: var(--accent); }
+
+    .hidden { display: none !important; }
+    @media (max-width: 1100px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 760px) {
+      header { padding: 12px 16px 0; }
+      main { padding: 14px 16px 32px; }
+      .hubline { margin-left: 0; }
+      .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+      .tile { padding: 9px 10px; }
+      .tile .k { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .tile .v { font-size: 19px; }
+      .tile .v small { display: none; }
+      .two { grid-template-columns: minmax(0, 1fr); }
+      .grid { grid-template-columns: minmax(0, 1fr); }
+      .toolbar .spacer { display: none; }
+      .loghead .hint { display: none; }
+      .row { grid-template-columns: 74px 30px 1fr 56px; }
+      .row .dev, .row .sum { grid-column: 1 / -1; }
+      .row .dev { order: 5; } .row .sum { order: 6; }
     }
   </style>
 </head>
 <body>
   <header>
-    <div>
-      <h1>ET-Core Network</h1>
-      <div class="sub" id="status">Loading diagnostics...</div>
+    <div class="top">
+      <div class="brand">
+        <div class="logo">ET</div>
+        <div>
+          <h1>ET-Core</h1>
+          <div class="sub" id="hubsub">Connecting…</div>
+        </div>
+      </div>
+      <div class="hubline">
+        <span class="chip"><span class="dot" id="livedot"></span><span id="livetxt">connecting</span></span>
+        <span class="chip"><span class="dot" id="encdot"></span><span id="enctxt">encryption</span></span>
+        <span class="chip mono" id="portchip">UDP —</span>
+      </div>
     </div>
-    <button id="refresh" type="button">Refresh</button>
+    <nav>
+      <button data-tab="devices" class="active">Devices<span class="count" id="c-devices"></span></button>
+      <button data-tab="log">Live log<span class="count" id="c-log"></span></button>
+      <button data-tab="health">Health &amp; security</button>
+    </nav>
   </header>
+
   <main>
-    <section class="stats">
-      <div class="stat"><div class="label">Devices</div><div class="value" id="devices">0</div></div>
-      <div class="stat"><div class="label">Online</div><div class="value" id="online">0</div></div>
-      <div class="stat"><div class="label">RX Packets</div><div class="value" id="rx">0</div></div>
-      <div class="stat"><div class="label">Decrypt Fails</div><div class="value" id="fails">0</div></div>
+    <section class="tiles">
+      <div class="tile"><div class="k">Devices</div><div class="v" id="t-devices">0</div></div>
+      <div class="tile"><div class="k">Online</div><div class="v" id="t-online">0</div></div>
+      <div class="tile" id="tile-offline"><div class="k">Offline</div><div class="v" id="t-offline">0</div></div>
+      <div class="tile"><div class="k">Messages / min</div><div class="v" id="t-rate">—</div></div>
+      <div class="tile"><div class="k">Command round trip</div><div class="v" id="t-ack">—</div></div>
+      <div class="tile" id="tile-sec"><div class="k">Blocked packets</div><div class="v" id="t-sec">0</div></div>
     </section>
-    <section class="section">
-      <h2>Devices</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th><th>Status</th><th>Class</th><th>Name</th><th>IP</th><th>RSSI</th><th>Seen</th><th>Lease</th><th>FW</th>
-          </tr>
-        </thead>
-        <tbody id="deviceRows"></tbody>
-      </table>
+
+    <!-- Devices -->
+    <section id="tab-devices">
+      <div class="toolbar">
+        <input type="search" id="q" placeholder="Search name, id, IP…">
+        <div class="seg" id="kind">
+          <button data-kind="" class="on">All</button>
+          <button data-kind="switch">Switches</button>
+          <button data-kind="light">Lights</button>
+          <button data-kind="fan">Fans</button>
+          <button data-kind="sensor">Sensors</button>
+        </div>
+        <span class="spacer"></span>
+        <select id="sort" aria-label="Sort devices">
+          <option value="status">Sort: offline first</option>
+          <option value="name">Sort: name</option>
+          <option value="recent">Sort: last seen</option>
+          <option value="signal">Sort: weakest signal</option>
+        </select>
+      </div>
+      <div class="grid" id="cards"></div>
+      <div class="empty hidden" id="nodevices">
+        No ET-Core devices yet. Power one on with the same network key and it appears here within a few seconds.
+      </div>
     </section>
-    <section class="section">
-      <h2>Events</h2>
-      <div class="events" id="events"></div>
+
+    <!-- Live log -->
+    <section id="tab-log" class="hidden">
+      <div class="toolbar">
+        <input type="search" id="lq" placeholder="Filter by device or text…">
+        <div class="seg" id="ltype">
+          <button data-t="" class="on">All</button>
+          <button data-t="state">State</button>
+          <button data-t="command">Commands</button>
+          <button data-t="ack">Acks</button>
+          <button data-t="hello">Hello</button>
+          <button data-t="status">Online/offline</button>
+          <button data-t="problems">Problems</button>
+        </div>
+        <button id="showlease">Show leases</button>
+        <span class="spacer"></span>
+        <button id="pause">Pause</button>
+        <button id="clear">Clear</button>
+        <button id="exjson">Export JSON</button>
+        <button id="excsv">Export CSV</button>
+      </div>
+      <div class="log">
+        <div class="loghead"><span id="loginfo">Waiting for messages…</span><span class="hint">Click a row to see the full message</span></div>
+        <div id="rows"></div>
+      </div>
+    </section>
+
+    <!-- Health -->
+    <section id="tab-health" class="hidden">
+      <div class="two">
+        <div class="box"><h2>Hub</h2><div class="kv" id="hubkv"></div></div>
+        <div class="box"><h2>Security</h2><div class="kv" id="seckv"></div></div>
+      </div>
+      <div class="box">
+        <h2>Per device</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr>
+              <th>Device</th><th>Status</th><th class="num">Signal</th><th class="num">Uptime</th>
+              <th class="num">Received</th><th class="num">Commands</th><th class="num">Failed</th>
+              <th class="num">Avg / max ack</th><th>Library</th><th>Session</th><th class="num">Seq</th><th>Last error</th>
+            </tr></thead>
+            <tbody id="devrows"></tbody>
+          </table>
+        </div>
+      </div>
     </section>
   </main>
-  <script>
-    const $ = (id) => document.getElementById(id);
-    const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-    const ago = (sec) => sec == null ? "" : `${Math.max(0, Number(sec)).toFixed(1)}s`;
 
-    // This page runs in Home Assistant's sidebar iframe (same origin). An iframe
-    // sends no auth header, so take the logged-in user's token from the HA
-    // frontend around it; the diagnostics API itself stays authenticated.
-    function haToken() {
-      try {
-        return window.parent.document.querySelector("home-assistant").hass.auth.data.access_token;
-      } catch (e) {
-        return null;
+  <aside class="drawer" id="drawer">
+    <div class="drawer-h">
+      <div class="icon" id="d-icon"></div>
+      <div class="titles"><div class="name" id="d-name"></div><div class="sub mono" id="d-id"></div></div>
+      <button id="d-close" aria-label="Close">Close</button>
+    </div>
+    <div class="drawer-b" id="d-body"></div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <script>
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  // ---- Home Assistant connection -------------------------------------------
+  // The page runs in HA's sidebar iframe (same origin). Use the logged-in user's
+  // HA frontend object for the token, entity states and service calls.
+  function haRoot() {
+    try { return window.parent.document.querySelector("home-assistant"); } catch (e) { return null; }
+  }
+  function hass() { const r = haRoot(); return r && r.hass ? r.hass : null; }
+  function token() { const h = hass(); return h && h.auth && h.auth.data ? h.auth.data.access_token : null; }
+  function haNavigate(path) {
+    try {
+      window.parent.history.pushState(null, "", path);
+      window.parent.dispatchEvent(new CustomEvent("location-changed"));
+    } catch (e) { window.open(path, "_top"); }
+  }
+  async function callService(domain, service, data) {
+    const h = hass();
+    if (!h) throw new Error("not inside Home Assistant");
+    return h.callService(domain, service, data);
+  }
+
+  function applyTheme() {
+    const h = hass();
+    let dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if (h && h.themes && typeof h.themes.darkMode === "boolean") dark = h.themes.darkMode;
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+  }
+
+  // ---- Formatting -------------------------------------------------------------
+  const ICONS = {
+    switch: "M16.56 5.44l-1.45 1.45A5.97 5.97 0 0118 12a6 6 0 01-12 0c0-2.17 1.16-4.06 2.88-5.12L7.44 5.44A7.96 7.96 0 004 12a8 8 0 0016 0c0-2.72-1.36-5.12-3.44-6.56M13 3h-2v10h2",
+    light: "M12 2a7 7 0 00-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 001 1h6a1 1 0 001-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 00-7-7M9 21a1 1 0 001 1h4a1 1 0 001-1v-1H9v1z",
+    fan: "M12 11a1 1 0 110 2 1 1 0 010-2m.5-9c4.5 0 4.61 3.57 2.25 4.75-.99.49-1.43 1.54-1.62 2.47.48.2.9.51 1.22.91 3.7-2 7.68-1.21 7.68 2.37 0 4.5-3.57 4.6-4.75 2.23-.5-.99-1.56-1.43-2.49-1.62-.2.48-.51.89-.91 1.23 1.99 3.69 1.2 7.66-2.38 7.66-4.5 0-4.61-3.57-2.25-4.75.98-.49 1.42-1.53 1.62-2.45-.49-.2-.92-.52-1.24-.92C5.96 15.1 2 14.3 2 10.75c0-4.5 3.56-4.6 4.74-2.24.5.99 1.56 1.43 2.49 1.62.2-.48.52-.9.92-1.23C8.16 5.22 8.95 2 12.5 2z",
+    sensor: "M15 13V5a3 3 0 00-6 0v8a5 5 0 106 0m-3-9a1 1 0 011 1v3h-2V5a1 1 0 011-1z",
+    other: "M4 6h16v2H4V6m0 5h16v2H4v-2m0 5h16v2H4v-2z",
+  };
+  const kindOf = (cls) => { const k = String(cls || "").split(".")[0]; return ICONS[k] ? k : "other"; };
+  const icon = (cls) => `<svg viewBox="0 0 24 24"><path d="${ICONS[kindOf(cls)]}"/></svg>`;
+  function dur(sec) {
+    if (sec == null || isNaN(sec)) return "—";
+    sec = Math.max(0, Math.round(sec));
+    if (sec < 60) return `${sec}s`;
+    if (sec < 3600) return `${Math.floor(sec / 60)}m ${sec % 60}s`;
+    if (sec < 86400) return `${Math.floor(sec / 3600)}h ${Math.floor(sec % 3600 / 60)}m`;
+    return `${Math.floor(sec / 86400)}d ${Math.floor(sec % 86400 / 3600)}h`;
+  }
+  const uptimeSec = (u) => u == null ? null : (u > 1e5 ? u / 1000 : u);  // devices send ms
+  function signal(rssi) {
+    if (rssi == null || rssi === "") return { t: "—", c: "" };
+    const r = Number(rssi);
+    const word = r >= -60 ? "good" : r >= -70 ? "fair" : r >= -80 ? "weak" : "poor";
+    return { t: `${r} dBm`, w: word, c: r >= -70 ? "good" : r >= -80 ? "warn" : "bad" };
+  }
+  const tm = (ts) => new Date(ts * 1000).toLocaleTimeString([], { hour12: false });
+  const ms = (v) => v == null ? "—" : `${Number(v).toFixed(v < 10 ? 1 : 0)} ms`;
+
+  // ---- State -----------------------------------------------------------------
+  const S = {
+    hub: null, devices: [], byId: {}, eventN: 0, log: [], paused: false, held: [],
+    rxHist: [], tab: "devices", kind: "", q: "", sort: "status",
+    ltype: "", lq: "", leases: false, open: new Set(), drawer: null, cardKeys: {},
+  };
+  const LOG_MAX = 2000;
+  try {
+    const saved = JSON.parse(localStorage.getItem("etcore-ui") || "{}");
+    if (saved.tab) S.tab = saved.tab;
+    if (saved.sort) S.sort = saved.sort;
+    if (saved.leases) S.leases = true;
+  } catch (e) {}
+  function saveUi() {
+    try { localStorage.setItem("etcore-ui", JSON.stringify({ tab: S.tab, sort: S.sort, leases: S.leases })); } catch (e) {}
+  }
+
+  // ---- Polling ---------------------------------------------------------------
+  let failures = 0;
+  async function poll() {
+    const t = token();
+    const url = `/etcore/api/diag?since=${S.eventN}`;
+    const res = await fetch(url, { cache: "no-store", headers: t ? { Authorization: `Bearer ${t}` } : {} });
+    if (!res.ok) throw new Error(res.status === 401 ? "not logged in (open this page from the HA sidebar)" : `HTTP ${res.status}`);
+    const data = await res.json();
+    const hub = data.hubs && data.hubs[0];
+    if (!hub) throw new Error("ET-Core is not set up in Home Assistant");
+    // A reloaded hub starts its numbering again.
+    if (hub.event_n < S.eventN) { S.eventN = 0; return poll(); }
+    const fresh = hub.events || [];
+    S.eventN = hub.event_n || S.eventN;
+    S.hub = hub;
+    S.devices = hub.devices || [];
+    S.byId = Object.fromEntries(S.devices.map(d => [d.id, d]));
+    const now = Date.now() / 1000;
+    S.rxHist.push([now, hub.rx_count || 0]);
+    while (S.rxHist.length && now - S.rxHist[0][0] > 60) S.rxHist.shift();
+    if (fresh.length) {
+      if (S.paused) S.held.push(...fresh); else addLog(fresh);
+    }
+    failures = 0;
+    setLive(true, S.paused ? "paused" : "live");
+    render();
+  }
+  function addLog(evs) {
+    S.log.push(...evs);
+    if (S.log.length > LOG_MAX) S.log.splice(0, S.log.length - LOG_MAX);
+  }
+  function setLive(ok, txt) {
+    $("livedot").className = "dot " + (ok ? (txt === "paused" ? "warn" : "live") : "bad");
+    $("livetxt").textContent = txt;
+  }
+  async function loop() {
+    try { await poll(); }
+    catch (e) {
+      failures++;
+      setLive(false, failures > 2 ? "no connection" : "retrying");
+      $("hubsub").textContent = `Can't reach ET-Core: ${e.message}`;
+    }
+    setTimeout(loop, document.hidden ? 5000 : 1000);
+  }
+
+  // ---- Render: header + tiles --------------------------------------------------
+  function render() {
+    applyTheme();
+    const hub = S.hub, devs = S.devices;
+    const online = devs.filter(d => d.online).length;
+    $("hubsub").textContent = `${online} of ${devs.length} device${devs.length === 1 ? "" : "s"} online`;
+    $("encdot").className = "dot " + (hub.encrypted ? "good" : "bad");
+    $("enctxt").textContent = hub.encrypted ? "Encrypted (ChaCha20-Poly1305)" : "NOT encrypted — set a network key";
+    $("portchip").textContent = `UDP ${hub.port || 5560}`;
+    $("t-devices").textContent = devs.length;
+    $("t-online").textContent = online;
+    $("t-offline").textContent = devs.length - online;
+    $("tile-offline").classList.toggle("bad", devs.length - online > 0);
+    if (S.rxHist.length > 1) {
+      const [t0, r0] = S.rxHist[0], [t1, r1] = S.rxHist[S.rxHist.length - 1];
+      $("t-rate").textContent = t1 - t0 >= 3 ? Math.round((r1 - r0) / (t1 - t0) * 60) : "…";
+    }
+    let acked = 0, sum = 0;
+    devs.forEach(d => { if (d.stats && d.stats.acked) { acked += d.stats.acked; sum += d.stats.ack_ms_sum; } });
+    $("t-ack").innerHTML = acked ? `${(sum / acked).toFixed(0)}<small> ms avg</small>` : "—";
+    const blocked = (hub.decrypt_failures || 0) + (hub.replays_dropped || 0);
+    $("t-sec").textContent = blocked;
+    $("tile-sec").classList.toggle("bad", (hub.decrypt_failures || 0) > 0);
+    $("c-devices").textContent = devs.length;
+    $("c-log").textContent = S.paused && S.held.length ? `+${S.held.length}` : "";
+
+    if (S.tab === "devices") renderCards();
+    if (S.tab === "log") renderLog();
+    if (S.tab === "health") renderHealth();
+    if (S.drawer) renderDrawer();
+  }
+
+  // ---- Render: device cards ----------------------------------------------------
+  function visibleDevices() {
+    const q = S.q.toLowerCase();
+    let list = S.devices.filter(d => {
+      if (S.kind && kindOf(d.class) !== S.kind) return false;
+      if (!q) return true;
+      return [d.id, d.name, d.class, d.last_addr, d.fw].some(v => String(v || "").toLowerCase().includes(q));
+    });
+    const name = (d) => String(d.name || d.id).toLowerCase();
+    const by = {
+      status: (a, b) => (a.online - b.online) || name(a).localeCompare(name(b)),
+      name: (a, b) => name(a).localeCompare(name(b)),
+      recent: (a, b) => (a.age ?? 1e9) - (b.age ?? 1e9),
+      signal: (a, b) => (a.rssi ?? 0) - (b.rssi ?? 0),
+    }[S.sort];
+    return list.sort(by);
+  }
+
+  function entitiesOf(d) {
+    const h = hass();
+    return (d.entities || []).filter(e => !e.disabled).map(e => ({ ...e, st: h && h.states[e.entity_id] }));
+  }
+
+  // The parts of a card that need a fresh DOM (anything else is updated in place,
+  // so a slider being dragged is not replaced under the finger).
+  function cardKey(d) {
+    const ents = entitiesOf(d).map(e => {
+      const a = (e.st && e.st.attributes) || {};
+      return [e.entity_id, (a.effect_list || []).length, (a.preset_modes || []).join(","), a.unit_of_measurement || ""].join(":");
+    });
+    return [d.class, ents.join("|")].join("#");
+  }
+
+  function renderCards() {
+    const list = visibleDevices();
+    const box = $("cards");
+    $("nodevices").classList.toggle("hidden", S.devices.length > 0);
+    const want = list.map(d => d.id);
+    const have = [...box.children].map(c => c.dataset.id);
+    if (want.join("\n") !== have.join("\n")) {
+      const old = Object.fromEntries([...box.children].map(c => [c.dataset.id, c]));
+      box.replaceChildren(...want.map(id => old[id] || makeCard(S.byId[id])));
+    }
+    for (const card of box.children) {
+      const d = S.byId[card.dataset.id];
+      if (!d) continue;
+      const key = cardKey(d);
+      if (S.cardKeys[d.id] !== key) {
+        const fresh = makeCard(d);
+        box.replaceChild(fresh, card);
+        updateCard(fresh, d);
+      } else {
+        updateCard(card, d);
       }
     }
+  }
 
-    async function load() {
-      const token = haToken();
-      const res = await fetch("/etcore/api/diag", {
-        cache: "no-store",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const hub = data.hubs?.[0] || { devices: [], events: [] };
-      const devices = hub.devices || [];
-      const online = devices.filter(d => d.online).length;
-      $("devices").textContent = devices.length;
-      $("online").textContent = online;
-      $("rx").textContent = hub.rx_count || 0;
-      $("fails").textContent = hub.decrypt_failures || 0;
-      $("status").textContent = `Encryption ${hub.encrypted ? "enabled" : "off"} | replays dropped ${hub.replays_dropped || 0}` +
-        ` | unproven ${hub.unproven_dropped || 0} | commands failed ${hub.commands_failed || 0}` +
-        ` | ${new Date().toLocaleTimeString()}`;
-
-      $("deviceRows").innerHTML = devices.length ? devices.map(d => `
-        <tr>
-          <td>${esc(d.id)}</td>
-          <td><span class="pill ${d.online ? "online" : "offline"}">${d.online ? "online" : "offline"}</span></td>
-          <td>${esc(d.class)}</td>
-          <td>${esc(d.name || d.id)}</td>
-          <td>${esc(d.last_addr)}</td>
-          <td>${esc(d.rssi ?? "")}</td>
-          <td>${ago(d.age)}</td>
-          <td>${ago(d.expires_in)}</td>
-          <td>${esc(d.fw || "")}</td>
-        </tr>
-      `).join("") : `<tr><td colspan="9" class="empty">No ET-Core devices seen yet.</td></tr>`;
-
-      $("events").innerHTML = (hub.events || []).length ? hub.events.map(e => `
-        <div class="event">
-          <div class="muted">${new Date((e.ts || 0) * 1000).toLocaleTimeString()}</div>
-          <div>${esc(e.type || e.status)}</div>
-          <div>${esc(e.id)} <span class="muted">${esc(e.class || e.reason || "")}</span></div>
-          <div class="muted">${esc(e.src || "")}${e.encrypted ? " enc" : ""}</div>
+  function makeCard(d) {
+    S.cardKeys[d.id] = cardKey(d);
+    const card = document.createElement("article");
+    card.className = "card";
+    card.dataset.id = d.id;
+    card.innerHTML = `
+      <div class="card-h" data-act="open">
+        <div class="icon">${icon(d.class)}</div>
+        <div class="titles">
+          <div class="name" data-f="name"></div>
+          <div class="sub" data-f="sub"></div>
         </div>
-      `).join("") : `<div class="empty">No events yet.</div>`;
-    }
+        <span class="pill" data-f="pill"></span>
+      </div>
+      <div class="facts">
+        <div class="fact"><div class="k">Signal</div><div class="v" data-f="rssi"></div></div>
+        <div class="fact"><div class="k">Uptime</div><div class="v" data-f="up"></div></div>
+        <div class="fact"><div class="k">Ack</div><div class="v" data-f="ack"></div></div>
+      </div>
+      <div class="lease" title="Lease: time left before the hub marks it offline"><div data-f="lease"></div></div>
+      <div class="controls">${controlsHtml(d)}</div>`;
+    return card;
+  }
 
-    $("refresh").addEventListener("click", load);
-    load().catch(err => $("status").textContent = `Diagnostics failed: ${err.message}`);
-    setInterval(() => load().catch(() => {}), 2000);
+  function controlsHtml(d) {
+    const ents = entitiesOf(d);
+    if (!ents.length) return `<div class="nocontrols">No Home Assistant entities yet (they appear after the device's hello).</div>`;
+    const sensors = [], parts = [];
+    for (const e of ents) {
+      const dom = e.entity_id.split(".")[0];
+      const a = (e.st && e.st.attributes) || {};
+      const label = esc(e.name || a.friendly_name || e.entity_id);
+      const eid = esc(e.entity_id);
+      if (dom === "switch") {
+        parts.push(`<div class="ctl"><div class="ctl-row"><span class="ctl-name">${label}</span>
+          <button class="toggle" data-eid="${eid}" data-act="toggle" aria-label="Toggle ${label}"></button></div></div>`);
+      } else if (dom === "light") {
+        const effects = a.effect_list || [];
+        parts.push(`<div class="ctl">
+          <div class="ctl-row"><span class="ctl-name">${label}</span>
+            <input type="color" class="color" data-eid="${eid}" data-act="rgb" aria-label="Colour">
+            <button class="toggle" data-eid="${eid}" data-act="toggle" aria-label="Toggle ${label}"></button></div>
+          <div class="ctl-row"><span class="muted">Brightness</span><span class="ctl-val" data-v="bri" data-eid="${eid}"></span></div>
+          <input type="range" min="1" max="255" data-eid="${eid}" data-act="bri" aria-label="Brightness">
+          ${effects.length ? `<select data-eid="${eid}" data-act="effect" aria-label="Effect">
+              <option value="">Effect…</option>${effects.map(x => `<option>${esc(x)}</option>`).join("")}</select>` : ""}
+        </div>`);
+      } else if (dom === "fan") {
+        const presets = a.preset_modes || [];
+        parts.push(`<div class="ctl">
+          <div class="ctl-row"><span class="ctl-name">${label}</span><span class="ctl-val" data-v="pct" data-eid="${eid}"></span>
+            <button class="toggle" data-eid="${eid}" data-act="toggle" aria-label="Toggle ${label}"></button></div>
+          ${presets.length ? `<select data-eid="${eid}" data-act="preset" aria-label="Preset">
+              <option value="">Preset…</option>${presets.map(x => `<option>${esc(x)}</option>`).join("")}</select>`
+            : `<input type="range" min="0" max="100" step="${a.percentage_step || 1}" data-eid="${eid}" data-act="pct" aria-label="Speed">`}
+        </div>`);
+      } else if (dom === "number") {
+        parts.push(`<div class="ctl">
+          <div class="ctl-row"><span class="ctl-name">${label}</span><span class="ctl-val" data-v="num" data-eid="${eid}"></span></div>
+          <input type="range" min="${a.min ?? 0}" max="${a.max ?? 100}" step="${a.step ?? 1}" data-eid="${eid}" data-act="num" aria-label="${label}">
+        </div>`);
+      } else if (dom === "sensor" || dom === "binary_sensor") {
+        sensors.push(`<div class="sensor"><div class="k">${label}</div><div class="v" data-v="sensor" data-eid="${eid}"></div></div>`);
+      }
+    }
+    if (sensors.length) parts.push(`<div class="sensor-grid">${sensors.join("")}</div>`);
+    return parts.join("");
+  }
+
+  function updateCard(card, d) {
+    const f = (n) => card.querySelector(`[data-f="${n}"]`);
+    card.classList.toggle("off", !d.online);
+    f("name").textContent = d.name || d.id;
+    f("sub").textContent = [d.name && d.name !== d.id ? d.id : "", d.last_addr, d.class].filter(Boolean).join(" · ");
+    f("sub").title = `${d.id} · ${d.class || "?"} · ${d.last_addr || "no IP"}${d.fw ? " · fw " + d.fw : ""}`;
+    f("pill").className = "pill " + (d.online ? "online" : "offline");
+    f("pill").textContent = d.online ? "online" : "offline";
+    const s = signal(d.rssi);
+    f("rssi").textContent = s.t;
+    f("rssi").style.color = s.c ? `var(--${s.c})` : "";
+    f("up").textContent = d.online ? dur(uptimeSec(d.uptime)) : `seen ${dur(d.age)} ago`;
+    f("ack").textContent = d.stats && d.stats.ack_ms_avg != null ? ms(d.stats.ack_ms_avg) : "—";
+    const ttl = d.lease_ttl || 6, left = Math.max(0, d.expires_in || 0);
+    f("lease").style.width = d.online ? `${Math.min(100, left / ttl * 100)}%` : "0%";
+    f("lease").style.background = left / ttl < 0.34 ? "var(--warn)" : "var(--good)";
+
+    const h = hass();
+    card.querySelectorAll("[data-eid]").forEach(el => {
+      const st = h && h.states[el.dataset.eid];
+      const a = (st && st.attributes) || {};
+      const unavailable = !st || st.state === "unavailable";
+      if (el === document.activeElement && el.tagName !== "BUTTON") return;  // user is using it
+      if (el.classList.contains("toggle")) {
+        el.classList.toggle("is-on", !!st && st.state === "on");
+        el.disabled = unavailable;
+      } else if (el.dataset.act === "bri") {
+        el.value = a.brightness || 0; el.disabled = unavailable;
+      } else if (el.dataset.act === "rgb") {
+        const c = a.rgb_color;
+        if (c) el.value = "#" + c.map(x => Number(x).toString(16).padStart(2, "0")).join("");
+        el.disabled = unavailable;
+      } else if (el.dataset.act === "effect") {
+        el.value = a.effect && [...el.options].some(o => o.value === a.effect) ? a.effect : ""; el.disabled = unavailable;
+      } else if (el.dataset.act === "preset") {
+        el.value = a.preset_mode || ""; el.disabled = unavailable;
+      } else if (el.dataset.act === "pct") {
+        el.value = a.percentage || 0; el.disabled = unavailable;
+      } else if (el.dataset.act === "num") {
+        el.value = st ? st.state : 0; el.disabled = unavailable;
+      } else if (el.dataset.v === "bri") {
+        el.textContent = st && st.state === "on" && a.brightness ? `${Math.round(a.brightness / 2.55)}%` : "—";
+      } else if (el.dataset.v === "pct") {
+        el.textContent = st && st.state === "on" ? (a.preset_mode || (a.percentage != null ? `${a.percentage}%` : "on")) : "off";
+      } else if (el.dataset.v === "num") {
+        el.textContent = st ? st.state : "—";
+      } else if (el.dataset.v === "sensor") {
+        el.textContent = unavailable ? "—" : `${st.state}${a.unit_of_measurement ? " " + a.unit_of_measurement : ""}`;
+      }
+    });
+  }
+
+  // Controls -> HA services (same path as the HA dashboard, so automations see it too).
+  async function act(el) {
+    const eid = el.dataset.eid, dom = eid.split(".")[0], a = el.dataset.act;
+    el.classList.add("busy");
+    try {
+      if (a === "toggle") await callService(dom, "toggle", { entity_id: eid });
+      else if (a === "bri") await callService("light", "turn_on", { entity_id: eid, brightness: Number(el.value) });
+      else if (a === "rgb") {
+        const v = el.value;
+        await callService("light", "turn_on", { entity_id: eid, rgb_color: [1, 3, 5].map(i => parseInt(v.slice(i, i + 2), 16)) });
+      } else if (a === "effect" && el.value) await callService("light", "turn_on", { entity_id: eid, effect: el.value });
+      else if (a === "preset" && el.value) await callService("fan", "set_preset_mode", { entity_id: eid, preset_mode: el.value });
+      else if (a === "pct") await callService("fan", "set_percentage", { entity_id: eid, percentage: Number(el.value) });
+      else if (a === "num") await callService("number", "set_value", { entity_id: eid, value: Number(el.value) });
+    } catch (e) {
+      alert(`Home Assistant refused: ${e.message || e.code || e}`);
+    } finally {
+      el.classList.remove("busy");
+      el.blur();
+    }
+  }
+  $("cards").addEventListener("click", (ev) => {
+    const t = ev.target.closest("[data-act]");
+    if (!t) return;
+    const card = t.closest(".card");
+    if (t.dataset.act === "open") openDrawer(card.dataset.id);
+    else if (t.dataset.act === "toggle") act(t);
+  });
+  $("cards").addEventListener("change", (ev) => {
+    const t = ev.target.closest("[data-act]");
+    if (t && t.dataset.act !== "toggle") act(t);
+  });
+
+  // ---- Render: live log --------------------------------------------------------
+  function summary(e) {
+    const p = e.payload || {};
+    if (e.type === "status") return `${e.status}${e.reason ? " (" + e.reason + ")" : ""}`;
+    if (e.type === "cmd_failed") return `command ${e.cmd_id} got no ack after ${e.tries} tries`;
+    if (e.type === "command") return JSON.stringify(p);
+    if (e.type === "ack") return `cmd ${p.cmd_id ?? "?"} ${p.ok === false ? "REFUSED " + (p.err || "") : "ok"}`;
+    if (e.type === "lease") return `rssi ${p.rssi ?? "?"} · uptime ${dur(uptimeSec(p.uptime))}${p.nohub ? " · searching for hub" : ""}`;
+    if (e.type === "hello") return `${p.name || ""} · fw ${p.fw || "?"} · lib ${p.lib || "?"}`;
+    if (e.type === "error") return `${p.code || ""}: ${p.message || ""}`;
+    const s = JSON.stringify(p);
+    return s === "{}" ? "" : s;
+  }
+  function logMatch(e) {
+    if (!S.leases && e.type === "lease" && S.ltype !== "lease") return false;
+    if (S.ltype === "problems") { if (!["error", "cmd_failed", "status", "bye"].includes(e.type)) return false; }
+    else if (S.ltype === "ack") { if (e.type !== "ack") return false; }
+    else if (S.ltype && e.type !== S.ltype) return false;
+    if (S.lq) {
+      const q = S.lq.toLowerCase();
+      const d = S.byId[e.id];
+      const hay = [e.id, d && d.name, e.type, e.class, summary(e)].join(" ").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  }
+  let lastLogSig = "";
+  function renderLog() {
+    const rows = S.log.filter(logMatch).slice(-400).reverse();
+    const sig = [rows.length && rows[0].n, rows.length, S.ltype, S.lq, S.leases, [...S.open].join(",")].join("|");
+    $("loginfo").textContent = `${rows.length} shown · ${S.log.length} kept${S.paused ? ` · paused (${S.held.length} waiting)` : ""}`;
+    if (sig === lastLogSig) return;
+    lastLogSig = sig;
+    $("rows").innerHTML = rows.length ? rows.map(e => {
+      const d = S.byId[e.id];
+      const dirTxt = { rx: "IN", tx: "OUT", hub: "HUB" }[e.dir] || "IN";
+      const right = e.ack_ms != null ? ms(e.ack_ms) : e.seq != null ? `#${e.seq}` : "";
+      const open = S.open.has(e.n);
+      return `<div class="row" data-n="${e.n}">
+        <span class="t">${tm(e.ts)}</span>
+        <span class="dir ${esc(e.dir || "rx")}">${dirTxt}</span>
+        <span class="type ${esc(e.type)}">${esc(e.type)}</span>
+        <span class="dev">${esc(d && d.name ? d.name : e.id)} <span class="muted mono">${d && d.name ? esc(e.id) : ""}</span></span>
+        <span class="sum">${esc(summary(e))}</span>
+        <span class="r">${esc(right)}</span>
+        ${open ? `<div class="detail"><pre>${esc(JSON.stringify(e, null, 2))}</pre></div>` : ""}
+      </div>`;
+    }).join("") : `<div class="empty">${S.log.length ? "Nothing matches the filter." : "No messages yet. They appear here live."}</div>`;
+  }
+  $("rows").addEventListener("click", (ev) => {
+    if (ev.target.closest(".detail")) return;
+    const r = ev.target.closest(".row");
+    if (!r) return;
+    const n = Number(r.dataset.n);
+    S.open.has(n) ? S.open.delete(n) : S.open.add(n);
+    lastLogSig = ""; renderLog();
+  });
+
+  function download(name, text, type) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  const stamp = () => new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  $("exjson").onclick = () => download(`etcore-log-${stamp()}.json`, JSON.stringify(S.log.filter(logMatch), null, 2), "application/json");
+  $("excsv").onclick = () => {
+    const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lines = [["time", "direction", "type", "device", "name", "class", "seq", "ack_ms", "summary", "payload"].join(",")];
+    S.log.filter(logMatch).forEach(e => lines.push([
+      new Date(e.ts * 1000).toISOString(), e.dir, e.type, e.id, (S.byId[e.id] || {}).name, e.class, e.seq, e.ack_ms,
+      summary(e), JSON.stringify(e.payload || {}),
+    ].map(q).join(",")));
+    download(`etcore-log-${stamp()}.csv`, lines.join("\n"), "text/csv");
+  };
+  $("pause").onclick = () => {
+    S.paused = !S.paused;
+    $("pause").textContent = S.paused ? "Resume" : "Pause";
+    $("pause").classList.toggle("on", S.paused);
+    if (!S.paused && S.held.length) { addLog(S.held); S.held = []; }
+    lastLogSig = ""; render();
+  };
+  $("clear").onclick = () => { S.log = []; S.held = []; S.open.clear(); lastLogSig = ""; renderLog(); };
+  $("showlease").onclick = () => {
+    S.leases = !S.leases; $("showlease").classList.toggle("on", S.leases); saveUi(); lastLogSig = ""; renderLog();
+  };
+
+  // ---- Render: health ------------------------------------------------------------
+  function kvRows(items) {
+    return items.map(([k, v, why, cls]) =>
+      `<div class="${why ? "label" : ""}">${esc(k)}</div><div class="n ${cls || ""} ${why ? "label" : ""}">${esc(v)}</div>${why ? `<div class="why">${esc(why)}</div>` : ""}`).join("");
+  }
+  function renderHealth() {
+    const h = S.hub;
+    let cmds = 0, acked = 0;
+    S.devices.forEach(d => { cmds += (d.stats || {}).cmds || 0; acked += (d.stats || {}).acked || 0; });
+    $("hubkv").innerHTML = kvRows([
+      ["UDP port", h.port || 5560],
+      ["Hub session", (h.hub_session || "").slice(0, 8) + "…"],
+      ["Messages received", h.rx_count || 0],
+      ["Commands sent / acknowledged", `${cmds} / ${acked}`],
+      ["Commands waiting for an ack", h.commands_pending || 0],
+      ["Commands that failed", h.commands_failed || 0, "No ack after every retry: the device was off or out of range.", h.commands_failed ? "bad" : "good"],
+      ["Devices that lost the hub and asked again", h.hub_searches_answered || 0, "A device that hears nothing from the hub for 100 s goes looking for it."],
+    ]);
+    $("seckv").innerHTML = kvRows([
+      ["Encryption", h.encrypted ? "On" : "OFF", h.encrypted ? "Every packet is ChaCha20-Poly1305 with a per-device key; plain packets are dropped." : "Set a 64-character network key in the integration options.", h.encrypted ? "good" : "bad"],
+      ["Failed to decrypt", h.decrypt_failures || 0, "Wrong key, a device from another network, or someone forging packets.", h.decrypt_failures ? "bad" : "good"],
+      ["Replays dropped", h.replays_dropped || 0, "Copies of old packets (a replay attack, or a WiFi duplicate).", ""],
+      ["Unproven sessions dropped", h.unproven_dropped || 0, "Packets from a device's new session before it answered the hub's challenge. A few after a reboot or reload are normal.", ""],
+    ]);
+    const name = (d) => String(d.name || d.id).toLowerCase();
+    $("devrows").innerHTML = S.devices.slice().sort((a, b) => name(a).localeCompare(name(b))).map(d => {
+      const s = d.stats || {}, sg = signal(d.rssi);
+      const err = d.last_error ? `${d.last_error.code}: ${d.last_error.message} (${tm(d.last_error.ts)})` : "";
+      return `<tr>
+        <td><a href="#" data-open="${esc(d.id)}">${esc(d.name || d.id)}</a> <span class="muted mono">${esc(d.id)}</span></td>
+        <td><span class="pill ${d.online ? "online" : "offline"}">${d.online ? "online" : "offline"}</span></td>
+        <td class="num" style="color:${sg.c ? `var(--${sg.c})` : ""}">${esc(sg.t)}</td>
+        <td class="num">${d.online ? dur(uptimeSec(d.uptime)) : "—"}</td>
+        <td class="num">${s.rx || 0}</td>
+        <td class="num">${s.cmds || 0}</td>
+        <td class="num" style="${s.failed ? "color:var(--bad)" : ""}">${s.failed || 0}</td>
+        <td class="num">${s.acked ? `${ms(s.ack_ms_avg)} / ${ms(s.ack_ms_max)}` : "—"}</td>
+        <td class="mono">${esc((d.hello || {}).lib || "")}</td>
+        <td class="mono">${esc(String(d.rx_session || "").slice(0, 8))}</td>
+        <td class="num mono">${esc(d.rx_seq ?? "")}</td>
+        <td style="${err ? "color:var(--bad)" : ""}">${esc(err)}</td>
+      </tr>`;
+    }).join("") || `<tr><td colspan="12" class="empty">No devices yet.</td></tr>`;
+  }
+  $("devrows").addEventListener("click", (ev) => {
+    const a = ev.target.closest("[data-open]");
+    if (a) { ev.preventDefault(); openDrawer(a.dataset.open); }
+  });
+
+  // ---- Drawer ------------------------------------------------------------------
+  function openDrawer(id) {
+    S.drawer = id;
+    $("drawer").classList.add("open"); $("scrim").classList.add("open");
+    renderDrawer(true);
+  }
+  function closeDrawer() {
+    S.drawer = null;
+    $("drawer").classList.remove("open"); $("scrim").classList.remove("open");
+  }
+  $("d-close").onclick = closeDrawer;
+  $("scrim").onclick = closeDrawer;
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+
+  function renderDrawer(force) {
+    const d = S.byId[S.drawer];
+    if (!d) return;
+    // Don't redraw while the user is selecting text in it.
+    const sel = window.getSelection();
+    if (!force && sel && !sel.isCollapsed && $("drawer").contains(sel.anchorNode)) return;
+    $("d-icon").innerHTML = icon(d.class);
+    $("d-name").textContent = d.name || d.id;
+    $("d-id").textContent = `${d.id} · ${d.class || ""}`;
+    const s = d.stats || {}, sg = signal(d.rssi);
+    const recent = S.log.filter(e => e.id === d.id && e.type !== "lease").slice(-12).reverse();
+    const info = [
+      ["Status", d.online ? "online" : `offline (seen ${dur(d.age)} ago)`],
+      ["IP address", d.last_addr || "—"],
+      ["Signal", sg.w ? `${sg.t} (${sg.w})` : sg.t],
+      ["Uptime", dur(uptimeSec(d.uptime))],
+      ["Firmware", d.fw || "—"],
+      ["Library", (d.hello || {}).lib || "—"],
+      ["Lease", `${d.lease_ttl || "?"} s, ${Math.max(0, d.expires_in || 0).toFixed(1)} s left`],
+      ["Boot id", d.boot || "—"],
+      ["Session", d.rx_session || "—"],
+      ["Last seq", d.rx_seq ?? "—"],
+      ["Messages received", s.rx || 0],
+      ["Commands sent / acked / failed", `${s.cmds || 0} / ${s.acked || 0} / ${s.failed || 0}`],
+      ["Ack time last / avg / max", `${ms(s.ack_ms_last)} / ${ms(s.ack_ms_avg)} / ${ms(s.ack_ms_max)}`],
+      ["Features", (d.features || []).join(", ") || "—"],
+    ];
+    $("d-body").innerHTML = `
+      <div class="links">
+        ${d.ha_device_id ? `<button data-nav="/config/devices/device/${esc(d.ha_device_id)}">Open in Home Assistant</button>` : ""}
+        <button data-copy="1">Copy device JSON</button>
+        <button data-logfor="${esc(d.id)}">Show in live log</button>
+      </div>
+      ${d.last_error ? `<div class="box"><h2 style="color:var(--bad)">Last error from the device</h2><div class="kv">${kvRows([[d.last_error.code, tm(d.last_error.ts), d.last_error.message]])}</div></div>` : ""}
+      <div class="box"><h2>Details</h2><div class="kv">${kvRows(info)}</div></div>
+      <div class="box"><h2>Entities</h2><div class="kv">${kvRows((d.entities || []).map(e => {
+        const st = hass() && hass().states[e.entity_id];
+        return [e.entity_id, st ? st.state : (e.disabled ? "disabled" : "—")];
+      })) || `<div class="muted">None yet</div><div></div>`}</div></div>
+      <div><h3>Last state</h3><pre>${esc(JSON.stringify(d.state || {}, null, 2))}</pre></div>
+      <div><h3>Hello</h3><pre>${esc(JSON.stringify(d.hello || {}, null, 2))}</pre></div>
+      <div><h3>Recent messages (no leases)</h3><pre>${esc(recent.map(e => `${tm(e.ts)} ${(e.dir || "rx").padEnd(3)} ${e.type.padEnd(10)} ${summary(e)}`).join("\n") || "none yet")}</pre></div>`;
+  }
+  $("d-body").addEventListener("click", (ev) => {
+    const b = ev.target.closest("button");
+    if (!b) return;
+    const d = S.byId[S.drawer];
+    if (b.dataset.nav) haNavigate(b.dataset.nav);
+    if (b.dataset.copy && d) navigator.clipboard && navigator.clipboard.writeText(JSON.stringify(d, null, 2));
+    if (b.dataset.logfor) {
+      S.lq = b.dataset.logfor; $("lq").value = S.lq; closeDrawer(); setTab("log");
+    }
+  });
+
+  // ---- Tabs + toolbar ------------------------------------------------------------
+  function setTab(t) {
+    S.tab = t; saveUi();
+    document.querySelectorAll("nav button").forEach(b => b.classList.toggle("active", b.dataset.tab === t));
+    ["devices", "log", "health"].forEach(x => $("tab-" + x).classList.toggle("hidden", x !== t));
+    lastLogSig = "";
+    if (S.hub) render();
+  }
+  document.querySelectorAll("nav button").forEach(b => b.onclick = () => setTab(b.dataset.tab));
+  $("q").oninput = (e) => { S.q = e.target.value; renderCards(); };
+  $("sort").value = S.sort;
+  $("sort").onchange = (e) => { S.sort = e.target.value; saveUi(); renderCards(); };
+  $("kind").onclick = (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    S.kind = b.dataset.kind;
+    $("kind").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    renderCards();
+  };
+  $("ltype").onclick = (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    S.ltype = b.dataset.t;
+    $("ltype").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    lastLogSig = ""; renderLog();
+  };
+  $("lq").oninput = (e) => { S.lq = e.target.value; lastLogSig = ""; renderLog(); };
+  $("showlease").classList.toggle("on", S.leases);
+
+  applyTheme();
+  setTab(S.tab);
+  loop();
   </script>
 </body>
 </html>

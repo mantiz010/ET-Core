@@ -57,6 +57,23 @@ class _HubProtocol(asyncio.DatagramProtocol):
         self._hub._handle_datagram(data, addr)
 
 
+EVENT_LOG_SIZE = 500
+
+
+def _new_stats() -> dict[str, Any]:
+    return {"rx": 0, "cmds": 0, "acked": 0, "failed": 0,
+            "ack_ms_last": None, "ack_ms_sum": 0.0, "ack_ms_max": 0.0}
+
+
+def _small(payload: dict[str, Any]) -> Any:
+    """A payload for the event log, cut short if a device sends something huge."""
+    try:
+        text = json.dumps(payload, separators=(",", ":"), default=str)
+    except Exception:
+        return {}
+    return payload if len(text) <= 800 else {"_truncated": text[:800]}
+
+
 class EtCoreHub:
     def __init__(
         self,
@@ -79,6 +96,7 @@ class EtCoreHub:
         self._message_listeners: list[Callable[[dict[str, Any]], None]] = []
         self._status_listeners: list[Callable[[dict[str, Any]], None]] = []
         self._events: list[dict[str, Any]] = []
+        self._event_n = 0  # running number, so the panel can ask for "events since n"
         self._rx_count = 0
         self._decrypt_fail_count = 0
         self._replay_count = 0
@@ -99,6 +117,16 @@ class EtCoreHub:
 
     def register_listener(self, cb: Callable[[dict[str, Any]], None]) -> None:
         self._message_listeners.append(cb)
+        # The hub starts before the platforms, and a device can answer the start-up
+        # announce before a platform listens. Hand the new listener what is already
+        # known (hello, then the last state) so no entity misses it.
+        for dev in list(self._devices.values()):
+            if not dev.get("name"):
+                continue
+            base = {"v": 1, "id": dev["id"], "class": dev.get("class"), "boot": dev.get("boot"), "_replay": True}
+            self.hass.add_job(cb, {**base, "type": "hello", "payload": dict(dev.get("hello") or {"name": dev["name"]})})
+            if isinstance(dev.get("state"), dict):
+                self.hass.add_job(cb, {**base, "type": "state", "payload": dict(dev["state"])})
 
     def register_status_listener(self, cb: Callable[[dict[str, Any]], None]) -> None:
         self._status_listeners.append(cb)
@@ -368,6 +396,11 @@ class EtCoreHub:
         dev["boot"] = msg.get("boot") or dev.get("boot")
         dev["last_addr"] = ip
         dev["last_seen"] = now
+        stats = dev.setdefault("stats", _new_stats())
+        stats["rx"] += 1
+        if mtype == "state":
+            dev["state"] = payload
+            dev["state_ts"] = now
 
         if mtype == "hello":
             dev["name"] = payload.get("name", dev_id)
@@ -380,7 +413,7 @@ class EtCoreHub:
             dev["hello"] = {k: v for k, v in payload.items() if k != "ch"}
 
         if mtype == "ack":
-            self._handle_ack(dev_id, payload)
+            msg["_ack_ms"] = self._handle_ack(dev_id, payload)
 
         if mtype == "lease":
             ttl = int(payload.get("ttl") or DEFAULT_LEASE_TTL)
@@ -401,6 +434,7 @@ class EtCoreHub:
             message = str(payload.get("message") or "")
             self._warn_limited(f"err:{dev_id}:{code}", "ET-Core device %s reports %s: %s", dev_id, code, message)
             self.hass.bus.async_fire("etcore_device_error", {"id": dev_id, "code": code, "message": message})
+            dev["last_error"] = {"code": code, "message": message, "ts": now}
 
         # A planned restart (OTA, reboot): offline now, not when the lease runs out.
         # Only an authenticated bye of the current session with a rising seq gets here.
@@ -491,35 +525,52 @@ class EtCoreHub:
             "last_addr": dev.get("last_addr"),
         }
         self.hass.bus.async_fire("etcore_device_status", status)
-        self._events.append({
-            "ts": time.time(),
+        self._add_event({
+            "dir": "hub",
             "type": "status",
             "id": dev_id,
             "status": "online" if status["online"] else "offline",
             "reason": reason,
         })
-        self._events = self._events[-80:]
         for cb in list(self._status_listeners):
             self.hass.add_job(cb, status)
 
+    def _add_event(self, event: dict[str, Any]) -> None:
+        self._event_n += 1
+        event["n"] = self._event_n
+        event.setdefault("ts", time.time())
+        self._events.append(event)
+        if len(self._events) > EVENT_LOG_SIZE:
+            del self._events[: len(self._events) - EVENT_LOG_SIZE]
+
     def _remember_event(self, msg: dict[str, Any]) -> None:
-        self._events.append({
-            "ts": time.time(),
+        payload = msg.get("payload") if isinstance(msg.get("payload"), dict) else {}
+        event = {
+            "dir": "rx",
             "type": str(msg.get("type") or ""),
             "id": str(msg.get("id") or ""),
             "class": str(msg.get("class") or ""),
+            "seq": msg.get("seq"),
             "encrypted": bool(msg.get("_encrypted", False)),
             "src": msg.get("_src_ip"),
-        })
-        self._events = self._events[-80:]
+            "payload": _small(payload),
+        }
+        if msg.get("_ack_ms") is not None:
+            event["ack_ms"] = msg["_ack_ms"]
+        self._add_event(event)
 
-    def get_diag_snapshot(self) -> dict[str, Any]:
+    def get_diag_snapshot(self, since: int | None = None) -> dict[str, Any]:
+        """since=None: the last 50 events, newest first (old shape).
+        since=n: every kept event after n, oldest first, for a live log."""
         devices = []
         now = time.time()
         for dev in self._devices.values():
             item = dict(dev)
             item["age"] = round(now - float(dev.get("last_seen") or now), 3)
             item["expires_in"] = round(float(dev.get("lease_expires") or now) - now, 3)
+            stats = dict(dev.get("stats") or _new_stats())
+            stats["ack_ms_avg"] = round(stats["ack_ms_sum"] / stats["acked"], 1) if stats["acked"] else None
+            item["stats"] = stats
             devices.append(item)
         devices.sort(key=lambda d: str(d.get("id") or ""))
         return {
@@ -533,7 +584,11 @@ class EtCoreHub:
             "commands_failed": self._cmd_fail_count,
             "commands_pending": len(self._pending),
             "devices": devices,
-            "events": list(reversed(self._events[-50:])),
+            "events": (list(reversed(self._events[-50:])) if since is None
+                       else [e for e in self._events if e["n"] > since]),
+            "event_n": self._event_n,
+            "hub_session": self._hub_session.hex(),
+            "port": self._port,
         }
 
     def _next_seq(self) -> int:
@@ -564,7 +619,11 @@ class EtCoreHub:
             "payload": dict(payload, cmd_id=cmd_id),
             "tries": 0,
             "timer": None,
+            "t0": time.monotonic(),
         }
+        self._devices[dev_id].setdefault("stats", _new_stats())["cmds"] += 1
+        self._add_event({"dir": "tx", "type": "command", "id": dev_id, "class": dev_class,
+                         "cmd_id": cmd_id, "payload": _small(payload)})
         self._transmit(cmd_id, first=True)
 
     def _transmit(self, cmd_id: str, first: bool = False) -> None:
@@ -596,6 +655,9 @@ class EtCoreHub:
             return
         self._pending.pop(cmd_id, None)
         self._cmd_fail_count += 1
+        (self._devices.get(pend["dev_id"]) or {}).setdefault("stats", _new_stats())["failed"] += 1
+        self._add_event({"dir": "hub", "type": "cmd_failed", "id": pend["dev_id"], "class": pend["class"],
+                         "cmd_id": cmd_id, "tries": pend["tries"]})
         self.hass.bus.async_fire("etcore_command_failed", {
             "id": pend["dev_id"], "class": pend["class"], "cmd_id": cmd_id,
             "payload": {k: v for k, v in pend["payload"].items() if k != "cmd_id"},
@@ -604,11 +666,12 @@ class EtCoreHub:
                            "ET-Core command to %s not acknowledged after %d tries",
                            pend["dev_id"], pend["tries"])
 
-    def _handle_ack(self, dev_id: str, payload: dict[str, Any]) -> None:
+    def _handle_ack(self, dev_id: str, payload: dict[str, Any]) -> float | None:
+        """Settle a pending command; returns its round trip in ms when it is done."""
         cmd_id = str(payload.get("cmd_id") or "")
         pend = self._pending.get(cmd_id)
         if not pend or pend["dev_id"] != dev_id:
-            return
+            return None
         if pend["timer"]:
             pend["timer"].cancel()
         if payload.get("ok") is False and payload.get("err") == "stale":
@@ -624,5 +687,12 @@ class EtCoreHub:
                 self._transmit(cmd_id)
             else:
                 pend["timer"] = self.hass.loop.call_later(0, self._ack_timeout, cmd_id)
-            return
+            return None
         self._pending.pop(cmd_id, None)
+        ms = round((time.monotonic() - pend["t0"]) * 1000, 1)
+        stats = (self._devices.get(dev_id) or {}).setdefault("stats", _new_stats())
+        stats["acked"] += 1
+        stats["ack_ms_last"] = ms
+        stats["ack_ms_sum"] += ms
+        stats["ack_ms_max"] = max(stats["ack_ms_max"], ms)
+        return ms

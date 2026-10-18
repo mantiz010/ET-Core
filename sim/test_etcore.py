@@ -89,6 +89,21 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         print(f"\n    offline detected {took:.1f}s after unplug (ttl 6s)")
         self.assertLess(took, 8.5)
 
+    async def test_late_listener_gets_known_hello_and_state(self):
+        # HA starts the hub before the entity platforms; a device can answer the
+        # start-up announce first. A platform that registers late must still get the
+        # device's hello and last state (else a sensor stays unavailable after restart).
+        hub = await self.hub()
+        self.device("sensLate", "sensor.temperature", env={"ETCORE_SIM_RICH": "1"})
+        self.assertTrue(await wait_for(lambda: (hub.devices.get("sensLate") or {}).get("state"), 5), "no state")
+        got = []
+        hub.register_listener(got.append)
+        self.assertTrue(await wait_for(lambda: any(m["type"] == "state" for m in got), 2), "state not handed over")
+        types = [m["type"] for m in got]
+        self.assertLess(types.index("hello"), types.index("state"), "hello must come first")
+        state = next(m for m in got if m["type"] == "state")
+        self.assertEqual(state["payload"].get("value"), 21.5)
+
     async def test_bye_marks_device_offline_at_once(self):
         hub = await self.hub()
         d = await self._online_device(hub, "relayAD")
