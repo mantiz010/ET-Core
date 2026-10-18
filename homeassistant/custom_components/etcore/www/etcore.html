@@ -635,6 +635,7 @@
       setView(S.view, true);
     }
     failures = 0;
+    watchStates();
     setLive(true, S.paused ? "paused" : "live");
     render();
   }
@@ -848,7 +849,7 @@
   function entitiesOf(d) {
     const h = hass();
     const rank = { switch: 0, light: 0, fan: 0, number: 1, sensor: 2, binary_sensor: 2 };
-    return (d.entities || []).filter(e => !e.disabled).map(e => ({ ...e, st: h && h.states[e.entity_id] }))
+    return (d.entities || []).filter(e => !e.disabled).map(e => ({ ...e, st: stateOf(e.entity_id) }))
       .sort((a, b) => (rank[a.entity_id.split(".")[0]] ?? 3) - (rank[b.entity_id.split(".")[0]] ?? 3));
   }
   // The parts of a card that need a fresh DOM; everything else is updated in place
@@ -958,10 +959,34 @@
     f("lease").style.background = left / ttl < 0.34 ? "var(--warn)" : "var(--good)";
     updateControls(card);
   }
-  function updateControls(root) {
+  // Entity states pushed by HA the moment they change (see watchStates), so the
+  // controls do not wait for the next 1 s poll.
+  const live = {};
+  function stateOf(eid) {
+    const h = hass(), a = h && h.states[eid], b = live[eid];
+    if (!a) return b; if (!b) return a;
+    return (b.last_updated || "") > (a.last_updated || "") ? b : a;
+  }
+  function refreshControls() {
+    for (const id of ["cards", "tbody", "d-body"]) { const r = $(id); if (r) updateControls(r); }
+  }
+  let watching = false, refreshQueued = false;
+  async function watchStates() {
     const h = hass();
+    if (watching || !h || !h.connection) return;
+    watching = true;
+    try {
+      await h.connection.subscribeEvents((ev) => {
+        const ns = ev.data && ev.data.new_state;
+        if (!ns) return;
+        live[ns.entity_id] = ns;
+        if (!refreshQueued) { refreshQueued = true; requestAnimationFrame(() => { refreshQueued = false; refreshControls(); }); }
+      }, "state_changed");
+    } catch (e) { watching = false; }
+  }
+  function updateControls(root) {
     root.querySelectorAll("[data-eid]").forEach(el => {
-      const st = h && h.states[el.dataset.eid];
+      const st = stateOf(el.dataset.eid);
       const a = (st && st.attributes) || {};
       const unavailable = !st || st.state === "unavailable";
       if (el === document.activeElement && el.tagName !== "BUTTON") return;  // user is using it
@@ -983,9 +1008,10 @@
     smoke: ["Smoke!", "Clear"], gas: ["Gas!", "Clear"], vibration: ["Vibration", "Still"], problem: ["Problem", "OK"] };
   const binText = (state, dc) => state === "unknown" ? "—" : ((BIN[dc] || ["On", "Off"])[state === "on" ? 0 : 1]);
   // Controls -> HA services (same path as HA dashboards, so automations see it too).
-  async function act(el) {
+  async function act(el, dragging) {
     const eid = el.dataset.eid, dom = eid.split(".")[0], a = el.dataset.act;
-    el.classList.add("busy");
+    if (a === "toggle") el.classList.toggle("is-on");  // show it now; HA's state confirms it
+    if (!dragging && a !== "toggle") el.classList.add("busy");
     try {
       if (a === "toggle") await callService(dom, "toggle", { entity_id: eid });
       else if (a === "bri") await callService("light", "turn_on", { entity_id: eid, brightness: Number(el.value) });
@@ -998,8 +1024,19 @@
       toast(`Home Assistant refused: ${errText(e)}`, true);
     } finally {
       el.classList.remove("busy");
-      el.blur();
+      if (!dragging) el.blur();
     }
+  }
+  // While a slider or the colour picker is being dragged, send at most every 80 ms
+  // (like HA's own light card), and the final value on release.
+  const lastSent = new WeakMap();
+  function onControlInput(ev) {
+    const t = ev.target.closest("[data-act]");
+    if (!t || !["bri", "rgb", "pct"].includes(t.dataset.act)) return;
+    const now = performance.now();
+    if (now - (lastSent.get(t) || 0) < 80) return;
+    lastSent.set(t, now);
+    act(t, true);
   }
   function onControlClick(ev) {
     const t = ev.target.closest("[data-act]");
@@ -1008,7 +1045,7 @@
     else if (t.dataset.act === "toggle") { ev.stopPropagation(); act(t); }
   }
   function onControlChange(ev) { const t = ev.target.closest("[data-act]"); if (t && !["toggle", "open"].includes(t.dataset.act)) act(t); }
-  for (const id of ["cards", "tbody", "d-body"]) { $(id).addEventListener("click", onControlClick); $(id).addEventListener("change", onControlChange); }
+  for (const id of ["cards", "tbody", "d-body"]) { $(id).addEventListener("click", onControlClick); $(id).addEventListener("change", onControlChange); $(id).addEventListener("input", onControlInput); }
 
   // Table view: sortable, one row per device, the main on/off control inline.
   const COLS = [

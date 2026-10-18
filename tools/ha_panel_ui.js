@@ -96,6 +96,32 @@ async function waitFor(fn, ms = 10000, step = 250) {
   await fr.locator(`${L} input[data-act=bri]`).fill(String(bri));
   s = await waitState(page, 'light.uirgb', x => x.a.brightness === bri);
   check(`light brightness ${bri} (${s.a.brightness})`, s.a.brightness === bri);
+  // Dragging the slider moves the light before it is let go (input events only).
+  const dragTo = bri > 120 ? 30 : 230;
+  await fr.locator(`${L} input[data-act=bri]`).evaluate(async (el, to) => {
+    el.focus();
+    const from = Number(el.value);
+    for (let i = 1; i <= 10; i++) {
+      el.value = String(Math.round(from + (to - from) * i / 10));
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise(r => setTimeout(r, 40));
+    }
+  }, dragTo);
+  s = await waitState(page, 'light.uirgb', x => Math.abs(x.a.brightness - bri) > 20, 3000);
+  check(`slider drag reaches the light before release (${bri} -> ${s.a.brightness})`, Math.abs(s.a.brightness - bri) > 20);
+  await fr.locator(`${L} input[data-act=bri]`).evaluate(el => { el.dispatchEvent(new Event('change', { bubbles: true })); el.blur(); });
+  // A change made elsewhere (HA dashboard, automation) shows on the page at once, not on the next poll.
+  const relayEl = fr.locator('.card[data-id="uiRelay"] .toggle');
+  const wasOn = await relayEl.evaluate(el => el.classList.contains('is-on'));
+  const shown = await fr.evaluate(async (want) => {
+    const h = window.parent.document.querySelector('home-assistant').hass;
+    const t0 = performance.now();
+    await h.callService('switch', want ? 'turn_on' : 'turn_off', { entity_id: 'switch.uirelay' });
+    const el = document.querySelector('.card[data-id="uiRelay"] .toggle');
+    while (el.classList.contains('is-on') !== want && performance.now() - t0 < 3000) await new Promise(r => setTimeout(r, 5));
+    return Math.round(performance.now() - t0);
+  }, !wasOn);
+  check(`change made elsewhere shows on the page fast (${shown} ms)`, shown < 150);
   await fr.locator(`${L} input[data-act=rgb]`).evaluate(el => { el.value = '#00ff80'; el.dispatchEvent(new Event('change', { bubbles: true })); });
   s = await waitState(page, 'light.uirgb', x => x.a.rgb_color && x.a.rgb_color[0] === 0 && x.a.rgb_color[1] === 255);
   check(`light colour (${JSON.stringify(s.a.rgb_color)})`, s.a.rgb_color && s.a.rgb_color[1] === 255);
