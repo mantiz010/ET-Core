@@ -86,6 +86,16 @@ private:
   bool _encryptPayload(const char* type, uint32_t seq, JsonObject plain, JsonObject out);
   bool _decryptPayload(const char* type, uint32_t seq, JsonObject wrapper, JsonDocument& out,
                        const uint8_t* key = nullptr, uint8_t direction = 2, const char* aad_id = nullptr);
+  bool _decryptB64(const char* type, uint32_t seq, const char* n64, const char* c64, const char* t64,
+                   JsonDocument& out, const uint8_t* key = nullptr, uint8_t direction = 2,
+                   const char* aad_id = nullptr);
+  bool _encryptB64(const char* type, uint32_t seq, JsonObject plain, char n64[24], const char** c64,
+                   char t64[28]);
+  bool _sendEncryptedFast(const char* type, JsonObject payload, IPAddress target);
+  bool _scanCmd(char* buf, int len, const char** cls, uint32_t* seq, const char** n64,
+                const char** c64, const char** t64);
+  void _runCmd(const char* cls, uint32_t seq, const char* n64, const char* c64, const char* t64,
+               JsonObject plain);
   void _handleAnnounce(JsonDocument& doc, uint32_t now);
   void _sessionHex(char out[15]);
   void _makeNonce(uint8_t direction, uint32_t seq, uint8_t nonce[12]);

@@ -428,9 +428,9 @@ static void onCommand(const char* cls, JsonObject p) {
     int i = findEffect(p["effect"]);
     if (i >= 0 && i != fxIndex) { fxIndex = i; step = 0; }
   }
-  lastFrameMs = 0;   // draw the change now
+  publishState();    // tell HA first (the library sends the ack for us)...
+  lastFrameMs = 0;   // ...then draw the change now
   serviceLeds();
-  publishState();    // the library sends the ack for us
   saveSoon();
 }
 

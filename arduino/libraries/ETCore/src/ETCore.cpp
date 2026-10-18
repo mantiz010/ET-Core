@@ -119,6 +119,18 @@ void ETCore::loop() {
   if (len <= 0) return;
   buf[len] = 0;
 
+  // Nearly every packet a device gets is an encrypted command in the hub's fixed
+  // layout: pick its fields straight out of the text (~40 us) instead of a full
+  // JSON parse (~750 us on an ESP32). Anything else takes the general path below.
+  if (_cryptoEnabled) {
+    const char *cls, *n64, *c64, *t64;
+    uint32_t seq;
+    if (_scanCmd(buf, len, &cls, &seq, &n64, &c64, &t64)) {
+      _runCmd(cls, seq, n64, c64, t64, JsonObject());
+      return;
+    }
+  }
+
   JsonDocument doc;
   DeserializationError err = deserializeJson(doc, (const char*)buf, (size_t)len);
   if (err) return;
@@ -134,18 +146,30 @@ void ETCore::loop() {
 
   if (strcmp(type, "cmd") != 0) return;
 
+  JsonObject wrapper = doc["payload"].as<JsonObject>();
+  if (_cryptoEnabled) {
+    if (wrapper["_enc"].as<int>() != 1) return;
+    _runCmd(doc["class"] | "", doc["seq"].as<uint32_t>(), wrapper["n"] | "", wrapper["ct"] | "",
+            wrapper["tag"] | "", JsonObject());
+  } else {
+    _runCmd(doc["class"] | "", doc["seq"].as<uint32_t>(), nullptr, nullptr, nullptr, wrapper);
+  }
+}
+
+// One command, from either receive path. With a key, n64/c64/t64 are the
+// encrypted payload; without one, plain is the payload as sent.
+void ETCore::_runCmd(const char* cls, uint32_t seq, const char* n64, const char* c64,
+                     const char* t64, JsonObject plain) {
   if (_cmdHandler) {
     // seq is bound into the encryption (see _aad), so it cannot be rewritten.
-    uint32_t seq = doc["seq"].as<uint32_t>();
     if (seq == 0) return;
     // Old seq without encryption: nothing to authenticate, just drop it.
     if (!_cryptoEnabled && seq <= _lastCmdSeq) return;
 
-    JsonObject payload = doc["payload"].as<JsonObject>();
+    JsonObject payload = plain;
     JsonDocument plainDoc;
     if (_cryptoEnabled) {
-      if (payload["_enc"].as<int>() != 1) return;
-      if (!_decryptPayload("cmd", seq, payload, plainDoc)) return;
+      if (!_decryptB64("cmd", seq, n64, c64, t64, plainDoc)) return;
       payload = plainDoc.as<JsonObject>();
       // The hub addresses each command to this boot's session (see hub _ds).
       char ds[15];
@@ -179,7 +203,7 @@ void ETCore::loop() {
     snprintf(_curCmd, sizeof(_curCmd), "%s", cmd_id);
     _curAcked = false;
     _curOk = true;
-    _cmdHandler(doc["class"] | "", payload);
+    _cmdHandler(cls, payload);
     // The sketch may call sendAck(cmd_id, false) itself; otherwise ack as handled.
     if (_curCmd[0] && !_curAcked) sendAck(_curCmd, true);
     if (_curCmd[0]) {
@@ -189,6 +213,80 @@ void ETCore::loop() {
     }
     _curCmd[0] = 0;
   }
+}
+
+// ---- fast command scan -------------------------------------------------------
+// The hub writes commands as compact JSON in a fixed order:
+//   {"v":1,"type":"cmd","id":"..","class":"..","seq":N,"payload":{"_enc":1,
+//    "alg":"C20P1305","n":"..","ct":"..","tag":".."}}
+// Finds each field's value; fails (-> full JSON parse) on anything unexpected,
+// e.g. an escaped character. Nothing is trusted from it: seq, type and id are
+// bound into the authentication tag, so a doctored packet just fails to decrypt.
+static const char* _jkey(const char* s, const char* end, const char* key) {
+  const size_t kl = strlen(key);
+  for (const char* p = s + 1; p + kl + 3 <= end; p++) {  // a key always follows '{' or ','
+    if (p[0] == '"' && (p[-1] == '{' || p[-1] == ',') && memcmp(p + 1, key, kl) == 0 &&
+        p[kl + 1] == '"' && p[kl + 2] == ':') {
+      return p + kl + 3;
+    }
+  }
+  return nullptr;
+}
+// A string value: returns its start and sets *vend at the closing quote.
+static const char* _jstr(const char* s, const char* end, const char* key, const char** vend) {
+  const char* v = _jkey(s, end, key);
+  if (!v || v >= end || *v != '"') return nullptr;
+  v++;
+  const char* q = v;
+  while (q < end && *q != '"') {
+    if (*q == '\\' || (uint8_t)*q < 0x20) return nullptr;
+    q++;
+  }
+  if (q >= end) return nullptr;
+  *vend = q;
+  return v;
+}
+
+bool ETCore::_scanCmd(char* buf, int len, const char** cls, uint32_t* seq, const char** n64,
+                      const char** c64, const char** t64) {
+  static const char kHead[] = "{\"v\":1,\"type\":\"cmd\",";
+  const char* end = buf + len;
+  if (len < (int)sizeof(kHead) || memcmp(buf, kHead, sizeof(kHead) - 1) != 0) return false;
+  // One pass: each field is looked for after the previous one (the hub's order).
+  const char *ce, *ne, *cte, *te;
+  const char* c = _jstr(buf, end, "class", &ce);
+  if (!c) return false;
+  const char* sv = _jkey(ce, end, "seq");
+  if (!sv) return false;
+  uint32_t s = 0;
+  const char* d = sv;
+  while (d < end && *d >= '0' && *d <= '9') {
+    if (s > 429496729u) return false;
+    s = s * 10 + (uint32_t)(*d - '0');
+    d++;
+  }
+  if (d == sv || d >= end || *d != ',') return false;
+  const char* pay = _jkey(d, end, "payload");
+  if (!pay || *pay != '{') return false;
+  const char* enc = _jkey(pay, end, "_enc");
+  if (!enc || end - enc < 2 || enc[0] != '1' || enc[1] != ',') return false;
+  const char* n = _jstr(enc, end, "n", &ne);
+  if (!n) return false;
+  const char* ct = _jstr(ne, end, "ct", &cte);
+  if (!ct) return false;
+  const char* t = _jstr(cte, end, "tag", &te);
+  if (!t) return false;
+  // All found: cut the values out in place.
+  buf[ce - buf] = 0;
+  buf[ne - buf] = 0;
+  buf[cte - buf] = 0;
+  buf[te - buf] = 0;
+  *cls = c;
+  *seq = s;
+  *n64 = n;
+  *c64 = ct;
+  *t64 = t;
+  return true;
 }
 
 // The hub announces itself: multicast at start and every 30 s (site key), and
@@ -242,13 +340,18 @@ void ETCore::_handleAnnounce(JsonDocument& doc, uint32_t now) {
 }
 
 void ETCore::_sendEnvelope(const char* type, JsonObject payload, bool multicast_fallback) {
+  ++_seq;
+  IPAddress target = _hubKnown ? _hubIp : _mcast;
+  if (!_hubKnown && !multicast_fallback) return;
+  if (_cryptoEnabled && _sendEncryptedFast(type, payload, target)) return;
+
   JsonDocument doc;
   doc["v"] = 1;
   doc["type"] = type;
   doc["id"] = _id ? _id : "";
   doc["class"] = _class ? _class : "";
   doc["boot"] = _boot;
-  doc["seq"] = ++_seq;
+  doc["seq"] = _seq;
 
   JsonObject out = doc["payload"].to<JsonObject>();
   if (_cryptoEnabled) {
@@ -259,12 +362,39 @@ void ETCore::_sendEnvelope(const char* type, JsonObject payload, bool multicast_
     }
   }
 
-  IPAddress target = _hubKnown ? _hubIp : _mcast;
-  if (!_hubKnown && !multicast_fallback) return;
-
   _udp.beginPacket(target, _port);
   serializeJson(doc, _udp);
   _udp.endPacket();
+}
+
+static bool _jsonSafe(const char* s) {
+  for (; *s; s++) {
+    if (*s == '"' || *s == '\\' || (uint8_t)*s < 0x20) return false;
+  }
+  return true;
+}
+
+// The encrypted envelope written straight into one buffer: the same JSON the
+// ArduinoJson path produces, ~1 ms faster per message on an ESP32. Falls back
+// (returns false) if id/class need escaping. Uses _seq already incremented.
+bool ETCore::_sendEncryptedFast(const char* type, JsonObject payload, IPAddress target) {
+  const char* id = _id ? _id : "";
+  const char* cls = _class ? _class : "";
+  if (!_jsonSafe(type) || !_jsonSafe(id) || !_jsonSafe(cls) || !_jsonSafe(_boot)) return false;
+  char n64[24], t64[28];
+  const char* c64;
+  if (!_encryptB64(type, _seq, payload, n64, &c64, t64)) return true;  // logged; nothing to send
+  static char pkt[ETCORE_MAX_PLAIN * 4 / 3 + 320];
+  const int n = snprintf(pkt, sizeof(pkt),
+                         "{\"v\":1,\"type\":\"%s\",\"id\":\"%s\",\"class\":\"%s\",\"boot\":\"%s\","
+                         "\"seq\":%lu,\"payload\":{\"_enc\":1,\"alg\":\"C20P1305\",\"n\":\"%s\","
+                         "\"ct\":\"%s\",\"tag\":\"%s\"}}",
+                         type, id, cls, _boot, (unsigned long)_seq, n64, c64, t64);
+  if (n <= 0 || n >= (int)sizeof(pkt)) return false;
+  _udp.beginPacket(target, _port);
+  _udp.write((const uint8_t*)pkt, (size_t)n);
+  _udp.endPacket();
+  return true;
 }
 
 void ETCore::sendHello() {
@@ -444,20 +574,63 @@ void ETCore::_makeNonce(uint8_t direction, uint32_t seq, uint8_t nonce[12]) {
   nonce[11] = (uint8_t)(seq >> 24);
 }
 
+static const char kB64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
 bool ETCore::_b64encode(const uint8_t* in, size_t in_len, char* out, size_t out_len) {
-  size_t olen = 0;
-  int rc = mbedtls_base64_encode((uint8_t*)out, out_len, &olen, in, in_len);
-  if (rc != 0 || olen >= out_len) return false;
-  out[olen] = '\0';
+  const size_t need = (in_len + 2) / 3 * 4;
+  if (!out || need >= out_len) return false;
+  char* o = out;
+  size_t i = 0;
+  for (; i + 3 <= in_len; i += 3) {
+    const uint32_t v = ((uint32_t)in[i] << 16) | ((uint32_t)in[i + 1] << 8) | in[i + 2];
+    *o++ = kB64[v >> 18];
+    *o++ = kB64[(v >> 12) & 63];
+    *o++ = kB64[(v >> 6) & 63];
+    *o++ = kB64[v & 63];
+  }
+  if (i < in_len) {
+    uint32_t v = (uint32_t)in[i] << 16;
+    if (i + 1 < in_len) v |= (uint32_t)in[i + 1] << 8;
+    *o++ = kB64[v >> 18];
+    *o++ = kB64[(v >> 12) & 63];
+    *o++ = (i + 1 < in_len) ? kB64[(v >> 6) & 63] : '=';
+    *o++ = '=';
+  }
+  *o = '\0';
   return true;
 }
 
+static inline int _b64val(char ch) {
+  if (ch >= 'A' && ch <= 'Z') return ch - 'A';
+  if (ch >= 'a' && ch <= 'z') return ch - 'a' + 26;
+  if (ch >= '0' && ch <= '9') return ch - '0' + 52;
+  if (ch == '+') return 62;
+  if (ch == '/') return 63;
+  return -1;
+}
+
+// Strict: whole groups of 4, padding only at the end.
 bool ETCore::_b64decode(const char* in, uint8_t* out, size_t out_len, size_t* written) {
   if (!in || !out || !written) return false;
-  size_t olen = 0;
-  int rc = mbedtls_base64_decode(out, out_len, &olen, (const uint8_t*)in, strlen(in));
-  if (rc != 0) return false;
-  *written = olen;
+  const size_t n = strlen(in);
+  if (n % 4) return false;
+  size_t o = 0;
+  for (size_t i = 0; i < n; i += 4) {
+    const bool last = (i + 4 == n);
+    const int a = _b64val(in[i]), b = _b64val(in[i + 1]);
+    if (a < 0 || b < 0) return false;
+    const bool p2 = last && in[i + 2] == '=', p3 = last && in[i + 3] == '=';
+    if (p2 && !p3) return false;
+    const int c = p2 ? 0 : _b64val(in[i + 2]), d = p3 ? 0 : _b64val(in[i + 3]);
+    if (c < 0 || d < 0) return false;
+    const uint32_t v = ((uint32_t)a << 18) | ((uint32_t)b << 12) | ((uint32_t)c << 6) | (uint32_t)d;
+    const size_t k = p2 ? 1 : (p3 ? 2 : 3);
+    if (o + k > out_len) return false;
+    out[o++] = (uint8_t)(v >> 16);
+    if (k > 1) out[o++] = (uint8_t)(v >> 8);
+    if (k > 2) out[o++] = (uint8_t)v;
+  }
+  *written = o;
   return true;
 }
 
@@ -471,6 +644,21 @@ size_t ETCore::_aad(const char* type, uint32_t seq, char* out, size_t out_len, c
 }
 
 bool ETCore::_encryptPayload(const char* type, uint32_t seq, JsonObject plain, JsonObject out) {
+  char n64[24], t64[28];
+  const char* c64;
+  if (!_encryptB64(type, seq, plain, n64, &c64, t64)) return false;
+  out["_enc"] = 1;
+  out["alg"] = "C20P1305";
+  out["n"] = n64;
+  out["ct"] = c64;
+  out["tag"] = t64;
+  return true;
+}
+
+// Encrypts plain; n64/t64 get the nonce and tag, *c64 points at the ciphertext
+// (a static buffer, valid until the next call).
+bool ETCore::_encryptB64(const char* type, uint32_t seq, JsonObject plain, char n64[24],
+                         const char** c64_out, char t64[28]) {
   // Static: too big for the loop task's stack. Sends all happen from loop().
   // A hello with a long effect list is ~800 bytes; the packet then goes out as
   // IP fragments, which the hub reassembles.
@@ -494,27 +682,25 @@ bool ETCore::_encryptPayload(const char* type, uint32_t seq, JsonObject plain, J
     return false;
   }
 
-  char n64[32];
-  char t64[32];
-  if (!_b64encode(nonce, sizeof(nonce), n64, sizeof(n64))) return false;
+  if (!_b64encode(nonce, sizeof(nonce), n64, 24)) return false;
   if (!_b64encode(ct, pt_len, c64, sizeof(c64))) return false;
-  if (!_b64encode(tag, sizeof(tag), t64, sizeof(t64))) return false;
-
-  out["_enc"] = 1;
-  out["alg"] = "C20P1305";
-  out["n"] = n64;
-  out["ct"] = c64;
-  out["tag"] = t64;
+  if (!_b64encode(tag, sizeof(tag), t64, 28)) return false;
+  *c64_out = c64;
   return true;
 }
 
 bool ETCore::_decryptPayload(const char* type, uint32_t seq, JsonObject wrapper, JsonDocument& out,
                              const uint8_t* key, uint8_t direction, const char* aad_id) {
-  if (!key) key = _key;
   if (wrapper["_enc"].as<int>() != 1) return false;
-  const char* n64 = wrapper["n"] | "";
-  const char* c64 = wrapper["ct"] | "";
-  const char* t64 = wrapper["tag"] | "";
+  return _decryptB64(type, seq, wrapper["n"] | "", wrapper["ct"] | "", wrapper["tag"] | "", out, key,
+                     direction, aad_id);
+}
+
+bool ETCore::_decryptB64(const char* type, uint32_t seq, const char* n64, const char* c64,
+                         const char* t64, JsonDocument& out, const uint8_t* key, uint8_t direction,
+                         const char* aad_id) {
+  if (!key) key = _key;
+  if (!n64 || !c64 || !t64) return false;
 
   uint8_t nonce[12];
   uint8_t ct[768];
