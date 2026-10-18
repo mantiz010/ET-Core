@@ -78,14 +78,17 @@ class EtCoreLight(LightEntity):
     # __init__.py keeps in step with the device's hello.
     _attr_has_entity_name = True
     _attr_name = None
-    _attr_supported_color_modes = {ColorMode.RGB}
-    _attr_color_mode = ColorMode.RGB
 
     def __init__(self, hub: EtCoreHub, dev_id: str, dev_class: str, info: dict[str, Any]):
         self._hub = hub
         self._dev_id = dev_id
         self._dev_class = dev_class
         self._attr_unique_id = f"etcore_{dev_id}_light"
+        # light.dimmer / light.white: one channel, brightness only. Anything else
+        # (light.rgb, ET-Bus's class) gets the colour picker.
+        mode = ColorMode.BRIGHTNESS if dev_class in ("light.dimmer", "light.white") else ColorMode.RGB
+        self._attr_supported_color_modes = {mode}
+        self._attr_color_mode = mode
         self._attr_is_on = False
         self._attr_brightness = 255
         self._attr_rgb_color = (255, 255, 255)
@@ -155,7 +158,7 @@ class EtCoreLight(LightEntity):
         payload: dict[str, Any] = {"on": True}
         if ATTR_BRIGHTNESS in kwargs:
             payload["brightness"] = int(kwargs[ATTR_BRIGHTNESS])
-        if ATTR_RGB_COLOR in kwargs:
+        if ATTR_RGB_COLOR in kwargs and self._attr_color_mode == ColorMode.RGB:
             r, g, b = kwargs[ATTR_RGB_COLOR]
             payload.update({"r": int(r), "g": int(g), "b": int(b)})
         if ATTR_EFFECT in kwargs:

@@ -533,7 +533,7 @@
     info: "M13 9h-2V7h2m0 10h-2v-6h2m-1-9A10 10 0 002 12a10 10 0 0010 10 10 10 0 0010-10A10 10 0 0012 2z",
   };
   const svg = (k) => `<svg viewBox="0 0 24 24"><path d="${P[k] || P.other}"/></svg>`;
-  const kindOf = (cls) => { const k = String(cls || "").split(".")[0]; return ["switch", "light", "fan", "sensor"].includes(k) ? k : "other"; };
+  const kindOf = (cls) => { let k = String(cls || "").split(".")[0]; if (k === "binary_sensor") k = "sensor"; return ["switch", "light", "fan", "sensor"].includes(k) ? k : "other"; };
   const icon = (cls) => svg(kindOf(cls));
   function dur(sec) {
     if (sec == null || isNaN(sec)) return "—";
@@ -856,7 +856,7 @@
   function cardKey(d) {
     return [d.class, entitiesOf(d).map(e => {
       const a = (e.st && e.st.attributes) || {};
-      return [e.entity_id, (a.effect_list || []).length, (a.preset_modes || []).join(","), a.unit_of_measurement || ""].join(":");
+      return [e.entity_id, (a.effect_list || []).length, (a.preset_modes || []).join(","), a.unit_of_measurement || "", (a.supported_color_modes || []).join(",")].join(":");
     }).join("|")].join("#");
   }
   function renderCards(list) {
@@ -914,7 +914,7 @@
         const effects = a.effect_list || [];
         parts.push(`<div class="ctl">
           <div class="ctl-row"><span class="ctl-name">${label}</span>
-            <input type="color" class="color" data-eid="${eid}" data-act="rgb" aria-label="Colour">
+            ${(a.supported_color_modes || ["rgb"]).includes("rgb") ? `<input type="color" class="color" data-eid="${eid}" data-act="rgb" aria-label="Colour">` : ""}
             <button class="toggle" data-eid="${eid}" data-act="toggle" aria-label="Toggle ${label}"></button></div>
           <div class="ctl-row"><span class="muted">Brightness</span><span class="spacer"></span><span class="ctl-val" data-v="bri" data-eid="${eid}"></span></div>
           <input type="range" min="1" max="255" data-eid="${eid}" data-act="bri" aria-label="Brightness">
@@ -975,9 +975,13 @@
       else if (el.dataset.v === "bri") el.textContent = st && st.state === "on" && a.brightness ? `${Math.round(a.brightness / 2.55)}%` : "—";
       else if (el.dataset.v === "pct") el.textContent = st && st.state === "on" ? (a.preset_mode || (a.percentage != null ? `${a.percentage}%` : "on")) : "off";
       else if (el.dataset.v === "num") el.textContent = st ? st.state : "—";
-      else if (el.dataset.v === "sensor") el.textContent = unavailable ? "—" : `${st.state}${a.unit_of_measurement ? " " + a.unit_of_measurement : ""}`;
+      else if (el.dataset.v === "sensor") el.textContent = unavailable ? "—" : el.dataset.eid.startsWith("binary_sensor.") ? binText(st.state, a.device_class) : `${st.state}${a.unit_of_measurement ? " " + a.unit_of_measurement : ""}`;
     });
   }
+  const BIN = { motion: ["Motion", "Clear"], occupancy: ["Occupied", "Clear"], presence: ["Home", "Away"], door: ["Open", "Closed"],
+    window: ["Open", "Closed"], garage_door: ["Open", "Closed"], opening: ["Open", "Closed"], moisture: ["Wet", "Dry"],
+    smoke: ["Smoke!", "Clear"], gas: ["Gas!", "Clear"], vibration: ["Vibration", "Still"], problem: ["Problem", "OK"] };
+  const binText = (state, dc) => state === "unknown" ? "—" : ((BIN[dc] || ["On", "Off"])[state === "on" ? 0 : 1]);
   // Controls -> HA services (same path as HA dashboards, so automations see it too).
   async function act(el) {
     const eid = el.dataset.eid, dom = eid.split(".")[0], a = el.dataset.act;
@@ -1029,7 +1033,7 @@
       $("tbody").innerHTML = list.map(d => {
         const s = signal(d.rssi);
         const ctl = entitiesOf(d).filter(e => ["switch", "light", "fan"].includes(e.entity_id.split(".")[0]));
-        const sensor = !ctl.length && entitiesOf(d).find(e => e.entity_id.startsWith("sensor."));
+        const sensor = !ctl.length && entitiesOf(d).find(e => /^(binary_)?sensor\./.test(e.entity_id));
         return `<tr class="clickable ${d.online ? "" : "off"}" data-id="${esc(d.id)}">
           <td data-act="open"><div class="devcell"><div class="icon">${icon(d.class)}</div><div><div class="name">${esc(devName(d))}</div><div class="sub mono">${esc(d.id)}</div></div></div></td>
           <td data-act="open"><span class="pill ${d.online ? "online" : "offline"}">${d.online ? "Online" : "Offline"}</span></td>

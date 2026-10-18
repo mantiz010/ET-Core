@@ -13,7 +13,7 @@ from .const import DOMAIN
 from .hub import EtCoreHub
 from .panel import async_setup_panel, async_unload_panel
 
-PLATFORMS: list[str] = ["switch", "light", "number", "fan", "sensor"]
+PLATFORMS: list[str] = ["switch", "light", "number", "fan", "sensor", "binary_sensor"]
 
 
 class _CmdSeqStore:

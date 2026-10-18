@@ -35,6 +35,18 @@ static void publish() {
     core.sendFanPreset(g_on, g_preset);
   } else if (g_rich && strcmp(g_class, "switch.multi") == 0) {
     core.sendSwitchesState(g_sw, 3);
+  } else if (g_rich && strcmp(g_class, "light.dimmer") == 0) {
+    JsonDocument d;
+    JsonObject p = d.to<JsonObject>();
+    p["on"] = g_on;
+    p["brightness"] = g_bri;
+    core.sendState(p);
+  } else if (g_rich && strcmp(g_class, "sensor.tank") == 0) {
+    JsonDocument d;
+    JsonObject p = d.to<JsonObject>();
+    p["distance"] = 42.5;
+    p["level"] = 73;
+    core.sendState(p);
   } else if (g_rich && is("sensor.")) {
     core.sendValue(g_value, strstr(g_class, "humid") ? "%" : "°C");
   } else {

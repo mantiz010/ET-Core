@@ -25,6 +25,13 @@ _KNOWN: dict[str, tuple[str, SensorDeviceClass | None, str | None]] = {
     "current": ("Current", SensorDeviceClass.CURRENT, "A"),
     "power": ("Power", SensorDeviceClass.POWER, "W"),
     "battery": ("Battery", SensorDeviceClass.BATTERY, "%"),
+    "distance": ("Distance", SensorDeviceClass.DISTANCE, "cm"),
+    "moisture": ("Moisture", SensorDeviceClass.MOISTURE, "%"),
+    "level": ("Level", None, "%"),
+    "energy": ("Energy", SensorDeviceClass.ENERGY, "kWh"),
+    "rssi": ("Signal", SensorDeviceClass.SIGNAL_STRENGTH, "dBm"),
+    "voc": ("VOC index", None, None),
+    "gas": ("Gas resistance", None, "kΩ"),
 }
 # Other spellings devices use (ET-Bus normalises "temperature" to "temp").
 _ALIASES = {"temperature": "temp", "rh": "humidity", "pm2_5": "pm25", "illuminance": "lux"}
@@ -124,6 +131,8 @@ class EtCoreSensor(SensorEntity):
         self._attr_native_value = value
         # Numbers are measurements (history graphs, statistics); text is not.
         if isinstance(value, (int, float)) and not isinstance(value, bool):
-            self._attr_state_class = SensorStateClass.MEASUREMENT
+            # An energy meter only counts up; HA's Energy dashboard needs that.
+            self._attr_state_class = (SensorStateClass.TOTAL_INCREASING if self._metric == "energy"
+                                      else SensorStateClass.MEASUREMENT)
         if self.hass is not None:  # not yet added: HA writes it when it is
             self.async_write_ha_state()
