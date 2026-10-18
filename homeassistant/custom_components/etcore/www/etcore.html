@@ -357,12 +357,11 @@
 
   // ---- Home Assistant connection -------------------------------------------
   // The page runs in HA's sidebar iframe (same origin). Use the logged-in user's
-  // HA frontend object for the token, entity states and service calls.
+  // HA frontend object (its websocket, entity states and service calls): no token copying.
   function haRoot() {
     try { return window.parent.document.querySelector("home-assistant"); } catch (e) { return null; }
   }
   function hass() { const r = haRoot(); return r && r.hass ? r.hass : null; }
-  function token() { const h = hass(); return h && h.auth && h.auth.data ? h.auth.data.access_token : null; }
   function haNavigate(path) {
     try {
       window.parent.history.pushState(null, "", path);
@@ -430,11 +429,9 @@
   // ---- Polling ---------------------------------------------------------------
   let failures = 0;
   async function poll() {
-    const t = token();
-    const url = `/etcore/api/diag?since=${S.eventN}`;
-    const res = await fetch(url, { cache: "no-store", headers: t ? { Authorization: `Bearer ${t}` } : {} });
-    if (!res.ok) throw new Error(res.status === 401 ? "not logged in (open this page from the HA sidebar)" : `HTTP ${res.status}`);
-    const data = await res.json();
+    const h = hass();
+    if (!h || !h.connection) throw new Error("open this page from the Home Assistant sidebar");
+    const data = await h.connection.sendMessagePromise({ type: "etcore/diag", since: S.eventN });
     const hub = data.hubs && data.hubs[0];
     if (!hub) throw new Error("ET-Core is not set up in Home Assistant");
     // A reloaded hub starts its numbering again.
