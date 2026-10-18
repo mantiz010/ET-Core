@@ -77,6 +77,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
+def _dev_id_of(device_entry: dr.DeviceEntry) -> str | None:
+    for domain, ident in device_entry.identifiers:
+        if domain == DOMAIN:
+            return str(ident)
+    return None
+
+
+async def async_remove_config_entry_device(hass: HomeAssistant, entry: ConfigEntry, device_entry: dr.DeviceEntry) -> bool:
+    """HA's "Delete device". Only while the device is offline: an online one would
+    be back within seconds."""
+    hub: EtCoreHub | None = (hass.data.get(DOMAIN) or {}).get(entry.entry_id)
+    dev_id = _dev_id_of(device_entry)
+    if hub is None or dev_id is None:
+        return True
+    if (hub.devices.get(dev_id) or {}).get("online"):
+        return False
+    hub.forget_device(dev_id)
+    return True
+
+
 async def _async_options_changed(hass: HomeAssistant, entry: ConfigEntry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
 

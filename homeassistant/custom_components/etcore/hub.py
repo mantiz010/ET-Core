@@ -96,7 +96,9 @@ class EtCoreHub:
         self._message_listeners: list[Callable[[dict[str, Any]], None]] = []
         self._status_listeners: list[Callable[[dict[str, Any]], None]] = []
         self._events: list[dict[str, Any]] = []
-        self._event_n = 0  # running number, so the panel can ask for "events since n"
+        self._event_n = 0
+        self._bad_sources: dict[str, dict[str, Any]] = {}
+        self._removed_listeners: list[Callable[[str], None]] = []  # running number, so the panel can ask for "events since n"
         self._rx_count = 0
         self._decrypt_fail_count = 0
         self._replay_count = 0
@@ -110,6 +112,14 @@ class EtCoreHub:
         # Object with async_load() -> int and async_save(int); see __init__.py.
         self._counter_store = counter_store
         self._seq_reserved = 0
+
+    @property
+    def port(self) -> int:
+        return self._port
+
+    @property
+    def psk_hex(self) -> str:
+        return self._psk.hex() if self._psk else ""
 
     @property
     def devices(self) -> dict[str, dict[str, Any]]:
@@ -127,6 +137,25 @@ class EtCoreHub:
             self.hass.add_job(cb, {**base, "type": "hello", "payload": dict(dev.get("hello") or {"name": dev["name"]})})
             if isinstance(dev.get("state"), dict):
                 self.hass.add_job(cb, {**base, "type": "state", "payload": dict(dev["state"])})
+
+    def register_removed_listener(self, cb: Callable[[str], None]) -> None:
+        self._removed_listeners.append(cb)
+
+    def forget_device(self, dev_id: str) -> bool:
+        """Drop a device (removed in HA). If it is still out there it comes back
+        as new with its next packet, and the platforms create fresh entities."""
+        if dev_id not in self._devices:
+            return False
+        self._devices.pop(dev_id)
+        for cmd_id, pend in list(self._pending.items()):
+            if pend["dev_id"] == dev_id:
+                if pend["timer"]:
+                    pend["timer"].cancel()
+                self._pending.pop(cmd_id, None)
+        self._add_event({"dir": "hub", "type": "removed", "id": dev_id})
+        for cb in list(self._removed_listeners):
+            cb(dev_id)
+        return True
 
     def register_status_listener(self, cb: Callable[[dict[str, Any]], None]) -> None:
         self._status_listeners.append(cb)
@@ -248,6 +277,7 @@ class EtCoreHub:
                                        "ET-Core %s sent %s without encryption (no key on the device?); ignored",
                                        dev_id, msg.get("type"))
                 self._decrypt_fail_count += 1
+                self._note_bad_source(msg, "no_encryption")
                 return False
             return True
         dev_id = str(msg.get("id") or "")
@@ -255,6 +285,7 @@ class EtCoreHub:
         if not key or ChaCha20Poly1305 is None:
             self._warn_limited(f"nokey:{dev_id}", "ET-Core encrypted payload from %s ignored: crypto not configured", dev_id)
             self._decrypt_fail_count += 1
+            self._note_bad_source(msg, "hub_has_no_key")
             return False
         try:
             nonce = base64.b64decode(str(payload.get("n") or ""), validate=True)
@@ -285,8 +316,25 @@ class EtCoreHub:
             return True
         except Exception as exc:
             self._decrypt_fail_count += 1
+            self._note_bad_source(msg, "wrong_key")
             self._warn_limited(f"dec:{dev_id}", "ET-Core decrypt failed for %s (wrong key?): %s", dev_id, exc.__class__.__name__)
             return False
+
+    def _note_bad_source(self, msg: dict[str, Any], why: str) -> None:
+        """Remember which address sends packets we cannot accept, so the panel can
+        say "172.168.1.50 (relay7) has the wrong key" instead of a bare counter."""
+        ip = str(msg.get("_src_ip") or "?")
+        now = time.time()
+        src = self._bad_sources.get(ip)
+        if src is None:
+            if len(self._bad_sources) >= 64:  # keep the 64 most recent
+                oldest = min(self._bad_sources, key=lambda k: self._bad_sources[k]["last"])
+                self._bad_sources.pop(oldest)
+            src = self._bad_sources[ip] = {"ip": ip, "count": 0, "first": now}
+        src["count"] += 1
+        src["last"] = now
+        src["id"] = str(msg.get("id") or "")
+        src["why"] = why
 
     def _session_proven(self, dev: dict[str, Any], session: str, payload: dict[str, Any], ip: Any) -> bool:
         """A session this hub has not seen yet must prove it is live, not recorded.
@@ -517,6 +565,10 @@ class EtCoreHub:
 
     def _fire_status(self, dev_id: str, reason: str) -> None:
         dev = self._devices.get(dev_id) or {}
+        # Recent online/offline changes, for "this device keeps dropping out".
+        changes = dev.setdefault("status_changes", [])
+        changes.append(time.time())
+        del changes[:-30]
         status = {
             "id": dev_id,
             "online": bool(dev.get("online", False)),
@@ -571,6 +623,8 @@ class EtCoreHub:
             stats = dict(dev.get("stats") or _new_stats())
             stats["ack_ms_avg"] = round(stats["ack_ms_sum"] / stats["acked"], 1) if stats["acked"] else None
             item["stats"] = stats
+            item["changes_10min"] = sum(1 for t in dev.get("status_changes") or [] if now - t < 600)
+            item.pop("status_changes", None)
             devices.append(item)
         devices.sort(key=lambda d: str(d.get("id") or ""))
         return {
@@ -587,6 +641,7 @@ class EtCoreHub:
             "events": (list(reversed(self._events[-50:])) if since is None
                        else [e for e in self._events if e["n"] > since]),
             "event_n": self._event_n,
+            "bad_sources": sorted(self._bad_sources.values(), key=lambda x: -x["last"]),
             "hub_session": self._hub_session.hex(),
             "port": self._port,
         }

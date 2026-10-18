@@ -63,6 +63,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     hub.register_listener(handle_message)
     hub.register_status_listener(handle_status)
 
+    @callback
+    def handle_removed(dev_id: str) -> None:
+        # Device removed in HA: forget our entities so they are created again if it returns.
+        for key in [k for k in entities if (k[0] if isinstance(k, tuple) else k) == dev_id]:
+            entities.pop(key)
+
+    hub.register_removed_listener(handle_removed)
+
 
 class EtCoreLight(LightEntity):
     _attr_should_poll = False

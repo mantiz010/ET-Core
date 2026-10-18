@@ -13,7 +13,7 @@ from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
-from .const import DOMAIN
+from .const import DOMAIN, MULTICAST_GROUP
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,30 +22,45 @@ VIEW_URL = f"/{DOMAIN}/etcore.html"
 DIAG_URL = f"/{DOMAIN}/api/diag"
 PANEL_TITLE = "ET-Core"
 PANEL_ICON = "mdi:lan-connect"
+HTML_FILE = Path(__file__).parent / "www" / "etcore.html"
 
-_HTML_CACHE: str | None = None
+_html: tuple[float, str] | None = None  # (mtime, text)
 
 
 def _dumps(data) -> str:
     return json.dumps(data, default=str)
 
 
+def _read_html() -> str:
+    """The page, re-read when the file changes (no HA restart to update the panel)."""
+    global _html
+    try:
+        mtime = HTML_FILE.stat().st_mtime
+        if _html is None or _html[0] != mtime:
+            _html = (mtime, HTML_FILE.read_text(encoding="utf-8"))
+        return _html[1]
+    except OSError as exc:
+        _LOGGER.error("ET-Core UI file read failed: %s", exc)
+        return "<!doctype html><html><body><h2>ET-Core UI missing</h2></body></html>"
+
+
 class EtCoreHtmlView(HomeAssistantView):
     # The sidebar loads this page in an iframe, which cannot send the auth header.
-    # It is a fixed page with no data in it; it reads the logged-in user's token
-    # from the HA frontend and calls the diagnostics API, which needs auth.
+    # It is a fixed page with no data in it; everything it shows comes over the
+    # logged-in user's own HA websocket.
     url = VIEW_URL
     name = "etcore:html"
     requires_auth = False
 
     async def get(self, request: web.Request) -> web.Response:
-        global _HTML_CACHE
-        if _HTML_CACHE is None:
-            return web.Response(text="ET-Core UI not loaded", status=500, content_type="text/plain")
-        return web.Response(text=_HTML_CACHE, status=200, content_type="text/html")
+        hass: HomeAssistant = request.app["hass"]
+        text = await hass.async_add_executor_job(_read_html)
+        return web.Response(text=text, status=200, content_type="text/html",
+                            headers={"Cache-Control": "no-cache"})
 
 
 class EtCoreDiagApiView(HomeAssistantView):
+    """For tools and scripts (needs a token). The panel uses the websocket."""
     url = DIAG_URL
     name = "etcore:diag"
     requires_auth = True
@@ -58,20 +73,29 @@ class EtCoreDiagApiView(HomeAssistantView):
         return web.json_response(_diag(request.app["hass"], since), dumps=_dumps)
 
 
+def _hubs(hass: HomeAssistant) -> dict[str, Any]:
+    return dict(hass.data.get(DOMAIN) or {})
+
+
+def _ha_device(hass: HomeAssistant, dev_id: str) -> dr.DeviceEntry | None:
+    return dr.async_get(hass).async_get_device(identifiers={(DOMAIN, str(dev_id))})
+
+
 def _diag(hass: HomeAssistant, since: int | None) -> dict[str, Any]:
-    dev_reg = dr.async_get(hass)
     ent_reg = er.async_get(hass)
     hubs = []
-    for hub in (hass.data.get(DOMAIN) or {}).values():
+    for entry_id, hub in _hubs(hass).items():
         get_snapshot = getattr(hub, "get_diag_snapshot", None)
         if not callable(get_snapshot):
             continue
         snap = get_snapshot(since)
+        snap["entry_id"] = entry_id
         # Which HA entities belong to each device, so the page can show and
         # control them through the normal HA services.
         for dev in snap["devices"]:
-            device = dev_reg.async_get_device(identifiers={(DOMAIN, str(dev.get("id")))})
+            device = _ha_device(hass, dev.get("id"))
             dev["ha_device_id"] = device.id if device else None
+            dev["ha_name"] = device.name_by_user if device else None
             dev["entities"] = [
                 {"entity_id": e.entity_id, "name": e.name or e.original_name, "disabled": bool(e.disabled_by)}
                 for e in (er.async_entries_for_device(ent_reg, device.id) if device else [])
@@ -89,25 +113,70 @@ def _ws_diag(hass: HomeAssistant, connection: websocket_api.ActiveConnection, ms
     connection.send_result(msg["id"], _diag(hass, msg.get("since")))
 
 
+@websocket_api.websocket_command({
+    vol.Required("type"): "etcore/rename",
+    vol.Required("dev_id"): str,
+    vol.Required("name"): vol.All(str, vol.Length(max=64)),
+})
+@websocket_api.require_admin
+@callback
+def _ws_rename(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Rename in HA's device registry (name_by_user), like HA's own rename. Empty
+    name = back to the name the device reports."""
+    device = _ha_device(hass, msg["dev_id"])
+    if device is None:
+        connection.send_error(msg["id"], "not_found", "Home Assistant has no device for this id yet")
+        return
+    name = msg["name"].strip() or None
+    dr.async_get(hass).async_update_device(device.id, name_by_user=name)
+    connection.send_result(msg["id"], {"name": name})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "etcore/remove", vol.Required("dev_id"): str})
+@websocket_api.require_admin
+@callback
+def _ws_remove(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Remove a device that is gone for good (offline only: an online one would be
+    back with its next packet)."""
+    dev_id = msg["dev_id"]
+    for entry_id, hub in _hubs(hass).items():
+        info = hub.devices.get(dev_id)
+        if info is None:
+            continue
+        if info.get("online"):
+            connection.send_error(msg["id"], "online", "The device is online. Unplug it first, then remove it.")
+            return
+        hub.forget_device(dev_id)
+        device = _ha_device(hass, dev_id)
+        if device is not None:
+            dr.async_get(hass).async_update_device(device.id, remove_config_entry_id=entry_id)
+        connection.send_result(msg["id"], {"removed": dev_id})
+        return
+    connection.send_error(msg["id"], "not_found", "Unknown ET-Core device")
+
+
+@websocket_api.websocket_command({vol.Required("type"): "etcore/setup_info"})
+@websocket_api.require_admin
+@callback
+def _ws_setup_info(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """What a new device needs (the add-device guide). Admins only: it has the key."""
+    hub = next(iter(_hubs(hass).values()), None)
+    if hub is None:
+        connection.send_error(msg["id"], "not_set_up", "ET-Core is not set up")
+        return
+    connection.send_result(msg["id"], {
+        "port": hub.port,
+        "group": MULTICAST_GROUP,
+        "key": hub.psk_hex,
+    })
+
+
 async def async_setup_panel(hass: HomeAssistant) -> None:
-    global _HTML_CACHE
-
-    if _HTML_CACHE is None:
-        file_path = Path(__file__).parent / "www" / "etcore.html"
-
-        def _read_file() -> str:
-            return file_path.read_text(encoding="utf-8")
-
-        try:
-            _HTML_CACHE = await hass.async_add_executor_job(_read_file)
-        except Exception as exc:
-            _LOGGER.error("ET-Core UI file read failed: %s", exc)
-            _HTML_CACHE = "<!doctype html><html><body><h2>ET-Core UI missing</h2></body></html>"
-
     if not hass.data.get(f"{DOMAIN}_panel_loaded"):
         hass.http.register_view(EtCoreHtmlView)
         hass.http.register_view(EtCoreDiagApiView)
-        websocket_api.async_register_command(hass, _ws_diag)
+        for cmd in (_ws_diag, _ws_rename, _ws_remove, _ws_setup_info):
+            websocket_api.async_register_command(hass, cmd)
         hass.data[f"{DOMAIN}_panel_loaded"] = True
 
     async_register_built_in_panel(

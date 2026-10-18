@@ -6,231 +6,322 @@
   <title>ET-Core</title>
   <style>
     :root {
-      --bg: #f3f6f9;
+      --bg: #f4f6f8;
       --panel: #ffffff;
-      --panel2: #eef2f6;
-      --line: #d9e1ea;
-      --text: #14202c;
-      --muted: #607387;
-      --accent: #0b84d6;
-      --accent-soft: rgba(11, 132, 214, 0.12);
-      --good: #1a9c5b;
-      --good-soft: rgba(26, 156, 91, 0.12);
-      --bad: #d23c3c;
-      --bad-soft: rgba(210, 60, 60, 0.12);
-      --warn: #b7800c;
-      --warn-soft: rgba(183, 128, 12, 0.14);
-      --tx: #7a4fd6;
-      --shadow: 0 1px 2px rgba(20, 32, 44, 0.06), 0 2px 8px rgba(20, 32, 44, 0.04);
+      --panel2: #f0f3f6;
+      --hover: #f7f9fb;
+      --line: #e1e6ec;
+      --line2: #edf0f4;
+      --text: #111c27;
+      --text2: #3a4a5a;
+      --muted: #6b7c8d;
+      --accent: #0a7fd1;
+      --accent-2: #0668ad;
+      --accent-soft: rgba(10, 127, 209, 0.10);
+      --good: #16975a;
+      --good-soft: rgba(22, 151, 90, 0.11);
+      --bad: #d33a3a;
+      --bad-soft: rgba(211, 58, 58, 0.10);
+      --warn: #b97a06;
+      --warn-soft: rgba(214, 150, 20, 0.14);
+      --tx: #7448d2;
+      --tx-soft: rgba(116, 72, 210, 0.11);
+      --shadow: 0 1px 2px rgba(17, 28, 39, 0.05), 0 1px 1px rgba(17, 28, 39, 0.03);
+      --shadow-lg: 0 12px 32px rgba(17, 28, 39, 0.16), 0 2px 6px rgba(17, 28, 39, 0.08);
       --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --r: 12px;
     }
     :root[data-theme="dark"] {
-      --bg: #0b1219;
-      --panel: #121c26;
-      --panel2: #18242f;
-      --line: #263544;
-      --text: #e8f0f8;
-      --muted: #8a9db0;
-      --accent: #3aaef5;
-      --accent-soft: rgba(58, 174, 245, 0.14);
-      --good: #3ccf86;
-      --good-soft: rgba(60, 207, 134, 0.13);
+      --bg: #0d1318;
+      --panel: #151d24;
+      --panel2: #1b252e;
+      --hover: #1a232b;
+      --line: #26323d;
+      --line2: #1f2a33;
+      --text: #e9eff5;
+      --text2: #c3cfda;
+      --muted: #8b9aa8;
+      --accent: #3ea8f2;
+      --accent-2: #67bbf5;
+      --accent-soft: rgba(62, 168, 242, 0.13);
+      --good: #3fcf88;
+      --good-soft: rgba(63, 207, 136, 0.12);
       --bad: #ff6b6b;
-      --bad-soft: rgba(255, 107, 107, 0.13);
+      --bad-soft: rgba(255, 107, 107, 0.12);
       --warn: #f0bd45;
-      --warn-soft: rgba(240, 189, 69, 0.14);
-      --tx: #a98bff;
+      --warn-soft: rgba(240, 189, 69, 0.13);
+      --tx: #ab8cff;
+      --tx-soft: rgba(171, 140, 255, 0.13);
       --shadow: none;
+      --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; background: var(--bg); color: var(--text); }
-    body { font: 14px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    button, input, select { font: inherit; color: inherit; }
-    button {
-      border: 1px solid var(--line); background: var(--panel); border-radius: 8px;
-      padding: 7px 12px; cursor: pointer; white-space: nowrap;
-    }
-    button:hover { border-color: var(--accent); }
-    button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-    input[type=search], select {
-      border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 7px 10px; min-width: 0;
-    }
+    body { font: 14px/1.45 Roboto, system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+    button, input, select, textarea { font: inherit; color: inherit; }
+    svg { flex: none; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { font-family: var(--mono); font-size: 12px; }
     .mono { font-family: var(--mono); font-size: 12px; }
     .muted { color: var(--muted); }
+    .hidden { display: none !important; }
 
-    header {
-      position: sticky; top: 0; z-index: 5; background: var(--bg);
-      padding: 14px 20px 0; border-bottom: 1px solid var(--line);
+    /* Buttons & inputs */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px;
+      border: 1px solid var(--line); background: var(--panel); border-radius: 8px; cursor: pointer;
+      white-space: nowrap; font-weight: 500; color: var(--text2); transition: background .12s, border-color .12s;
     }
-    .top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-    .brand { display: flex; align-items: center; gap: 10px; }
-    .logo {
-      width: 34px; height: 34px; border-radius: 9px; background: var(--accent);
-      display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 13px; letter-spacing: -0.5px;
+    .btn:hover { background: var(--hover); border-color: var(--accent); }
+    .btn svg { width: 16px; height: 16px; fill: currentColor; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover { background: var(--accent-2); }
+    .btn.danger { color: var(--bad); }
+    .btn.danger:hover { border-color: var(--bad); background: var(--bad-soft); }
+    .btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+    .btn:disabled { opacity: .45; cursor: default; }
+    .field { height: 34px; border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 0 10px; min-width: 0; }
+    .field:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+    .search { position: relative; flex: 1 1 220px; max-width: 340px; }
+    .search svg { position: absolute; left: 10px; top: 9px; width: 16px; height: 16px; fill: var(--muted); }
+    .search .field { width: 100%; padding-left: 32px; }
+    .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; max-width: 100%; background: var(--panel); flex: none; }
+    .seg button {
+      border: 0; background: none; height: 32px; padding: 0 11px; cursor: pointer; color: var(--text2);
+      border-right: 1px solid var(--line); white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;
     }
-    h1 { margin: 0; font-size: 19px; }
+    .seg button:last-child { border-right: 0; }
+    .seg button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+    .seg button svg { width: 16px; height: 16px; fill: currentColor; }
+
+    /* Header */
+    header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+    .top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 24px 0; max-width: 1560px; }
+    .brand { display: flex; align-items: center; gap: 11px; }
+    .logo { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--accent), #2bb3a3); display: grid; place-items: center; }
+    .logo svg { width: 22px; height: 22px; fill: #fff; }
+    h1 { margin: 0; font-size: 18px; font-weight: 650; }
+    .hubsub { color: var(--muted); font-size: 12.5px; }
     .hubline { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; align-items: center; }
     .chip {
-      display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
-      border: 1px solid var(--line); background: var(--panel); font-size: 12px; color: var(--muted);
+      display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px;
+      border: 1px solid var(--line); background: var(--panel); font-size: 12px; color: var(--text2); white-space: nowrap;
     }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
     .dot.good { background: var(--good); } .dot.bad { background: var(--bad); } .dot.warn { background: var(--warn); }
-    .dot.live { background: var(--good); animation: pulse 2s infinite; }
-    @keyframes pulse { 50% { opacity: 0.35; } }
-    nav { display: flex; gap: 2px; margin-top: 12px; overflow-x: auto; }
+    .dot.live { background: var(--good); animation: ring 2s infinite; }
+    @keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(22,151,90,.45); } 70% { box-shadow: 0 0 0 6px rgba(22,151,90,0); } 100% { box-shadow: 0 0 0 0 rgba(22,151,90,0); } }
+    nav { display: flex; gap: 4px; margin-top: 10px; padding: 0 24px; overflow-x: auto; max-width: 1560px; }
     nav button {
-      border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none;
-      padding: 9px 14px; color: var(--muted); font-weight: 600;
+      border: 0; border-bottom: 2px solid transparent; background: none; padding: 9px 12px 10px; color: var(--muted);
+      font-weight: 600; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;
     }
+    nav button:hover { color: var(--text); }
     nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
-    nav .count { font-weight: 500; font-size: 12px; margin-left: 4px; color: var(--muted); }
+    .badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; background: var(--panel2); color: var(--muted); }
+    .badge.bad { background: var(--bad); color: #fff; } .badge.warn { background: var(--warn); color: #fff; }
 
-    main { padding: 18px 20px 40px; max-width: 1500px; }
-    .tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
-    .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; box-shadow: var(--shadow); }
-    .tile .k { color: var(--muted); font-size: 12px; }
-    .tile .v { font-size: 24px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
-    .tile .v small { font-size: 13px; font-weight: 500; color: var(--muted); }
-    .tile.bad .v { color: var(--bad); }
-
+    main { padding: 20px 24px 48px; max-width: 1560px; }
     .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
-    .toolbar input[type=search] { flex: 1 1 220px; max-width: 360px; }
-    .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; max-width: 100%; }
-    .seg button { border: 0; border-radius: 0; border-right: 1px solid var(--line); padding: 6px 11px; }
-    .seg button:last-child { border-right: 0; }
     .spacer { flex: 1; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); min-width: 0; }
+    .panel-h { display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-bottom: 1px solid var(--line2); }
+    .panel-h h2 { margin: 0; font-size: 14.5px; font-weight: 650; }
+
+    /* Overview */
+    .tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .tile { padding: 13px 15px; }
+    .tile .k { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tile .v { font-size: 25px; font-weight: 650; margin-top: 3px; font-variant-numeric: tabular-nums; }
+    .tile .v small { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 2px; }
+    .tile.bad .v { color: var(--bad); }
+    .ov { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; align-items: start; }
+    .prob { display: grid; grid-template-columns: 28px 1fr; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line2); }
+    .prob:last-child { border-bottom: 0; }
+    .prob .ic { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; }
+    .prob .ic svg { width: 17px; height: 17px; fill: currentColor; }
+    .prob.bad .ic { background: var(--bad-soft); color: var(--bad); }
+    .prob.warn .ic { background: var(--warn-soft); color: var(--warn); }
+    .prob.info .ic { background: var(--accent-soft); color: var(--accent); }
+    .prob .t { font-weight: 600; }
+    .prob .d { color: var(--text2); font-size: 13px; margin-top: 1px; }
+    .prob .fix { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+    .prob .fix b { color: var(--text2); font-weight: 600; }
+    .prob .acts { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+    .prob .acts .btn { height: 28px; font-size: 12.5px; padding: 0 10px; }
+    .allgood { padding: 34px 16px; text-align: center; color: var(--muted); }
+    .allgood .big { width: 46px; height: 46px; border-radius: 50%; background: var(--good-soft); color: var(--good); display: grid; place-items: center; margin: 0 auto 10px; }
+    .allgood .big svg { width: 26px; height: 26px; fill: currentColor; }
+    .allgood b { display: block; color: var(--text); font-size: 15px; margin-bottom: 2px; }
+
+    /* Map */
+    .map { width: 100%; display: block; max-height: 520px; }
+    .map .link { stroke-width: 2; fill: none; transition: stroke .3s; }
+    .map .link.good { stroke: var(--good); } .map .link.warn { stroke: var(--warn); } .map .link.bad { stroke: var(--bad); }
+    .map .link.off { stroke: var(--muted); stroke-dasharray: 4 5; opacity: .55; }
+    .map .pulse { opacity: 0; }
+    .map .pulse.go { animation: travel .9s ease-out; }
+    @keyframes travel { 0% { opacity: .95; offset-distance: 0%; } 100% { opacity: 0; offset-distance: 100%; } }
+    .map .node { cursor: pointer; }
+    .map .node circle.bg { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; transition: stroke .2s; }
+    .map .node:hover circle.bg { stroke: var(--accent); }
+    .map .node.off circle.bg { stroke-dasharray: 3 3; }
+    .map .node .glyph { fill: var(--accent); }
+    .map .node.off .glyph { fill: var(--muted); }
+    .map .node .st { stroke: var(--panel); stroke-width: 2; }
+    .map .node text { fill: var(--text2); font-size: 11px; text-anchor: middle; paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
+    .map .hub { cursor: default; }
+    .map .hub circle.bg { fill: var(--accent); stroke: none; }
+    .map .hub .glyph { fill: #fff; }
+    .map .hub text { fill: var(--text); font-weight: 650; font-size: 12px; }
+    .legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 10px 16px; border-top: 1px solid var(--line2); color: var(--muted); font-size: 12px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .legend i { width: 18px; height: 0; border-top: 2px solid; display: inline-block; }
 
     /* Device cards */
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
-    .card {
-      background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
-      display: flex; flex-direction: column; min-width: 0;
-    }
-    .card.off { opacity: 0.72; }
-    .card-h { display: flex; gap: 10px; padding: 14px 14px 10px; align-items: flex-start; cursor: pointer; }
-    .icon {
-      width: 38px; height: 38px; border-radius: 10px; flex: none; display: grid; place-items: center;
-      background: var(--accent-soft); color: var(--accent);
-    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 14px; }
+    .card { display: flex; flex-direction: column; transition: border-color .15s; }
+    .card:hover { border-color: var(--accent-soft); }
+    .card-h { display: flex; gap: 11px; padding: 14px 14px 12px; align-items: flex-start; cursor: pointer; }
+    .icon { width: 40px; height: 40px; border-radius: 11px; flex: none; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
     .icon svg { width: 22px; height: 22px; fill: currentColor; }
-    .card.off .icon { background: var(--panel2); color: var(--muted); }
+    .card.off .icon, tr.off .icon { background: var(--panel2); color: var(--muted); }
     .titles { min-width: 0; flex: 1; }
-    .name { font-weight: 650; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .name { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .sub { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .pill {
-      font-size: 11px; font-weight: 650; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.3px; flex: none;
-    }
+    .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 2px 9px 2px 7px; border-radius: 999px; flex: none; }
+    .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
     .pill.online { background: var(--good-soft); color: var(--good); }
     .pill.offline { background: var(--bad-soft); color: var(--bad); }
-    .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 0 14px 10px; }
-    .fact { background: var(--panel2); border-radius: 8px; padding: 6px 8px; min-width: 0; }
-    .fact .k { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
-    .fact .v { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .lease { height: 3px; background: var(--panel2); margin: 0 14px; border-radius: 2px; overflow: hidden; }
-    .lease > div { height: 100%; background: var(--good); transition: width 0.9s linear; }
-    .controls { padding: 10px 14px 14px; display: grid; gap: 10px; border-top: 1px solid var(--line); margin-top: 10px; }
-    .ctl { display: grid; gap: 6px; }
+    .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin: 0 14px; background: var(--line2); border-radius: 9px; overflow: hidden; }
+    .fact { background: var(--panel2); padding: 7px 10px; min-width: 0; }
+    .fact .k { font-size: 11px; color: var(--muted); }
+    .fact .v { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+    .lease { height: 3px; background: var(--line2); margin: 10px 14px 0; border-radius: 2px; overflow: hidden; }
+    .lease > div { height: 100%; background: var(--good); transition: width .9s linear; }
+    .controls { padding: 12px 14px 14px; display: grid; gap: 10px; border-top: 1px solid var(--line2); margin-top: 12px; flex: 1; align-content: start; }
+    .ctl { display: grid; gap: 7px; }
     .ctl-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .ctl-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .ctl-val { font-variant-numeric: tabular-nums; font-weight: 600; }
-    .ctl input[type=range] { width: 100%; accent-color: var(--accent); }
+    .ctl-val { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px; }
+    .ctl input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
     .ctl select { width: 100%; }
-    .sensor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
-    .sensor { background: var(--panel2); border-radius: 8px; padding: 7px 9px; min-width: 0; }
+    .sensor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+    .sensor { background: var(--panel2); border-radius: 9px; padding: 8px 10px; min-width: 0; }
     .sensor .k { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sensor .v { font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; }
-    .toggle {
-      position: relative; width: 44px; height: 24px; border-radius: 999px; border: 0; padding: 0;
-      background: var(--line); transition: background 0.15s; flex: none;
-    }
-    .toggle::after {
-      content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
-      background: #fff; transition: left 0.15s; box-shadow: 0 1px 2px rgba(0,0,0,0.25);
-    }
+    .sensor .v { font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; }
+    .toggle { position: relative; width: 42px; height: 24px; border-radius: 999px; border: 0; padding: 0; background: var(--line); transition: background .15s; flex: none; cursor: pointer; }
+    .toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
     .toggle.is-on { background: var(--accent); }
-    .toggle.is-on::after { left: 23px; }
-    .toggle:disabled { opacity: 0.4; cursor: default; }
-    .color { width: 44px; height: 30px; border: 1px solid var(--line); border-radius: 8px; padding: 2px; background: var(--panel); flex: none; }
-    .nocontrols { color: var(--muted); font-size: 12px; }
-    .busy { opacity: 0.6; }
+    .toggle.is-on::after { left: 21px; }
+    .toggle:disabled { opacity: .4; cursor: default; }
+    .color { width: 40px; height: 30px; border: 1px solid var(--line); border-radius: 8px; padding: 2px; background: var(--panel); flex: none; cursor: pointer; }
+    .nocontrols { color: var(--muted); font-size: 12.5px; }
+    .busy { opacity: .55; pointer-events: none; }
+    .bars { display: inline-flex; align-items: flex-end; gap: 1.5px; height: 12px; }
+    .bars i { width: 3px; background: var(--line); border-radius: 1px; }
+    .bars i:nth-child(1) { height: 25%; } .bars i:nth-child(2) { height: 50%; } .bars i:nth-child(3) { height: 75%; } .bars i:nth-child(4) { height: 100%; }
+    .bars.good i.f { background: var(--good); } .bars.warn i.f { background: var(--warn); } .bars.bad i.f { background: var(--bad); }
 
-    /* Log */
-    .log { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
-    .row {
-      display: grid; grid-template-columns: 92px 34px 92px minmax(120px, 210px) 1fr 70px;
-      gap: 10px; padding: 7px 12px; border-bottom: 1px solid var(--line); align-items: center; cursor: pointer; font-size: 13px;
-    }
-    .row:hover { background: var(--panel2); }
-    .row .t { font-family: var(--mono); font-size: 12px; color: var(--muted); }
-    .row .sum { font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .row .r { text-align: right; font-family: var(--mono); font-size: 12px; color: var(--muted); }
-    .dir { font-family: var(--mono); font-size: 11px; font-weight: 700; text-align: center; border-radius: 5px; padding: 1px 0; }
-    .dir.rx { color: var(--good); background: var(--good-soft); }
-    .dir.tx { color: var(--tx); background: rgba(122, 79, 214, 0.12); }
-    .dir.hub { color: var(--warn); background: var(--warn-soft); }
-    .type { font-weight: 650; font-size: 12px; }
-    .type.error, .type.cmd_failed { color: var(--bad); }
-    .type.status { color: var(--warn); }
-    .type.command { color: var(--tx); }
-    .detail { grid-column: 1 / -1; cursor: text; }
-    pre {
-      margin: 0; background: var(--panel2); border-radius: 8px; padding: 10px; overflow: auto;
-      font-family: var(--mono); font-size: 12px; max-height: 340px; white-space: pre-wrap; word-break: break-word;
-    }
-    .loghead { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
-    .empty { padding: 28px; text-align: center; color: var(--muted); }
-
-    /* Health */
-    .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
-    .box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
-    .box h2 { margin: 0; padding: 12px 14px; font-size: 14px; border-bottom: 1px solid var(--line); }
-    .kv { display: grid; grid-template-columns: 1fr auto; }
-    .kv > div { padding: 8px 14px; border-bottom: 1px solid var(--line); }
-    .kv .why { grid-column: 1 / -1; padding-top: 0; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); }
-    .kv .n { text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; }
-    .kv .label { border-bottom: 0; }
-    .n.bad { color: var(--bad); } .n.good { color: var(--good); }
+    /* Tables */
     .tablewrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; font-size: 13px; }
-    th { color: var(--muted); font-weight: 600; font-size: 12px; }
-    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line2); white-space: nowrap; font-size: 13px; vertical-align: middle; }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; background: var(--panel); }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { color: var(--text); }
+    th .arrow { opacity: .6; margin-left: 3px; }
+    tbody tr:hover { background: var(--hover); }
+    tbody tr:last-child td { border-bottom: 0; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    tr.clickable { cursor: pointer; }
+    .devcell { display: flex; align-items: center; gap: 10px; }
+    .devcell .icon { width: 30px; height: 30px; border-radius: 8px; }
+    .devcell .icon svg { width: 17px; height: 17px; }
+    .devcell .name { font-size: 13.5px; }
 
-    /* Drawer */
-    .scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 20; display: none; }
-    .drawer {
-      position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100%); background: var(--bg);
-      border-left: 1px solid var(--line); z-index: 21; transform: translateX(100%); transition: transform 0.18s;
-      display: flex; flex-direction: column;
-    }
+    /* Log */
+    .row { display: grid; grid-template-columns: 78px 40px 88px minmax(120px, 200px) 1fr 70px; gap: 10px; padding: 7px 14px; border-bottom: 1px solid var(--line2); align-items: center; cursor: pointer; font-size: 13px; }
+    .row:hover { background: var(--hover); }
+    .row .t { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+    .row .dev { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row .sum { font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text2); }
+    .row .r { text-align: right; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+    .dir { font-family: var(--mono); font-size: 10.5px; font-weight: 700; text-align: center; border-radius: 5px; padding: 1px 0; }
+    .dir.rx { color: var(--good); background: var(--good-soft); }
+    .dir.tx { color: var(--tx); background: var(--tx-soft); }
+    .dir.hub { color: var(--warn); background: var(--warn-soft); }
+    .type { font-weight: 600; font-size: 12.5px; }
+    .type.error, .type.cmd_failed { color: var(--bad); }
+    .type.status, .type.removed { color: var(--warn); }
+    .type.command { color: var(--tx); }
+    .detail { grid-column: 1 / -1; cursor: text; }
+    pre { margin: 0; background: var(--panel2); border-radius: 9px; padding: 11px; overflow: auto; font-family: var(--mono); font-size: 12px; max-height: 340px; white-space: pre-wrap; word-break: break-word; }
+    .loghead { display: flex; justify-content: space-between; gap: 12px; padding: 9px 14px; border-bottom: 1px solid var(--line2); color: var(--muted); font-size: 12px; }
+    .empty { padding: 30px 16px; text-align: center; color: var(--muted); }
+
+    /* Health */
+    .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-bottom: 16px; }
+    .kv { display: grid; grid-template-columns: 1fr auto; }
+    .kv > div { padding: 9px 16px; border-bottom: 1px solid var(--line2); }
+    .kv > div.label { border-bottom: 0; padding-bottom: 2px; }
+    .kv .why { grid-column: 1 / -1; padding-top: 0; color: var(--muted); font-size: 12px; }
+    .kv .n { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .n.bad { color: var(--bad); } .n.good { color: var(--good); }
+
+    /* Drawer, modal, toast */
+    .scrim { position: fixed; inset: 0; background: rgba(8, 14, 20, 0.42); z-index: 20; opacity: 0; pointer-events: none; transition: opacity .18s; }
+    .scrim.open { opacity: 1; pointer-events: auto; }
+    .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100%); background: var(--bg); border-left: 1px solid var(--line); z-index: 21; transform: translateX(100%); transition: transform .2s ease; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); }
     .drawer.open { transform: none; }
-    .drawer.open + .scrim, .scrim.open { display: block; }
-    .drawer-h { display: flex; gap: 10px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .drawer-h { display: flex; gap: 11px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
     .drawer-b { padding: 16px; overflow: auto; display: flex; flex-direction: column; gap: 14px; flex: 1; }
     .drawer-b > * { flex: none; }
-    .drawer h3 { margin: 0 0 6px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
-    .links { display: flex; gap: 8px; flex-wrap: wrap; }
-    a { color: var(--accent); }
+    .drawer h3 { margin: 0 0 6px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; font-weight: 600; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .modal { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; pointer-events: none; }
+    .modal .box { width: min(520px, 100%); max-height: calc(100vh - 32px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-lg); pointer-events: none; transform: translateY(8px) scale(.98); opacity: 0; transition: transform .16s, opacity .16s; }
+    .modal.wide .box { width: min(760px, 100%); }
+    .modal.open .box { transform: none; opacity: 1; pointer-events: auto; }
+    .modal .mh { padding: 16px 18px 6px; font-size: 16px; font-weight: 650; }
+    .modal .mb { padding: 6px 18px 4px; color: var(--text2); }
+    .modal .mf { padding: 14px 18px 16px; display: flex; justify-content: flex-end; gap: 8px; }
+    .modal label { display: block; font-size: 12.5px; color: var(--muted); margin: 10px 0 4px; }
+    .modal .field { width: 100%; }
+    .steps { counter-reset: s; display: grid; gap: 16px; margin: 6px 0 4px; }
+    .step { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; }
+    .step::before { counter-increment: s; content: counter(s); width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; display: grid; place-items: center; font-size: 13px; }
+    .step b { display: block; color: var(--text); }
+    .codebox { position: relative; }
+    .codebox pre { max-height: 260px; }
+    .codebox .btn { position: absolute; top: 8px; right: 8px; height: 28px; font-size: 12px; }
+    .formrow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .keyrow { display: flex; gap: 8px; align-items: center; }
+    .keyrow code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--panel2); padding: 8px 10px; border-radius: 8px; }
+    .toasts { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 40; display: grid; gap: 8px; width: min(440px, calc(100% - 32px)); }
+    .toast { background: var(--text); color: var(--bg); padding: 11px 14px; border-radius: 10px; box-shadow: var(--shadow-lg); font-size: 13.5px; animation: tin .18s ease-out; }
+    .toast.bad { background: var(--bad); color: #fff; }
+    @keyframes tin { from { transform: translateY(8px); opacity: 0; } }
 
-    .hidden { display: none !important; }
-    @media (max-width: 1100px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    /* Skeleton */
+    .sk { background: linear-gradient(90deg, var(--panel2) 25%, var(--line2) 37%, var(--panel2) 63%); background-size: 400% 100%; animation: shimmer 1.3s infinite; border-radius: 6px; }
+    @keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+    .skcard { padding: 14px; display: grid; gap: 10px; }
+
+    @media (max-width: 1000px) { .ov { grid-template-columns: minmax(0, 1fr); } }
+    @media (max-width: 900px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @media (max-width: 760px) {
-      header { padding: 12px 16px 0; }
-      main { padding: 14px 16px 32px; }
+      .top { padding: 12px 16px 0; } nav { padding: 0 10px; } main { padding: 14px 16px 36px; }
       .hubline { margin-left: 0; }
-      .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-      .tile { padding: 9px 10px; }
-      .tile .k { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .tile .v { font-size: 19px; }
-      .tile .v small { display: none; }
+      .tiles { gap: 8px; } .tile { padding: 9px 10px; } .tile .k { font-size: 11px; } .tile .v { font-size: 19px; } .tile .v small { display: none; }
       .two { grid-template-columns: minmax(0, 1fr); }
       .grid { grid-template-columns: minmax(0, 1fr); }
-      .toolbar .spacer { display: none; }
-      .loghead .hint { display: none; }
-      .row { grid-template-columns: 74px 30px 1fr 56px; }
-      .row .dev, .row .sum { grid-column: 1 / -1; }
-      .row .dev { order: 5; } .row .sum { order: 6; }
+      .row { grid-template-columns: 70px 36px 1fr 56px; }
+      .row .dev, .row .sum { grid-column: 1 / -1; } .row .dev { order: 5; } .row .sum { order: 6; }
+      .toolbar .spacer { display: none; } .loghead .hint { display: none; }
+      .formrow { grid-template-columns: minmax(0, 1fr); }
+      .hide-sm { display: none; }
     }
   </style>
 </head>
@@ -238,39 +329,60 @@
   <header>
     <div class="top">
       <div class="brand">
-        <div class="logo">ET</div>
+        <div class="logo"><svg viewBox="0 0 24 24"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7h1a1 1 0 011 1v3a1 1 0 01-1 1h-1v1a2 2 0 01-2 2H5a2 2 0 01-2-2v-1H2a1 1 0 01-1-1v-3a1 1 0 011-1h1a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2M7.5 13A2.5 2.5 0 005 15.5 2.5 2.5 0 007.5 18a2.5 2.5 0 002.5-2.5A2.5 2.5 0 007.5 13m9 0a2.5 2.5 0 00-2.5 2.5 2.5 2.5 0 002.5 2.5 2.5 2.5 0 002.5-2.5 2.5 2.5 0 00-2.5-2.5z"/></svg></div>
         <div>
           <h1>ET-Core</h1>
-          <div class="sub" id="hubsub">Connecting…</div>
+          <div class="hubsub" id="hubsub">Connecting to Home Assistant…</div>
         </div>
       </div>
       <div class="hubline">
         <span class="chip"><span class="dot" id="livedot"></span><span id="livetxt">connecting</span></span>
         <span class="chip"><span class="dot" id="encdot"></span><span id="enctxt">encryption</span></span>
-        <span class="chip mono" id="portchip">UDP —</span>
+        <span class="chip mono hide-sm" id="portchip">UDP —</span>
+        <button class="btn primary admin-only hidden" id="adddev"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>Add device</button>
       </div>
     </div>
     <nav>
-      <button data-tab="devices" class="active">Devices<span class="count" id="c-devices"></span></button>
-      <button data-tab="log">Live log<span class="count" id="c-log"></span></button>
+      <button data-tab="overview" class="active">Overview <span class="badge hidden" id="b-problems"></span></button>
+      <button data-tab="devices">Devices <span class="badge" id="b-devices">0</span></button>
+      <button data-tab="log">Live log <span class="badge hidden" id="b-log"></span></button>
       <button data-tab="health">Health &amp; security</button>
     </nav>
   </header>
 
   <main>
-    <section class="tiles">
-      <div class="tile"><div class="k">Devices</div><div class="v" id="t-devices">0</div></div>
-      <div class="tile"><div class="k">Online</div><div class="v" id="t-online">0</div></div>
-      <div class="tile" id="tile-offline"><div class="k">Offline</div><div class="v" id="t-offline">0</div></div>
-      <div class="tile"><div class="k">Messages / min</div><div class="v" id="t-rate">—</div></div>
-      <div class="tile"><div class="k">Command round trip</div><div class="v" id="t-ack">—</div></div>
-      <div class="tile" id="tile-sec"><div class="k">Blocked packets</div><div class="v" id="t-sec">0</div></div>
+    <!-- Overview -->
+    <section id="tab-overview">
+      <section class="tiles">
+        <div class="panel tile"><div class="k">Devices</div><div class="v" id="t-devices"><span class="sk" style="display:inline-block;width:40px;height:24px"></span></div></div>
+        <div class="panel tile"><div class="k">Online</div><div class="v" id="t-online">—</div></div>
+        <div class="panel tile" id="tile-offline"><div class="k">Offline</div><div class="v" id="t-offline">—</div></div>
+        <div class="panel tile"><div class="k">Messages / min</div><div class="v" id="t-rate">—</div></div>
+        <div class="panel tile"><div class="k">Command round trip</div><div class="v" id="t-ack">—</div></div>
+        <div class="panel tile" id="tile-sec"><div class="k">Rejected packets</div><div class="v" id="t-sec">—</div></div>
+      </section>
+      <div class="ov">
+        <div class="panel">
+          <div class="panel-h"><h2>Problems</h2><span class="spacer"></span><span class="muted" id="probsum"></span></div>
+          <div id="problems"><div class="skcard"><div class="sk" style="height:16px;width:60%"></div><div class="sk" style="height:12px;width:85%"></div><div class="sk" style="height:12px;width:40%"></div></div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><h2>Network map</h2><span class="spacer"></span><span class="muted hide-sm">Click a device for details</span></div>
+          <svg class="map" id="map" viewBox="0 0 700 420" role="img" aria-label="Network map"></svg>
+          <div class="legend">
+            <span><i style="border-color:var(--good)"></i>Strong signal</span>
+            <span><i style="border-color:var(--warn)"></i>Weak</span>
+            <span><i style="border-color:var(--bad)"></i>Very weak</span>
+            <span><i style="border-color:var(--muted);border-top-style:dashed"></i>Offline</span>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- Devices -->
-    <section id="tab-devices">
+    <section id="tab-devices" class="hidden">
       <div class="toolbar">
-        <input type="search" id="q" placeholder="Search name, id, IP…">
+        <div class="search"><svg viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0116 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 019.5 16 6.5 6.5 0 013 9.5 6.5 6.5 0 019.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/></svg><input type="search" class="field" id="q" placeholder="Search name, id, IP…"></div>
         <div class="seg" id="kind">
           <button data-kind="" class="on">All</button>
           <button data-kind="switch">Switches</button>
@@ -278,24 +390,34 @@
           <button data-kind="fan">Fans</button>
           <button data-kind="sensor">Sensors</button>
         </div>
+        <div class="seg" id="stat">
+          <button data-stat="" class="on">Any</button>
+          <button data-stat="online">Online</button>
+          <button data-stat="offline">Offline</button>
+        </div>
         <span class="spacer"></span>
-        <select id="sort" aria-label="Sort devices">
-          <option value="status">Sort: offline first</option>
-          <option value="name">Sort: name</option>
-          <option value="recent">Sort: last seen</option>
-          <option value="signal">Sort: weakest signal</option>
+        <select class="field" id="sort" aria-label="Sort devices">
+          <option value="status">Offline first</option>
+          <option value="name">Name</option>
+          <option value="recent">Last seen</option>
+          <option value="signal">Weakest signal</option>
         </select>
+        <div class="seg" id="view">
+          <button data-view="cards" title="Cards" aria-label="Cards"><svg viewBox="0 0 24 24"><path d="M3 11h8V3H3m0 18h8v-8H3m10 8h8v-8h-8m0-10v8h8V3"/></svg></button>
+          <button data-view="table" title="Table" aria-label="Table"><svg viewBox="0 0 24 24"><path d="M3 4h18v2H3V4m0 7h18v2H3v-2m0 7h18v2H3v-2z"/></svg></button>
+        </div>
       </div>
       <div class="grid" id="cards"></div>
-      <div class="empty hidden" id="nodevices">
-        No ET-Core devices yet. Power one on with the same network key and it appears here within a few seconds.
-      </div>
+      <div class="panel hidden" id="tablebox"><div class="tablewrap"><table>
+        <thead><tr id="thead"></tr></thead><tbody id="tbody"></tbody>
+      </table></div></div>
+      <div class="panel empty hidden" id="nodevices"></div>
     </section>
 
     <!-- Live log -->
     <section id="tab-log" class="hidden">
       <div class="toolbar">
-        <input type="search" id="lq" placeholder="Filter by device or text…">
+        <div class="search"><svg viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0116 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 019.5 16 6.5 6.5 0 013 9.5 6.5 6.5 0 019.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/></svg><input type="search" class="field" id="lq" placeholder="Filter by device or text…"></div>
         <div class="seg" id="ltype">
           <button data-t="" class="on">All</button>
           <button data-t="state">State</button>
@@ -305,14 +427,14 @@
           <button data-t="status">Online/offline</button>
           <button data-t="problems">Problems</button>
         </div>
-        <button id="showlease">Show leases</button>
+        <button class="btn" id="showlease">Show leases</button>
         <span class="spacer"></span>
-        <button id="pause">Pause</button>
-        <button id="clear">Clear</button>
-        <button id="exjson">Export JSON</button>
-        <button id="excsv">Export CSV</button>
+        <button class="btn" id="pause"><svg viewBox="0 0 24 24"><path d="M14 19h4V5h-4M6 19h4V5H6v14z"/></svg><span>Pause</span></button>
+        <button class="btn" id="clear">Clear</button>
+        <button class="btn" id="exjson">Export JSON</button>
+        <button class="btn" id="excsv">Export CSV</button>
       </div>
-      <div class="log">
+      <div class="panel">
         <div class="loghead"><span id="loginfo">Waiting for messages…</span><span class="hint">Click a row to see the full message</span></div>
         <div id="rows"></div>
       </div>
@@ -321,34 +443,41 @@
     <!-- Health -->
     <section id="tab-health" class="hidden">
       <div class="two">
-        <div class="box"><h2>Hub</h2><div class="kv" id="hubkv"></div></div>
-        <div class="box"><h2>Security</h2><div class="kv" id="seckv"></div></div>
+        <div class="panel"><div class="panel-h"><h2>Hub</h2></div><div class="kv" id="hubkv"></div></div>
+        <div class="panel"><div class="panel-h"><h2>Security</h2></div><div class="kv" id="seckv"></div></div>
       </div>
-      <div class="box">
-        <h2>Per device</h2>
-        <div class="tablewrap">
-          <table>
-            <thead><tr>
-              <th>Device</th><th>Status</th><th class="num">Signal</th><th class="num">Uptime</th>
-              <th class="num">Received</th><th class="num">Commands</th><th class="num">Failed</th>
-              <th class="num">Avg / max ack</th><th>Library</th><th>Session</th><th class="num">Seq</th><th>Last error</th>
-            </tr></thead>
-            <tbody id="devrows"></tbody>
-          </table>
-        </div>
+      <div class="panel hidden" id="badbox" style="margin-bottom:16px">
+        <div class="panel-h"><h2>Rejected senders</h2><span class="spacer"></span><span class="muted hide-sm">Addresses whose packets the hub could not accept</span></div>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Address</th><th>Says it is</th><th>Reason</th><th class="num">Packets</th><th>Last</th></tr></thead>
+          <tbody id="badrows"></tbody>
+        </table></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h2>Per device</h2></div>
+        <div class="tablewrap"><table>
+          <thead><tr>
+            <th>Device</th><th>Status</th><th class="num">Signal</th><th class="num">Uptime</th>
+            <th class="num">Received</th><th class="num">Commands</th><th class="num">Failed</th>
+            <th class="num">Avg / max ack</th><th class="num">Drops (10 min)</th><th>Library</th><th>Session</th><th class="num">Seq</th><th>Last error</th>
+          </tr></thead>
+          <tbody id="devrows"></tbody>
+        </table></div>
       </div>
     </section>
   </main>
 
-  <aside class="drawer" id="drawer">
+  <aside class="drawer" id="drawer" aria-hidden="true">
     <div class="drawer-h">
       <div class="icon" id="d-icon"></div>
       <div class="titles"><div class="name" id="d-name"></div><div class="sub mono" id="d-id"></div></div>
-      <button id="d-close" aria-label="Close">Close</button>
+      <button class="btn" id="d-close" aria-label="Close">Close</button>
     </div>
     <div class="drawer-b" id="d-body"></div>
   </aside>
   <div class="scrim" id="scrim"></div>
+  <div class="modal" id="modal"><div class="box" role="dialog" aria-modal="true" id="modalbox"></div></div>
+  <div class="toasts" id="toasts"></div>
 
   <script>
   "use strict";
@@ -356,41 +485,56 @@
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
   // ---- Home Assistant connection -------------------------------------------
-  // The page runs in HA's sidebar iframe (same origin). Use the logged-in user's
-  // HA frontend object (its websocket, entity states and service calls): no token copying.
-  function haRoot() {
-    try { return window.parent.document.querySelector("home-assistant"); } catch (e) { return null; }
+  // The page runs in HA's sidebar iframe (same origin). Everything goes through
+  // the logged-in user's HA frontend object (its websocket, entity states and
+  // service calls): no token copying, nothing that could get the PC IP-banned.
+  function hass() {
+    try { const r = window.parent.document.querySelector("home-assistant"); return r && r.hass ? r.hass : null; }
+    catch (e) { return null; }
   }
-  function hass() { const r = haRoot(); return r && r.hass ? r.hass : null; }
+  const isAdmin = () => { const h = hass(); return !!(h && h.user && h.user.is_admin); };
+  function ws(msg) {
+    const h = hass();
+    if (!h || !h.connection) return Promise.reject(new Error("open this page from the Home Assistant sidebar"));
+    return h.connection.sendMessagePromise(msg);
+  }
+  function callService(domain, service, data) {
+    const h = hass();
+    if (!h) return Promise.reject(new Error("not inside Home Assistant"));
+    return h.callService(domain, service, data);
+  }
   function haNavigate(path) {
     try {
       window.parent.history.pushState(null, "", path);
       window.parent.dispatchEvent(new CustomEvent("location-changed"));
     } catch (e) { window.open(path, "_top"); }
   }
-  async function callService(domain, service, data) {
-    const h = hass();
-    if (!h) throw new Error("not inside Home Assistant");
-    return h.callService(domain, service, data);
-  }
-
   function applyTheme() {
     const h = hass();
     let dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
     if (h && h.themes && typeof h.themes.darkMode === "boolean") dark = h.themes.darkMode;
     document.documentElement.dataset.theme = dark ? "dark" : "light";
   }
+  const errText = (e) => (e && (e.message || e.code)) || String(e);
 
-  // ---- Formatting -------------------------------------------------------------
-  const ICONS = {
+  // ---- Icons & formatting -----------------------------------------------------
+  const P = {
     switch: "M16.56 5.44l-1.45 1.45A5.97 5.97 0 0118 12a6 6 0 01-12 0c0-2.17 1.16-4.06 2.88-5.12L7.44 5.44A7.96 7.96 0 004 12a8 8 0 0016 0c0-2.72-1.36-5.12-3.44-6.56M13 3h-2v10h2",
     light: "M12 2a7 7 0 00-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 001 1h6a1 1 0 001-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 00-7-7M9 21a1 1 0 001 1h4a1 1 0 001-1v-1H9v1z",
     fan: "M12 11a1 1 0 110 2 1 1 0 010-2m.5-9c4.5 0 4.61 3.57 2.25 4.75-.99.49-1.43 1.54-1.62 2.47.48.2.9.51 1.22.91 3.7-2 7.68-1.21 7.68 2.37 0 4.5-3.57 4.6-4.75 2.23-.5-.99-1.56-1.43-2.49-1.62-.2.48-.51.89-.91 1.23 1.99 3.69 1.2 7.66-2.38 7.66-4.5 0-4.61-3.57-2.25-4.75.98-.49 1.42-1.53 1.62-2.45-.49-.2-.92-.52-1.24-.92C5.96 15.1 2 14.3 2 10.75c0-4.5 3.56-4.6 4.74-2.24.5.99 1.56 1.43 2.49 1.62.2-.48.52-.9.92-1.23C8.16 5.22 8.95 2 12.5 2z",
     sensor: "M15 13V5a3 3 0 00-6 0v8a5 5 0 106 0m-3-9a1 1 0 011 1v3h-2V5a1 1 0 011-1z",
     other: "M4 6h16v2H4V6m0 5h16v2H4v-2m0 5h16v2H4v-2z",
+    hub: "M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7h1a1 1 0 011 1v3a1 1 0 01-1 1h-1v1a2 2 0 01-2 2H5a2 2 0 01-2-2v-1H2a1 1 0 01-1-1v-3a1 1 0 011-1h1a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2z",
+    alert: "M13 14h-2V9h2m0 9h-2v-2h2M1 21h22L12 2 1 21z",
+    off: "M12 2a10 10 0 100 20 10 10 0 000-20m5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z",
+    wifi: "M12 21l3.6-4.8A6 6 0 0012 15c-1.35 0-2.6.45-3.6 1.2L12 21M12 3C7.95 3 4.21 4.34 1.2 6.6L3 9c2.5-1.88 5.62-3 9-3s6.5 1.12 9 3l1.8-2.4C19.79 4.34 16.05 3 12 3m0 6c-2.7 0-5.19.89-7.2 2.4l1.8 2.4C8.1 12.67 10 12 12 12s3.9.67 5.4 1.8l1.8-2.4C17.19 9.89 14.7 9 12 9z",
+    key: "M7 14a2 2 0 01-2-2 2 2 0 012-2 2 2 0 012 2 2 2 0 01-2 2m5.65-4A6 6 0 007 6a6 6 0 00-6 6 6 6 0 006 6 6 6 0 005.65-4H17v4h4v-4h2v-4H12.65z",
+    check: "M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59 21 7z",
+    info: "M13 9h-2V7h2m0 10h-2v-6h2m-1-9A10 10 0 002 12a10 10 0 0010 10 10 10 0 0010-10A10 10 0 0012 2z",
   };
-  const kindOf = (cls) => { const k = String(cls || "").split(".")[0]; return ICONS[k] ? k : "other"; };
-  const icon = (cls) => `<svg viewBox="0 0 24 24"><path d="${ICONS[kindOf(cls)]}"/></svg>`;
+  const svg = (k) => `<svg viewBox="0 0 24 24"><path d="${P[k] || P.other}"/></svg>`;
+  const kindOf = (cls) => { const k = String(cls || "").split(".")[0]; return ["switch", "light", "fan", "sensor"].includes(k) ? k : "other"; };
+  const icon = (cls) => svg(kindOf(cls));
   function dur(sec) {
     if (sec == null || isNaN(sec)) return "—";
     sec = Math.max(0, Math.round(sec));
@@ -399,43 +543,82 @@
     if (sec < 86400) return `${Math.floor(sec / 3600)}h ${Math.floor(sec % 3600 / 60)}m`;
     return `${Math.floor(sec / 86400)}d ${Math.floor(sec % 86400 / 3600)}h`;
   }
-  const uptimeSec = (u) => u == null ? null : (u > 1e5 ? u / 1000 : u);  // devices send ms
+  const uptimeSec = (u) => u == null ? null : (u > 1e5 ? u / 1000 : u);
   function signal(rssi) {
-    if (rssi == null || rssi === "") return { t: "—", c: "" };
+    if (rssi == null || rssi === "") return { t: "—", level: 0, c: "", w: "" };
     const r = Number(rssi);
-    const word = r >= -60 ? "good" : r >= -70 ? "fair" : r >= -80 ? "weak" : "poor";
-    return { t: `${r} dBm`, w: word, c: r >= -70 ? "good" : r >= -80 ? "warn" : "bad" };
+    const level = r >= -60 ? 4 : r >= -70 ? 3 : r >= -78 ? 2 : 1;
+    return { t: `${r} dBm`, level, c: level >= 3 ? "good" : level === 2 ? "warn" : "bad", w: ["", "very weak", "weak", "good", "excellent"][level] };
   }
+  const bars = (s) => `<span class="bars ${s.c}" title="${esc(s.w)}">${[1, 2, 3, 4].map(i => `<i class="${i <= s.level ? "f" : ""}"></i>`).join("")}</span>`;
   const tm = (ts) => new Date(ts * 1000).toLocaleTimeString([], { hour12: false });
   const ms = (v) => v == null ? "—" : `${Number(v).toFixed(v < 10 ? 1 : 0)} ms`;
+  const devName = (d) => d ? (d.ha_name || d.name || d.id) : "";
+  const cmpLib = (a, b) => {
+    const x = String(a || "0").split(".").map(Number), y = String(b || "0").split(".").map(Number);
+    for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0);
+    return 0;
+  };
+
+  // ---- Toast + modal ------------------------------------------------------------
+  function toast(text, bad) {
+    const t = document.createElement("div");
+    t.className = "toast" + (bad ? " bad" : "");
+    t.textContent = text;
+    $("toasts").appendChild(t);
+    setTimeout(() => t.remove(), bad ? 6000 : 3200);
+  }
+  let modalResolve = null;
+  function modal(html, { wide = false } = {}) {
+    $("modalbox").innerHTML = html;
+    $("modal").classList.toggle("wide", wide);
+    $("modal").classList.add("open"); $("scrim").classList.add("open");
+    const f = $("modalbox").querySelector("input, select, .btn.primary");
+    if (f) setTimeout(() => f.focus(), 30);
+    return new Promise(res => { modalResolve = res; });
+  }
+  function closeModal(value) {
+    if (!$("modal").classList.contains("open")) return;
+    $("modal").classList.remove("open");
+    if (!S.drawer) $("scrim").classList.remove("open");
+    const r = modalResolve; modalResolve = null;
+    if (r) r(value);
+  }
+  const modalValue = () => { const v = $("modalbox").querySelector("[data-value]"); return v ? v.value : true; };
+  $("modalbox").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-m]");
+    if (b) closeModal(b.dataset.m === "ok" ? modalValue() : null);
+  });
+  $("modalbox").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.matches("[data-value]")) { e.preventDefault(); closeModal(e.target.value); }
+  });
+  function confirmBox(title, body, okText, danger) {
+    return modal(`<div class="mh">${esc(title)}</div><div class="mb">${body}</div>
+      <div class="mf"><button class="btn" data-m="cancel">Cancel</button><button class="btn ${danger ? "danger" : "primary"}" data-m="ok">${esc(okText)}</button></div>`);
+  }
 
   // ---- State -----------------------------------------------------------------
   const S = {
-    hub: null, devices: [], byId: {}, eventN: 0, log: [], paused: false, held: [],
-    rxHist: [], tab: "devices", kind: "", q: "", sort: "status",
-    ltype: "", lq: "", leases: false, open: new Set(), drawer: null, cardKeys: {},
+    hub: null, devices: [], byId: {}, eventN: 0, log: [], paused: false, held: [], rxHist: [], lastAct: {},
+    tab: "overview", kind: "", stat: "", q: "", sort: "status", view: null, tsort: ["name", 1],
+    ltype: "", lq: "", leases: false, open: new Set(), drawer: null, cardKeys: {}, loaded: false,
   };
   const LOG_MAX = 2000;
   try {
     const saved = JSON.parse(localStorage.getItem("etcore-ui") || "{}");
-    if (saved.tab) S.tab = saved.tab;
-    if (saved.sort) S.sort = saved.sort;
-    if (saved.leases) S.leases = true;
+    for (const k of ["tab", "sort", "view", "leases"]) if (saved[k] != null) S[k] = saved[k];
   } catch (e) {}
   function saveUi() {
-    try { localStorage.setItem("etcore-ui", JSON.stringify({ tab: S.tab, sort: S.sort, leases: S.leases })); } catch (e) {}
+    try { localStorage.setItem("etcore-ui", JSON.stringify({ tab: S.tab, sort: S.sort, view: S.view, leases: S.leases })); } catch (e) {}
   }
 
   // ---- Polling ---------------------------------------------------------------
   let failures = 0;
   async function poll() {
-    const h = hass();
-    if (!h || !h.connection) throw new Error("open this page from the Home Assistant sidebar");
-    const data = await h.connection.sendMessagePromise({ type: "etcore/diag", since: S.eventN });
+    const data = await ws({ type: "etcore/diag", since: S.eventN });
     const hub = data.hubs && data.hubs[0];
     if (!hub) throw new Error("ET-Core is not set up in Home Assistant");
-    // A reloaded hub starts its numbering again.
-    if (hub.event_n < S.eventN) { S.eventN = 0; return poll(); }
+    if (hub.event_n < S.eventN) { S.eventN = 0; return poll(); }  // hub reloaded: numbering restarted
     const fresh = hub.events || [];
     S.eventN = hub.event_n || S.eventN;
     S.hub = hub;
@@ -444,8 +627,12 @@
     const now = Date.now() / 1000;
     S.rxHist.push([now, hub.rx_count || 0]);
     while (S.rxHist.length && now - S.rxHist[0][0] > 60) S.rxHist.shift();
-    if (fresh.length) {
-      if (S.paused) S.held.push(...fresh); else addLog(fresh);
+    for (const e of fresh) if (e.id) S.lastAct[e.id] = { ts: e.ts, dir: e.dir, seen: false };
+    if (fresh.length) { if (S.paused) S.held.push(...fresh); else addLog(fresh); }
+    if (!S.loaded) {
+      S.loaded = true;
+      if (!S.view) S.view = S.devices.length > 20 ? "table" : "cards";
+      setView(S.view, true);
     }
     failures = 0;
     setLive(true, S.paused ? "paused" : "live");
@@ -464,19 +651,134 @@
     catch (e) {
       failures++;
       setLive(false, failures > 2 ? "no connection" : "retrying");
-      $("hubsub").textContent = `Can't reach ET-Core: ${e.message}`;
+      $("hubsub").textContent = `Can't reach ET-Core: ${errText(e)}`;
     }
     setTimeout(loop, document.hidden ? 5000 : 1000);
   }
 
-  // ---- Render: header + tiles --------------------------------------------------
+  // ---- Problems --------------------------------------------------------------------
+  function problems() {
+    const out = [], hub = S.hub;
+    if (!hub) return out;
+    const now = Date.now() / 1000;
+    if (!hub.encrypted) out.push({ sev: "bad", ic: "key", t: "Encryption is off", d: "Anyone on your network could read or fake ET-Core messages.", fix: "<b>Fix:</b> Settings → Devices &amp; services → ET-Core → Configure, and set a 64-character network key. Put the same key in every device sketch." });
+    const newest = S.devices.reduce((m, d) => cmpLib((d.hello || {}).lib, m) > 0 ? (d.hello || {}).lib : m, "0.0.0");
+    for (const d of S.devices) {
+      const n = esc(devName(d)), s = signal(d.rssi), st = d.stats || {};
+      if (!d.online) {
+        out.push({ sev: "bad", ic: "off", dev: d.id, t: `${n} is offline`, d: `Last heard ${dur(d.age)} ago${d.last_addr ? " from " + esc(d.last_addr) : ""}.`,
+          fix: "<b>Check:</b> its power, then WiFi (is it in range?). If it's gone for good, remove it.", acts: ["open", "remove"] });
+        continue;
+      }
+      if ((d.changes_10min || 0) >= 4) out.push({ sev: "warn", dev: d.id, t: `${n} keeps dropping out`, d: `${d.changes_10min} online/offline changes in the last 10 minutes.`, fix: "<b>Likely:</b> weak WiFi or an unstable power supply. Move it closer to the access point or try another power supply.", acts: ["open"] });
+      if (s.level === 1) out.push({ sev: "warn", dev: d.id, t: `${n} has a very weak signal`, d: `${s.t}. Commands may be slow or lost.`, fix: "<b>Fix:</b> move it or the access point closer, or add an access point nearby.", acts: ["open"] });
+      if (st.failed) out.push({ sev: "warn", dev: d.id, t: `${n}: ${st.failed} command${st.failed === 1 ? " was" : "s were"} not acknowledged`, d: `Out of ${st.cmds} sent since Home Assistant started.`, fix: "<b>Likely:</b> the device was busy, rebooting or briefly out of range. If it keeps happening check its signal.", acts: ["open", "log"] });
+      if (d.last_error && now - d.last_error.ts < 3600) out.push({ sev: "warn", dev: d.id, t: `${n} reports: ${esc(d.last_error.code)}`, d: esc(d.last_error.message || ""), fix: `Sent by the device's own sketch at ${tm(d.last_error.ts)}.`, acts: ["open"] });
+      const lib = (d.hello || {}).lib;
+      if (lib && cmpLib(lib, newest) < 0) out.push({ sev: "info", dev: d.id, t: `${n} runs an older library (${esc(lib)})`, d: `Other devices run ${esc(newest)}.`, fix: "<b>Fix:</b> rebuild its sketch with the current ETCore library and upload it.", acts: ["open"] });
+    }
+    for (const b of hub.bad_sources || []) {
+      if (now - b.last > 3600) continue;
+      const who = b.id ? `"${esc(b.id)}" at ${esc(b.ip)}` : esc(b.ip);
+      const pk = `${b.count} packet${b.count === 1 ? "" : "s"}`;
+      if (b.why === "wrong_key") out.push({ sev: "bad", ic: "key", t: `Device ${who} has the wrong network key`, d: `${pk} rejected, last at ${tm(b.last)}.`, fix: "<b>Fix:</b> put the key from <i>Add device</i> into its sketch and upload it again. If you don't know this device, someone may be probing your network." });
+      else if (b.why === "no_encryption") out.push({ sev: "bad", ic: "key", t: `Device ${who} sends without encryption`, d: `${pk} ignored, last at ${tm(b.last)}.`, fix: "<b>Fix:</b> set the network key in its sketch (<code>enableEncryptionHex</code>) and upload it again." });
+    }
+    const order = { bad: 0, warn: 1, info: 2 };
+    return out.sort((a, b) => order[a.sev] - order[b.sev]);
+  }
+  function renderProblems() {
+    const list = problems();
+    const bad = list.filter(p => p.sev === "bad").length, warn = list.filter(p => p.sev === "warn").length;
+    const b = $("b-problems");
+    b.className = "badge " + (bad ? "bad" : warn ? "warn" : "hidden");
+    b.textContent = bad + warn;
+    $("probsum").textContent = list.length ? `${list.length} item${list.length === 1 ? "" : "s"}` : "";
+    const sig = JSON.stringify(list.map(p => [p.t, p.d])) + isAdmin();
+    if (sig === renderProblems.sig) return;
+    renderProblems.sig = sig;
+    const label = { open: "Details", remove: "Remove", log: "Show in log" };
+    $("problems").innerHTML = list.length ? list.map(p => `
+      <div class="prob ${p.sev}">
+        <div class="ic">${svg(p.ic || (p.sev === "info" ? "info" : "alert"))}</div>
+        <div><div class="t">${p.t}</div><div class="d">${p.d || ""}</div><div class="fix">${p.fix || ""}</div>
+          ${p.dev && p.acts ? `<div class="acts">${p.acts.filter(a => a !== "remove" || isAdmin()).map(a => `<button class="btn ${a === "remove" ? "danger" : ""}" data-pact="${a}" data-dev="${esc(p.dev)}">${label[a]}</button>`).join("")}</div>` : ""}
+        </div>
+      </div>`).join("")
+      : `<div class="allgood"><div class="big">${svg("check")}</div><b>All good</b>Every device is online, encrypted and responding.</div>`;
+  }
+  $("problems").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-pact]");
+    if (!b) return;
+    if (b.dataset.pact === "open") openDrawer(b.dataset.dev);
+    if (b.dataset.pact === "remove") removeDevice(b.dataset.dev);
+    if (b.dataset.pact === "log") { S.lq = b.dataset.dev; $("lq").value = S.lq; setTab("log"); }
+  });
+
+  // ---- Network map ------------------------------------------------------------------
+  // ET-Core is a star: the hub talks to each device directly over WiFi. Devices
+  // sit on rings around the hub; a link's colour is the device's signal.
+  function renderMap() {
+    const devs = S.devices.slice().sort((a, b) => devName(a).localeCompare(devName(b)));
+    const W = 700, n = devs.length;
+    const rings = []; let left = n, r = 140;
+    while (left > 0) { const k = Math.min(left, Math.max(6, Math.floor(2 * Math.PI * r / 64))); rings.push([r, k]); left -= k; r += 80; }
+    const R = rings.length ? rings[rings.length - 1][0] : 140;
+    const H = 2 * R + 110, cx = W / 2, cy = H / 2;
+    const sx = Math.min(1, (W / 2 - 60) / R);  // squash wide rings horizontally to fit
+    const pos = [];
+    rings.forEach(([rr, k], ri) => { for (let j = 0; j < k; j++) { const a = -Math.PI / 2 + 2 * Math.PI * (j + (ri % 2 ? 0.5 : 0)) / k; pos.push([cx + Math.cos(a) * rr * sx, cy + Math.sin(a) * rr]); } });
+    const map = $("map");
+    const key = devs.map(d => d.id).join("|");
+    if (renderMap.key !== key) {
+      renderMap.key = key;
+      map.setAttribute("viewBox", `0 0 ${W} ${Math.max(H, 380)}`);
+      const line = (k) => `M${cx},${cy} L${pos[k][0].toFixed(1)},${pos[k][1].toFixed(1)}`;
+      map.innerHTML = devs.map((d, k) => `<path class="link" data-l="${esc(d.id)}" d="${line(k)}"/>`).join("") +
+        devs.map((d, k) => `<circle r="4" class="pulse" data-p="${esc(d.id)}" style="offset-path: path('${line(k)}')"/>`).join("") +
+        `<g class="node hub" transform="translate(${cx},${cy})"><circle class="bg" r="27"/><g transform="translate(-13,-13) scale(1.083)"><path class="glyph" d="${P.hub}"/></g><text y="45">Home Assistant</text></g>` +
+        devs.map((d, k) => `<g class="node" data-n="${esc(d.id)}" transform="translate(${pos[k][0].toFixed(1)},${pos[k][1].toFixed(1)})">
+            <title></title><circle class="bg" r="20"/><g transform="translate(-11,-11) scale(.917)"><path class="glyph" d="${P[kindOf(d.class)]}"/></g>
+            <circle class="st" r="5.5" cx="14" cy="-14"/><text y="35"></text></g>`).join("") +
+        (n ? "" : `<text x="${cx}" y="${cy + 80}" text-anchor="middle" fill="var(--muted)" font-size="13">No devices yet</text>`);
+    }
+    const now = Date.now() / 1000;
+    for (const d of devs) {
+      const s = signal(d.rssi);
+      const l = map.querySelector(`[data-l="${CSS.escape(d.id)}"]`);
+      if (l) l.setAttribute("class", "link " + (d.online ? (s.c || "good") : "off"));
+      const g = map.querySelector(`[data-n="${CSS.escape(d.id)}"]`);
+      if (g) {
+        g.classList.toggle("off", !d.online);
+        const nm = devName(d);
+        g.querySelector("text").textContent = nm.length > 16 ? nm.slice(0, 15) + "…" : nm;
+        g.querySelector("title").textContent = `${nm} (${d.id})\n${d.online ? "online" : "offline"} · ${d.last_addr || "no IP"} · ${s.t}`;
+        g.querySelector(".st").setAttribute("fill", d.online ? "var(--good)" : "var(--bad)");
+      }
+      // A dot runs along the link for each message: hub→device purple, device→hub blue.
+      const act = S.lastAct[d.id];
+      if (act && !act.seen && now - act.ts < 3 && d.online) {
+        act.seen = true;
+        const p = map.querySelector(`[data-p="${CSS.escape(d.id)}"]`);
+        if (p) {
+          p.style.animationDirection = act.dir === "tx" ? "normal" : "reverse";
+          p.style.fill = act.dir === "tx" ? "var(--tx)" : "var(--accent)";
+          p.classList.remove("go"); void p.getBBox(); p.classList.add("go");
+        }
+      }
+    }
+  }
+  $("map").addEventListener("click", (e) => { const g = e.target.closest("[data-n]"); if (g) openDrawer(g.dataset.n); });
+
+  // ---- Header + tiles ----------------------------------------------------------------
   function render() {
     applyTheme();
+    document.querySelectorAll(".admin-only").forEach(el => el.classList.toggle("hidden", !isAdmin()));
     const hub = S.hub, devs = S.devices;
     const online = devs.filter(d => d.online).length;
-    $("hubsub").textContent = `${online} of ${devs.length} device${devs.length === 1 ? "" : "s"} online`;
+    $("hubsub").textContent = devs.length ? `${online} of ${devs.length} device${devs.length === 1 ? "" : "s"} online` : "No devices yet";
     $("encdot").className = "dot " + (hub.encrypted ? "good" : "bad");
-    $("enctxt").textContent = hub.encrypted ? "Encrypted (ChaCha20-Poly1305)" : "NOT encrypted — set a network key";
+    $("enctxt").textContent = hub.encrypted ? "Encrypted" : "Not encrypted";
     $("portchip").textContent = `UDP ${hub.port || 5560}`;
     $("t-devices").textContent = devs.length;
     $("t-online").textContent = online;
@@ -488,103 +790,118 @@
     }
     let acked = 0, sum = 0;
     devs.forEach(d => { if (d.stats && d.stats.acked) { acked += d.stats.acked; sum += d.stats.ack_ms_sum; } });
-    $("t-ack").innerHTML = acked ? `${(sum / acked).toFixed(0)}<small> ms avg</small>` : "—";
-    const blocked = (hub.decrypt_failures || 0) + (hub.replays_dropped || 0);
-    $("t-sec").textContent = blocked;
+    $("t-ack").innerHTML = acked ? `${(sum / acked).toFixed(0)}<small>ms</small>` : "—";
+    $("t-sec").textContent = (hub.decrypt_failures || 0) + (hub.replays_dropped || 0);
     $("tile-sec").classList.toggle("bad", (hub.decrypt_failures || 0) > 0);
-    $("c-devices").textContent = devs.length;
-    $("c-log").textContent = S.paused && S.held.length ? `+${S.held.length}` : "";
+    $("b-devices").textContent = devs.length;
+    const bl = $("b-log");
+    bl.classList.toggle("hidden", !(S.paused && S.held.length));
+    bl.textContent = S.held.length ? `+${S.held.length}` : "";
 
-    if (S.tab === "devices") renderCards();
+    renderProblems();
+    if (S.tab === "overview") renderMap();
+    if (S.tab === "devices") renderDevices();
     if (S.tab === "log") renderLog();
     if (S.tab === "health") renderHealth();
     if (S.drawer) renderDrawer();
   }
 
-  // ---- Render: device cards ----------------------------------------------------
+  // ---- Devices -------------------------------------------------------------------------
   function visibleDevices() {
     const q = S.q.toLowerCase();
-    let list = S.devices.filter(d => {
+    return S.devices.filter(d => {
       if (S.kind && kindOf(d.class) !== S.kind) return false;
+      if (S.stat === "online" && !d.online) return false;
+      if (S.stat === "offline" && d.online) return false;
       if (!q) return true;
-      return [d.id, d.name, d.class, d.last_addr, d.fw].some(v => String(v || "").toLowerCase().includes(q));
+      return [d.id, d.name, d.ha_name, d.class, d.last_addr, d.fw].some(v => String(v || "").toLowerCase().includes(q));
     });
-    const name = (d) => String(d.name || d.id).toLowerCase();
-    const by = {
-      status: (a, b) => (a.online - b.online) || name(a).localeCompare(name(b)),
-      name: (a, b) => name(a).localeCompare(name(b)),
-      recent: (a, b) => (a.age ?? 1e9) - (b.age ?? 1e9),
-      signal: (a, b) => (a.rssi ?? 0) - (b.rssi ?? 0),
-    }[S.sort];
-    return list.sort(by);
   }
+  const nameKey = (d) => devName(d).toLowerCase();
+  const SORTS = {
+    status: (a, b) => (a.online - b.online) || nameKey(a).localeCompare(nameKey(b)),
+    name: (a, b) => nameKey(a).localeCompare(nameKey(b)),
+    recent: (a, b) => (a.age ?? 1e9) - (b.age ?? 1e9),
+    signal: (a, b) => (a.rssi ?? 0) - (b.rssi ?? 0),
+  };
+  function renderDevices() {
+    if (!S.loaded) { renderCards([]); return; }
+    const list = visibleDevices();
+    const none = !S.devices.length, nomatch = !none && !list.length;
+    $("nodevices").classList.toggle("hidden", !(none || nomatch));
+    if (none) $("nodevices").innerHTML = `<div class="allgood"><div class="big" style="background:var(--accent-soft);color:var(--accent)">${svg("wifi")}</div><b>No devices yet</b>Upload a sketch with your network key and it appears here within seconds.${isAdmin() ? `<div style="margin-top:12px"><button class="btn primary" data-add>Add device</button></div>` : ""}</div>`;
+    else if (nomatch) $("nodevices").innerHTML = `<b>No devices match.</b> <a href="#" data-clear>Clear filters</a>`;
+    $("cards").classList.toggle("hidden", S.view !== "cards" || !list.length);
+    $("tablebox").classList.toggle("hidden", S.view !== "table" || !list.length);
+    if (S.view === "cards") renderCards(list.sort(SORTS[S.sort]));
+    else renderTable(list);
+  }
+  $("nodevices").addEventListener("click", (e) => {
+    if (e.target.closest("[data-add]")) addDevice();
+    if (e.target.closest("[data-clear]")) {
+      e.preventDefault(); S.q = ""; $("q").value = ""; S.kind = ""; S.stat = "";
+      document.querySelectorAll("#kind button, #stat button").forEach(b => b.classList.toggle("on", !b.dataset.kind && !b.dataset.stat));
+      renderDevices();
+    }
+  });
 
   function entitiesOf(d) {
     const h = hass();
-    return (d.entities || []).filter(e => !e.disabled).map(e => ({ ...e, st: h && h.states[e.entity_id] }));
+    const rank = { switch: 0, light: 0, fan: 0, number: 1, sensor: 2, binary_sensor: 2 };
+    return (d.entities || []).filter(e => !e.disabled).map(e => ({ ...e, st: h && h.states[e.entity_id] }))
+      .sort((a, b) => (rank[a.entity_id.split(".")[0]] ?? 3) - (rank[b.entity_id.split(".")[0]] ?? 3));
   }
-
-  // The parts of a card that need a fresh DOM (anything else is updated in place,
-  // so a slider being dragged is not replaced under the finger).
+  // The parts of a card that need a fresh DOM; everything else is updated in place
+  // so a slider being dragged is never replaced under the finger.
   function cardKey(d) {
-    const ents = entitiesOf(d).map(e => {
+    return [d.class, entitiesOf(d).map(e => {
       const a = (e.st && e.st.attributes) || {};
       return [e.entity_id, (a.effect_list || []).length, (a.preset_modes || []).join(","), a.unit_of_measurement || ""].join(":");
-    });
-    return [d.class, ents.join("|")].join("#");
+    }).join("|")].join("#");
   }
-
-  function renderCards() {
-    const list = visibleDevices();
+  function renderCards(list) {
     const box = $("cards");
-    $("nodevices").classList.toggle("hidden", S.devices.length > 0);
+    if (!S.loaded) {
+      box.innerHTML = Array.from({ length: 6 }, () => `<div class="panel skcard"><div style="display:flex;gap:10px"><div class="sk" style="width:40px;height:40px;border-radius:11px"></div><div style="flex:1;display:grid;gap:6px"><div class="sk" style="height:14px;width:55%"></div><div class="sk" style="height:11px;width:75%"></div></div></div><div class="sk" style="height:46px"></div><div class="sk" style="height:24px"></div></div>`).join("");
+      box.classList.remove("hidden");
+      return;
+    }
     const want = list.map(d => d.id);
-    const have = [...box.children].map(c => c.dataset.id);
+    const have = [...box.children].map(c => c.dataset.id || "");
     if (want.join("\n") !== have.join("\n")) {
-      const old = Object.fromEntries([...box.children].map(c => [c.dataset.id, c]));
+      const old = Object.fromEntries([...box.children].filter(c => c.dataset.id).map(c => [c.dataset.id, c]));
       box.replaceChildren(...want.map(id => old[id] || makeCard(S.byId[id])));
     }
-    for (const card of box.children) {
+    for (const card of [...box.children]) {
       const d = S.byId[card.dataset.id];
       if (!d) continue;
-      const key = cardKey(d);
-      if (S.cardKeys[d.id] !== key) {
-        const fresh = makeCard(d);
-        box.replaceChild(fresh, card);
-        updateCard(fresh, d);
-      } else {
-        updateCard(card, d);
-      }
+      if (S.cardKeys[d.id] !== cardKey(d)) { const fresh = makeCard(d); box.replaceChild(fresh, card); updateCard(fresh, d); }
+      else updateCard(card, d);
     }
   }
-
   function makeCard(d) {
     S.cardKeys[d.id] = cardKey(d);
     const card = document.createElement("article");
-    card.className = "card";
+    card.className = "panel card";
     card.dataset.id = d.id;
     card.innerHTML = `
       <div class="card-h" data-act="open">
         <div class="icon">${icon(d.class)}</div>
-        <div class="titles">
-          <div class="name" data-f="name"></div>
-          <div class="sub" data-f="sub"></div>
-        </div>
+        <div class="titles"><div class="name" data-f="name"></div><div class="sub" data-f="sub"></div></div>
         <span class="pill" data-f="pill"></span>
       </div>
       <div class="facts">
         <div class="fact"><div class="k">Signal</div><div class="v" data-f="rssi"></div></div>
         <div class="fact"><div class="k">Uptime</div><div class="v" data-f="up"></div></div>
-        <div class="fact"><div class="k">Ack</div><div class="v" data-f="ack"></div></div>
+        <div class="fact"><div class="k">Response</div><div class="v" data-f="ack"></div></div>
       </div>
-      <div class="lease" title="Lease: time left before the hub marks it offline"><div data-f="lease"></div></div>
+      <div class="lease" title="Time left before the hub would mark it offline"><div data-f="lease"></div></div>
       <div class="controls">${controlsHtml(d)}</div>`;
     return card;
   }
-
   function controlsHtml(d) {
     const ents = entitiesOf(d);
-    if (!ents.length) return `<div class="nocontrols">No Home Assistant entities yet (they appear after the device's hello).</div>`;
+    if (!ents.length) return `<div class="nocontrols">No Home Assistant entities yet. They appear after the device's first hello.</div>`;
     const sensors = [], parts = [];
     for (const e of ents) {
       const dom = e.entity_id.split(".")[0];
@@ -592,26 +909,23 @@
       const label = esc(e.name || a.friendly_name || e.entity_id);
       const eid = esc(e.entity_id);
       if (dom === "switch") {
-        parts.push(`<div class="ctl"><div class="ctl-row"><span class="ctl-name">${label}</span>
-          <button class="toggle" data-eid="${eid}" data-act="toggle" aria-label="Toggle ${label}"></button></div></div>`);
+        parts.push(`<div class="ctl"><div class="ctl-row"><span class="ctl-name">${label}</span><button class="toggle" data-eid="${eid}" data-act="toggle" aria-label="Toggle ${label}"></button></div></div>`);
       } else if (dom === "light") {
         const effects = a.effect_list || [];
         parts.push(`<div class="ctl">
           <div class="ctl-row"><span class="ctl-name">${label}</span>
             <input type="color" class="color" data-eid="${eid}" data-act="rgb" aria-label="Colour">
             <button class="toggle" data-eid="${eid}" data-act="toggle" aria-label="Toggle ${label}"></button></div>
-          <div class="ctl-row"><span class="muted">Brightness</span><span class="ctl-val" data-v="bri" data-eid="${eid}"></span></div>
+          <div class="ctl-row"><span class="muted">Brightness</span><span class="spacer"></span><span class="ctl-val" data-v="bri" data-eid="${eid}"></span></div>
           <input type="range" min="1" max="255" data-eid="${eid}" data-act="bri" aria-label="Brightness">
-          ${effects.length ? `<select data-eid="${eid}" data-act="effect" aria-label="Effect">
-              <option value="">Effect…</option>${effects.map(x => `<option>${esc(x)}</option>`).join("")}</select>` : ""}
+          ${effects.length ? `<select class="field" data-eid="${eid}" data-act="effect" aria-label="Effect"><option value="">Effect…</option>${effects.map(x => `<option>${esc(x)}</option>`).join("")}</select>` : ""}
         </div>`);
       } else if (dom === "fan") {
         const presets = a.preset_modes || [];
         parts.push(`<div class="ctl">
           <div class="ctl-row"><span class="ctl-name">${label}</span><span class="ctl-val" data-v="pct" data-eid="${eid}"></span>
             <button class="toggle" data-eid="${eid}" data-act="toggle" aria-label="Toggle ${label}"></button></div>
-          ${presets.length ? `<select data-eid="${eid}" data-act="preset" aria-label="Preset">
-              <option value="">Preset…</option>${presets.map(x => `<option>${esc(x)}</option>`).join("")}</select>`
+          ${presets.length ? `<select class="field" data-eid="${eid}" data-act="preset" aria-label="Preset"><option value="">Preset…</option>${presets.map(x => `<option>${esc(x)}</option>`).join("")}</select>`
             : `<input type="range" min="0" max="100" step="${a.percentage_step || 1}" data-eid="${eid}" data-act="pct" aria-label="Speed">`}
         </div>`);
       } else if (dom === "number") {
@@ -626,96 +940,270 @@
     if (sensors.length) parts.push(`<div class="sensor-grid">${sensors.join("")}</div>`);
     return parts.join("");
   }
-
+  const subline = (d) => [devName(d) !== d.id ? d.id : "", d.last_addr, d.class].filter(Boolean).join(" · ");
   function updateCard(card, d) {
     const f = (n) => card.querySelector(`[data-f="${n}"]`);
     card.classList.toggle("off", !d.online);
-    f("name").textContent = d.name || d.id;
-    f("sub").textContent = [d.name && d.name !== d.id ? d.id : "", d.last_addr, d.class].filter(Boolean).join(" · ");
+    f("name").textContent = devName(d);
+    f("sub").textContent = subline(d);
     f("sub").title = `${d.id} · ${d.class || "?"} · ${d.last_addr || "no IP"}${d.fw ? " · fw " + d.fw : ""}`;
     f("pill").className = "pill " + (d.online ? "online" : "offline");
-    f("pill").textContent = d.online ? "online" : "offline";
+    f("pill").textContent = d.online ? "Online" : "Offline";
     const s = signal(d.rssi);
-    f("rssi").textContent = s.t;
-    f("rssi").style.color = s.c ? `var(--${s.c})` : "";
-    f("up").textContent = d.online ? dur(uptimeSec(d.uptime)) : `seen ${dur(d.age)} ago`;
+    f("rssi").innerHTML = d.online ? `${bars(s)}<span>${esc(s.t)}</span>` : "—";
+    f("up").textContent = d.online ? dur(uptimeSec(d.uptime)) : `${dur(d.age)} ago`;
     f("ack").textContent = d.stats && d.stats.ack_ms_avg != null ? ms(d.stats.ack_ms_avg) : "—";
     const ttl = d.lease_ttl || 6, left = Math.max(0, d.expires_in || 0);
     f("lease").style.width = d.online ? `${Math.min(100, left / ttl * 100)}%` : "0%";
     f("lease").style.background = left / ttl < 0.34 ? "var(--warn)" : "var(--good)";
-
+    updateControls(card);
+  }
+  function updateControls(root) {
     const h = hass();
-    card.querySelectorAll("[data-eid]").forEach(el => {
+    root.querySelectorAll("[data-eid]").forEach(el => {
       const st = h && h.states[el.dataset.eid];
       const a = (st && st.attributes) || {};
       const unavailable = !st || st.state === "unavailable";
       if (el === document.activeElement && el.tagName !== "BUTTON") return;  // user is using it
-      if (el.classList.contains("toggle")) {
-        el.classList.toggle("is-on", !!st && st.state === "on");
-        el.disabled = unavailable;
-      } else if (el.dataset.act === "bri") {
-        el.value = a.brightness || 0; el.disabled = unavailable;
-      } else if (el.dataset.act === "rgb") {
-        const c = a.rgb_color;
-        if (c) el.value = "#" + c.map(x => Number(x).toString(16).padStart(2, "0")).join("");
-        el.disabled = unavailable;
-      } else if (el.dataset.act === "effect") {
-        el.value = a.effect && [...el.options].some(o => o.value === a.effect) ? a.effect : ""; el.disabled = unavailable;
-      } else if (el.dataset.act === "preset") {
-        el.value = a.preset_mode || ""; el.disabled = unavailable;
-      } else if (el.dataset.act === "pct") {
-        el.value = a.percentage || 0; el.disabled = unavailable;
-      } else if (el.dataset.act === "num") {
-        el.value = st ? st.state : 0; el.disabled = unavailable;
-      } else if (el.dataset.v === "bri") {
-        el.textContent = st && st.state === "on" && a.brightness ? `${Math.round(a.brightness / 2.55)}%` : "—";
-      } else if (el.dataset.v === "pct") {
-        el.textContent = st && st.state === "on" ? (a.preset_mode || (a.percentage != null ? `${a.percentage}%` : "on")) : "off";
-      } else if (el.dataset.v === "num") {
-        el.textContent = st ? st.state : "—";
-      } else if (el.dataset.v === "sensor") {
-        el.textContent = unavailable ? "—" : `${st.state}${a.unit_of_measurement ? " " + a.unit_of_measurement : ""}`;
-      }
+      if (el.classList.contains("toggle")) { el.classList.toggle("is-on", !!st && st.state === "on"); el.disabled = unavailable; }
+      else if (el.dataset.act === "bri") { el.value = a.brightness || 0; el.disabled = unavailable; }
+      else if (el.dataset.act === "rgb") { const c = a.rgb_color; if (c) el.value = "#" + c.map(x => Number(x).toString(16).padStart(2, "0")).join(""); el.disabled = unavailable; }
+      else if (el.dataset.act === "effect") { el.value = a.effect && [...el.options].some(o => o.value === a.effect) ? a.effect : ""; el.disabled = unavailable; }
+      else if (el.dataset.act === "preset") { el.value = a.preset_mode || ""; el.disabled = unavailable; }
+      else if (el.dataset.act === "pct") { el.value = a.percentage || 0; el.disabled = unavailable; }
+      else if (el.dataset.act === "num") { el.value = st ? st.state : 0; el.disabled = unavailable; }
+      else if (el.dataset.v === "bri") el.textContent = st && st.state === "on" && a.brightness ? `${Math.round(a.brightness / 2.55)}%` : "—";
+      else if (el.dataset.v === "pct") el.textContent = st && st.state === "on" ? (a.preset_mode || (a.percentage != null ? `${a.percentage}%` : "on")) : "off";
+      else if (el.dataset.v === "num") el.textContent = st ? st.state : "—";
+      else if (el.dataset.v === "sensor") el.textContent = unavailable ? "—" : `${st.state}${a.unit_of_measurement ? " " + a.unit_of_measurement : ""}`;
     });
   }
-
-  // Controls -> HA services (same path as the HA dashboard, so automations see it too).
+  // Controls -> HA services (same path as HA dashboards, so automations see it too).
   async function act(el) {
     const eid = el.dataset.eid, dom = eid.split(".")[0], a = el.dataset.act;
     el.classList.add("busy");
     try {
       if (a === "toggle") await callService(dom, "toggle", { entity_id: eid });
       else if (a === "bri") await callService("light", "turn_on", { entity_id: eid, brightness: Number(el.value) });
-      else if (a === "rgb") {
-        const v = el.value;
-        await callService("light", "turn_on", { entity_id: eid, rgb_color: [1, 3, 5].map(i => parseInt(v.slice(i, i + 2), 16)) });
-      } else if (a === "effect" && el.value) await callService("light", "turn_on", { entity_id: eid, effect: el.value });
+      else if (a === "rgb") { const v = el.value; await callService("light", "turn_on", { entity_id: eid, rgb_color: [1, 3, 5].map(i => parseInt(v.slice(i, i + 2), 16)) }); }
+      else if (a === "effect" && el.value) await callService("light", "turn_on", { entity_id: eid, effect: el.value });
       else if (a === "preset" && el.value) await callService("fan", "set_preset_mode", { entity_id: eid, preset_mode: el.value });
       else if (a === "pct") await callService("fan", "set_percentage", { entity_id: eid, percentage: Number(el.value) });
       else if (a === "num") await callService("number", "set_value", { entity_id: eid, value: Number(el.value) });
     } catch (e) {
-      alert(`Home Assistant refused: ${e.message || e.code || e}`);
+      toast(`Home Assistant refused: ${errText(e)}`, true);
     } finally {
       el.classList.remove("busy");
       el.blur();
     }
   }
-  $("cards").addEventListener("click", (ev) => {
+  function onControlClick(ev) {
     const t = ev.target.closest("[data-act]");
     if (!t) return;
-    const card = t.closest(".card");
-    if (t.dataset.act === "open") openDrawer(card.dataset.id);
-    else if (t.dataset.act === "toggle") act(t);
-  });
-  $("cards").addEventListener("change", (ev) => {
-    const t = ev.target.closest("[data-act]");
-    if (t && t.dataset.act !== "toggle") act(t);
+    if (t.dataset.act === "open") { const host = t.closest("[data-id]"); if (host) openDrawer(host.dataset.id); }
+    else if (t.dataset.act === "toggle") { ev.stopPropagation(); act(t); }
+  }
+  function onControlChange(ev) { const t = ev.target.closest("[data-act]"); if (t && !["toggle", "open"].includes(t.dataset.act)) act(t); }
+  for (const id of ["cards", "tbody", "d-body"]) { $(id).addEventListener("click", onControlClick); $(id).addEventListener("change", onControlChange); }
+
+  // Table view: sortable, one row per device, the main on/off control inline.
+  const COLS = [
+    ["name", "Device", (a, b) => nameKey(a).localeCompare(nameKey(b))],
+    ["status", "Status", (a, b) => (a.online - b.online)],
+    ["class", "Type", (a, b) => String(a.class).localeCompare(String(b.class)), "hide-sm"],
+    ["ip", "IP address", (a, b) => String(a.last_addr || "").localeCompare(String(b.last_addr || ""), undefined, { numeric: true })],
+    ["signal", "Signal", (a, b) => (a.rssi ?? -999) - (b.rssi ?? -999), "num"],
+    ["uptime", "Uptime", (a, b) => (uptimeSec(a.uptime) ?? 0) - (uptimeSec(b.uptime) ?? 0), "num"],
+    ["ack", "Response", (a, b) => ((a.stats || {}).ack_ms_avg ?? 1e9) - ((b.stats || {}).ack_ms_avg ?? 1e9), "num hide-sm"],
+    ["fw", "Firmware", (a, b) => String(a.fw || "").localeCompare(String(b.fw || "")), "hide-sm"],
+    ["ctl", "", null],
+  ];
+  function renderTable(list) {
+    const [col, dir] = S.tsort;
+    const c = COLS.find(x => x[0] === col) || COLS[0];
+    list.sort((a, b) => dir * c[2](a, b) || nameKey(a).localeCompare(nameKey(b)));
+    $("thead").innerHTML = COLS.map(([k, label, f, cls]) => `<th class="${f ? "sortable" : ""} ${cls || ""}" data-sort="${f ? k : ""}">${label}${k === col ? `<span class="arrow">${dir > 0 ? "▲" : "▼"}</span>` : ""}</th>`).join("");
+    const sig = list.map(d => [d.id, d.online, devName(d), d.rssi, Math.round((uptimeSec(d.uptime) || 0) / 10), (d.stats || {}).ack_ms_avg, d.last_addr, cardKey(d)].join(",")).join("|");
+    if (sig !== renderTable.sig) {
+      renderTable.sig = sig;
+      $("tbody").innerHTML = list.map(d => {
+        const s = signal(d.rssi);
+        const ctl = entitiesOf(d).filter(e => ["switch", "light", "fan"].includes(e.entity_id.split(".")[0]));
+        const sensor = !ctl.length && entitiesOf(d).find(e => e.entity_id.startsWith("sensor."));
+        return `<tr class="clickable ${d.online ? "" : "off"}" data-id="${esc(d.id)}">
+          <td data-act="open"><div class="devcell"><div class="icon">${icon(d.class)}</div><div><div class="name">${esc(devName(d))}</div><div class="sub mono">${esc(d.id)}</div></div></div></td>
+          <td data-act="open"><span class="pill ${d.online ? "online" : "offline"}">${d.online ? "Online" : "Offline"}</span></td>
+          <td data-act="open" class="hide-sm">${esc(d.class || "")}</td>
+          <td data-act="open" class="mono">${esc(d.last_addr || "—")}</td>
+          <td data-act="open" class="num">${d.online ? `${bars(s)} ${esc(s.t)}` : "—"}</td>
+          <td data-act="open" class="num">${d.online ? dur(uptimeSec(d.uptime)) : `${dur(d.age)} ago`}</td>
+          <td data-act="open" class="num hide-sm">${ms((d.stats || {}).ack_ms_avg)}</td>
+          <td data-act="open" class="hide-sm mono">${esc(d.fw || "")}</td>
+          <td>${ctl.length ? `<button class="toggle" data-eid="${esc(ctl[0].entity_id)}" data-act="toggle" aria-label="Toggle"></button>${ctl.length > 1 ? ` <span class="muted">+${ctl.length - 1}</span>` : ""}`
+                : sensor ? `<span class="ctl-val" data-v="sensor" data-eid="${esc(sensor.entity_id)}"></span>` : ""}</td>
+        </tr>`;
+      }).join("");
+    }
+    updateControls($("tbody"));
+  }
+  $("thead").addEventListener("click", (e) => {
+    const th = e.target.closest("[data-sort]");
+    if (!th || !th.dataset.sort) return;
+    S.tsort = S.tsort[0] === th.dataset.sort ? [th.dataset.sort, -S.tsort[1]] : [th.dataset.sort, 1];
+    renderTable.sig = ""; renderDevices();
   });
 
-  // ---- Render: live log --------------------------------------------------------
+  // ---- Device management --------------------------------------------------------------
+  async function renameDevice(id) {
+    const d = S.byId[id];
+    if (!d) return;
+    const name = await modal(`<div class="mh">Rename device</div><div class="mb">
+        <label for="rn">Name in Home Assistant</label><input class="field" id="rn" data-value maxlength="64" value="${esc(devName(d))}">
+        <div class="muted" style="font-size:12.5px;margin-top:8px">The device calls itself "${esc(d.name || d.id)}". Leave this empty to go back to that name.</div></div>
+      <div class="mf"><button class="btn" data-m="cancel">Cancel</button><button class="btn primary" data-m="ok">Save</button></div>`);
+    if (name == null) return;
+    try {
+      await ws({ type: "etcore/rename", dev_id: id, name: String(name) });
+      toast(String(name).trim() ? `Renamed to "${String(name).trim()}"` : "Name reset");
+      poll().catch(() => {});
+    } catch (e) { toast(`Rename failed: ${errText(e)}`, true); }
+  }
+  async function removeDevice(id) {
+    const d = S.byId[id];
+    if (!d) return;
+    if (d.online) { toast("It's online, so it would come straight back. Unplug it first, then remove it.", true); return; }
+    const n = (d.entities || []).length;
+    const ok = await confirmBox(`Remove ${devName(d)}?`, `Home Assistant forgets this device and its ${n} entit${n === 1 ? "y" : "ies"}. Automations that use them will stop working.<br><br>If it is switched on again later it comes back as a new device.`, "Remove", true);
+    if (!ok) return;
+    try {
+      await ws({ type: "etcore/remove", dev_id: id });
+      closeDrawer();
+      toast(`${devName(d)} removed`);
+      poll().catch(() => {});
+    } catch (e) { toast(`Remove failed: ${errText(e)}`, true); }
+  }
+
+  // ---- Add device guide -------------------------------------------------------------------
+  const CLASSES = [
+    ["switch.relay", "Relay / switch", "RelayOne"], ["switch.multi", "Several relays", "MultiRelay"],
+    ["light.rgb", "RGB light", "RGBLight"], ["fan.speed", "Fan", "Fan"], ["sensor.temperature", "Sensor", "AirSensor"],
+  ];
+  function sketchFor(info, reveal, id, name, cls) {
+    if (cls !== "switch.relay") return snippetFor(info, reveal, id, name, cls);
+    const port = info.port && info.port !== 5560 ? `\n  etcore.setPort(${info.port});` : "";
+    const key = reveal ? info.key : "PASTE_THE_NETWORK_KEY_HERE";
+    const q = (s) => String(s).replace(/["\\]/g, "");
+    return `#include <WiFi.h>
+#include <ETCore.h>
+
+// WiFi and the ET-Core network key go here, at the top of the sketch.
+static const char* WIFI_SSID = "YOUR_WIFI_SSID";
+static const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
+static const char* ETCORE_KEY = "${key}";
+
+#define RELAY_PIN 4
+ETCore etcore;
+bool relayOn = false;
+
+void onCommand(const char* cls, JsonObject p) {
+  if (p["on"].is<bool>()) {
+    relayOn = p["on"];
+    digitalWrite(RELAY_PIN, relayOn ? HIGH : LOW);
+  }
+  etcore.sendAck(p["cmd_id"] | "", true);
+  etcore.sendSwitchState(relayOn);
+}
+
+void setup() {
+  pinMode(RELAY_PIN, OUTPUT);
+  WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  while (WiFi.status() != WL_CONNECTED) delay(250);
+
+  etcore.enableEncryptionHex(ETCORE_KEY);${port}
+  etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");
+  etcore.onCommand(onCommand);
+  etcore.onSync([]() { etcore.sendSwitchState(relayOn); });
+}
+
+void loop() {
+  etcore.loop();
+}`;
+  }
+  function snippetFor(info, reveal, id, name, cls) {
+    const key = reveal ? info.key : "PASTE_THE_NETWORK_KEY_HERE";
+    const q = (s) => String(s).replace(/["\\]/g, "");
+    const ex = (CLASSES.find(c => c[0] === cls) || CLASSES[0])[2];
+    return `// In the ${ex} example, set these at the top of the sketch:
+static const char* WIFI_SSID = "YOUR_WIFI_SSID";
+static const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
+static const char* ETCORE_KEY = "${key}";
+
+// and in setup(), before etcore.begin(...):
+etcore.enableEncryptionHex(ETCORE_KEY);${info.port && info.port !== 5560 ? `\netcore.setPort(${info.port});` : ""}
+etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
+  }
+  async function addDevice() {
+    let info;
+    try { info = await ws({ type: "etcore/setup_info" }); }
+    catch (e) { toast(`Only an administrator can add devices (${errText(e)})`, true); return; }
+    let reveal = false;
+    const v = { id: "relay1", name: "My Relay", cls: "switch.relay" };
+    let n = 2; while (S.byId[v.id]) v.id = `relay${n++}`;
+    const html = () => {
+      const ex = (CLASSES.find(c => c[0] === v.cls) || CLASSES[0])[2];
+      return `<div class="mh">Add an ET-Core device</div><div class="mb"><div class="steps">
+        <div class="step"><div><b>Open an example</b>In the Arduino IDE: <i>File → Examples → ETCore</i>. For this type start from <strong id="ad-ex">${ex}</strong>.</div></div>
+        <div class="step"><div><b>Give it an id and a name</b>
+          <div class="formrow"><div><label for="ad-id">Device id (unique, no spaces)</label><input class="field" id="ad-id" value="${esc(v.id)}" maxlength="31"></div>
+          <div><label for="ad-name">Name</label><input class="field" id="ad-name" value="${esc(v.name)}" maxlength="40"></div>
+          <div><label for="ad-cls">Type</label><select class="field" id="ad-cls">${CLASSES.map(c => `<option value="${c[0]}" ${c[0] === v.cls ? "selected" : ""}>${c[1]}</option>`).join("")}</select></div></div>
+          <div id="ad-warn" style="color:var(--bad);font-size:12.5px;margin-top:6px"></div></div></div>
+        <div class="step"><div><b>Use this network key</b>Every device on this hub needs the same key. Keep it private.
+          <div class="keyrow" style="margin-top:6px"><code id="ad-key"></code>
+            <button class="btn" data-k="reveal" id="ad-reveal"></button><button class="btn" data-k="copykey">Copy</button></div></div></div>
+        <div class="step"><div><b>Upload the sketch</b><span id="ad-codehint"></span> Fill in your WiFi, then upload. <i>Copy</i> puts your key in for you.
+          <div class="codebox" style="margin-top:6px"><pre id="ad-code"></pre><button class="btn" data-k="copycode">Copy</button></div></div></div>
+        <div class="step"><div><b>Power it on</b>It appears on the Devices tab within a few seconds, with its entities in Home Assistant.</div></div>
+      </div></div><div class="mf"><button class="btn primary" data-m="ok">Done</button></div>`;
+    };
+    const refresh = () => {
+      $("ad-key").textContent = reveal ? info.key : "•".repeat(32);
+      $("ad-reveal").textContent = reveal ? "Hide" : "Show";
+      $("ad-code").textContent = sketchFor(info, reveal, v.id, v.name, v.cls);
+      $("ad-ex").textContent = (CLASSES.find(c => c[0] === v.cls) || CLASSES[0])[2];
+      $("ad-codehint").textContent = v.cls === "switch.relay" ? "A complete relay sketch." : "The lines to change in that example.";
+      $("ad-warn").textContent = !/^[A-Za-z0-9_-]{1,31}$/.test(v.id) ? "Use letters, digits, - or _ only." : S.byId[v.id] ? `A device with id "${v.id}" already exists. Pick another id.` : "";
+    };
+    const done = modal(html(), { wide: true });
+    refresh();
+    const box = $("modalbox");
+    const onInput = (e) => {
+      if (e.target.id === "ad-id") v.id = e.target.value.trim();
+      if (e.target.id === "ad-name") v.name = e.target.value;
+      if (e.target.id === "ad-cls") v.cls = e.target.value;
+      refresh();
+    };
+    const copy = async (t, what) => { try { await navigator.clipboard.writeText(t); toast(`${what} copied`); } catch (x) { toast("Copy failed: select the text and copy it", true); } };
+    const onClick = (e) => {
+      const b = e.target.closest("[data-k]");
+      if (!b) return;
+      if (b.dataset.k === "reveal") { reveal = !reveal; refresh(); }
+      if (b.dataset.k === "copykey") copy(info.key, "Network key");
+      if (b.dataset.k === "copycode") copy(sketchFor(info, true, v.id, v.name, v.cls), "Sketch with your key");
+    };
+    box.addEventListener("input", onInput); box.addEventListener("change", onInput); box.addEventListener("click", onClick);
+    await done;
+    box.removeEventListener("input", onInput); box.removeEventListener("change", onInput); box.removeEventListener("click", onClick);
+  }
+  $("adddev").onclick = addDevice;
+
+  // ---- Live log -------------------------------------------------------------------------
   function summary(e) {
     const p = e.payload || {};
     if (e.type === "status") return `${e.status}${e.reason ? " (" + e.reason + ")" : ""}`;
+    if (e.type === "removed") return "removed in Home Assistant";
     if (e.type === "cmd_failed") return `command ${e.cmd_id} got no ack after ${e.tries} tries`;
     if (e.type === "command") return JSON.stringify(p);
     if (e.type === "ack") return `cmd ${p.cmd_id ?? "?"} ${p.ok === false ? "REFUSED " + (p.err || "") : "ok"}`;
@@ -726,15 +1214,12 @@
     return s === "{}" ? "" : s;
   }
   function logMatch(e) {
-    if (!S.leases && e.type === "lease" && S.ltype !== "lease") return false;
-    if (S.ltype === "problems") { if (!["error", "cmd_failed", "status", "bye"].includes(e.type)) return false; }
-    else if (S.ltype === "ack") { if (e.type !== "ack") return false; }
+    if (!S.leases && e.type === "lease") return false;
+    if (S.ltype === "problems") { if (!["error", "cmd_failed", "status", "bye", "removed"].includes(e.type)) return false; }
     else if (S.ltype && e.type !== S.ltype) return false;
     if (S.lq) {
-      const q = S.lq.toLowerCase();
       const d = S.byId[e.id];
-      const hay = [e.id, d && d.name, e.type, e.class, summary(e)].join(" ").toLowerCase();
-      if (!hay.includes(q)) return false;
+      if (![e.id, devName(d), e.type, e.class, summary(e)].join(" ").toLowerCase().includes(S.lq.toLowerCase())) return false;
     }
     return true;
   }
@@ -747,17 +1232,15 @@
     lastLogSig = sig;
     $("rows").innerHTML = rows.length ? rows.map(e => {
       const d = S.byId[e.id];
-      const dirTxt = { rx: "IN", tx: "OUT", hub: "HUB" }[e.dir] || "IN";
       const right = e.ack_ms != null ? ms(e.ack_ms) : e.seq != null ? `#${e.seq}` : "";
-      const open = S.open.has(e.n);
       return `<div class="row" data-n="${e.n}">
         <span class="t">${tm(e.ts)}</span>
-        <span class="dir ${esc(e.dir || "rx")}">${dirTxt}</span>
+        <span class="dir ${esc(e.dir || "rx")}">${{ rx: "IN", tx: "OUT", hub: "HUB" }[e.dir] || "IN"}</span>
         <span class="type ${esc(e.type)}">${esc(e.type)}</span>
-        <span class="dev">${esc(d && d.name ? d.name : e.id)} <span class="muted mono">${d && d.name ? esc(e.id) : ""}</span></span>
+        <span class="dev">${esc(d ? devName(d) : e.id)}${d && devName(d) !== e.id ? ` <span class="muted mono">${esc(e.id)}</span>` : ""}</span>
         <span class="sum">${esc(summary(e))}</span>
         <span class="r">${esc(right)}</span>
-        ${open ? `<div class="detail"><pre>${esc(JSON.stringify(e, null, 2))}</pre></div>` : ""}
+        ${S.open.has(e.n) ? `<div class="detail"><pre>${esc(JSON.stringify(e, null, 2))}</pre></div>` : ""}
       </div>`;
     }).join("") : `<div class="empty">${S.log.length ? "Nothing matches the filter." : "No messages yet. They appear here live."}</div>`;
   }
@@ -769,7 +1252,6 @@
     S.open.has(n) ? S.open.delete(n) : S.open.add(n);
     lastLogSig = ""; renderLog();
   });
-
   function download(name, text, type) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([text], { type }));
@@ -782,25 +1264,20 @@
   $("excsv").onclick = () => {
     const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const lines = [["time", "direction", "type", "device", "name", "class", "seq", "ack_ms", "summary", "payload"].join(",")];
-    S.log.filter(logMatch).forEach(e => lines.push([
-      new Date(e.ts * 1000).toISOString(), e.dir, e.type, e.id, (S.byId[e.id] || {}).name, e.class, e.seq, e.ack_ms,
-      summary(e), JSON.stringify(e.payload || {}),
-    ].map(q).join(",")));
+    S.log.filter(logMatch).forEach(e => lines.push([new Date(e.ts * 1000).toISOString(), e.dir, e.type, e.id, devName(S.byId[e.id]), e.class, e.seq, e.ack_ms, summary(e), JSON.stringify(e.payload || {})].map(q).join(",")));
     download(`etcore-log-${stamp()}.csv`, lines.join("\n"), "text/csv");
   };
   $("pause").onclick = () => {
     S.paused = !S.paused;
-    $("pause").textContent = S.paused ? "Resume" : "Pause";
+    $("pause").querySelector("span").textContent = S.paused ? "Resume" : "Pause";
     $("pause").classList.toggle("on", S.paused);
     if (!S.paused && S.held.length) { addLog(S.held); S.held = []; }
     lastLogSig = ""; render();
   };
   $("clear").onclick = () => { S.log = []; S.held = []; S.open.clear(); lastLogSig = ""; renderLog(); };
-  $("showlease").onclick = () => {
-    S.leases = !S.leases; $("showlease").classList.toggle("on", S.leases); saveUi(); lastLogSig = ""; renderLog();
-  };
+  $("showlease").onclick = () => { S.leases = !S.leases; $("showlease").classList.toggle("on", S.leases); saveUi(); lastLogSig = ""; renderLog(); };
 
-  // ---- Render: health ------------------------------------------------------------
+  // ---- Health ------------------------------------------------------------------------------
   function kvRows(items) {
     return items.map(([k, v, why, cls]) =>
       `<div class="${why ? "label" : ""}">${esc(k)}</div><div class="n ${cls || ""} ${why ? "label" : ""}">${esc(v)}</div>${why ? `<div class="why">${esc(why)}</div>` : ""}`).join("");
@@ -820,121 +1297,146 @@
     ]);
     $("seckv").innerHTML = kvRows([
       ["Encryption", h.encrypted ? "On" : "OFF", h.encrypted ? "Every packet is ChaCha20-Poly1305 with a per-device key; plain packets are dropped." : "Set a 64-character network key in the integration options.", h.encrypted ? "good" : "bad"],
-      ["Failed to decrypt", h.decrypt_failures || 0, "Wrong key, a device from another network, or someone forging packets.", h.decrypt_failures ? "bad" : "good"],
-      ["Replays dropped", h.replays_dropped || 0, "Copies of old packets (a replay attack, or a WiFi duplicate).", ""],
-      ["Unproven sessions dropped", h.unproven_dropped || 0, "Packets from a device's new session before it answered the hub's challenge. A few after a reboot or reload are normal.", ""],
+      ["Failed to decrypt", h.decrypt_failures || 0, "Wrong key, a device from another network, or someone forging packets. The senders are listed below.", h.decrypt_failures ? "bad" : "good"],
+      ["Replays dropped", h.replays_dropped || 0, "Copies of old packets (a replay attack, or a WiFi duplicate)."],
+      ["Unproven sessions dropped", h.unproven_dropped || 0, "Packets from a device's new session before it answered the hub's challenge. A few after a reboot or reload are normal."],
     ]);
-    const name = (d) => String(d.name || d.id).toLowerCase();
-    $("devrows").innerHTML = S.devices.slice().sort((a, b) => name(a).localeCompare(name(b))).map(d => {
+    const why = { wrong_key: "Wrong network key", no_encryption: "Not encrypted", hub_has_no_key: "Hub has no key" };
+    const bad = h.bad_sources || [];
+    $("badbox").classList.toggle("hidden", !bad.length);
+    $("badrows").innerHTML = bad.map(b => `<tr><td class="mono">${esc(b.ip)}</td><td class="mono">${esc(b.id || "—")}</td><td style="color:var(--bad)">${esc(why[b.why] || b.why)}</td><td class="num">${b.count}</td><td>${tm(b.last)}</td></tr>`).join("");
+    $("devrows").innerHTML = S.devices.slice().sort((a, b) => nameKey(a).localeCompare(nameKey(b))).map(d => {
       const s = d.stats || {}, sg = signal(d.rssi);
       const err = d.last_error ? `${d.last_error.code}: ${d.last_error.message} (${tm(d.last_error.ts)})` : "";
       return `<tr>
-        <td><a href="#" data-open="${esc(d.id)}">${esc(d.name || d.id)}</a> <span class="muted mono">${esc(d.id)}</span></td>
-        <td><span class="pill ${d.online ? "online" : "offline"}">${d.online ? "online" : "offline"}</span></td>
-        <td class="num" style="color:${sg.c ? `var(--${sg.c})` : ""}">${esc(sg.t)}</td>
+        <td><a href="#" data-open="${esc(d.id)}">${esc(devName(d))}</a> <span class="muted mono">${esc(d.id)}</span></td>
+        <td><span class="pill ${d.online ? "online" : "offline"}">${d.online ? "Online" : "Offline"}</span></td>
+        <td class="num">${d.online ? `${bars(sg)} ${esc(sg.t)}` : "—"}</td>
         <td class="num">${d.online ? dur(uptimeSec(d.uptime)) : "—"}</td>
-        <td class="num">${s.rx || 0}</td>
-        <td class="num">${s.cmds || 0}</td>
+        <td class="num">${s.rx || 0}</td><td class="num">${s.cmds || 0}</td>
         <td class="num" style="${s.failed ? "color:var(--bad)" : ""}">${s.failed || 0}</td>
         <td class="num">${s.acked ? `${ms(s.ack_ms_avg)} / ${ms(s.ack_ms_max)}` : "—"}</td>
+        <td class="num" style="${(d.changes_10min || 0) >= 4 ? "color:var(--warn)" : ""}">${d.changes_10min || 0}</td>
         <td class="mono">${esc((d.hello || {}).lib || "")}</td>
         <td class="mono">${esc(String(d.rx_session || "").slice(0, 8))}</td>
         <td class="num mono">${esc(d.rx_seq ?? "")}</td>
         <td style="${err ? "color:var(--bad)" : ""}">${esc(err)}</td>
       </tr>`;
-    }).join("") || `<tr><td colspan="12" class="empty">No devices yet.</td></tr>`;
+    }).join("") || `<tr><td colspan="13" class="empty">No devices yet.</td></tr>`;
   }
-  $("devrows").addEventListener("click", (ev) => {
-    const a = ev.target.closest("[data-open]");
-    if (a) { ev.preventDefault(); openDrawer(a.dataset.open); }
-  });
+  $("devrows").addEventListener("click", (ev) => { const a = ev.target.closest("[data-open]"); if (a) { ev.preventDefault(); openDrawer(a.dataset.open); } });
 
-  // ---- Drawer ------------------------------------------------------------------
+  // ---- Drawer ------------------------------------------------------------------------------
   function openDrawer(id) {
     S.drawer = id;
-    $("drawer").classList.add("open"); $("scrim").classList.add("open");
+    $("drawer").classList.add("open"); $("drawer").setAttribute("aria-hidden", "false"); $("scrim").classList.add("open");
+    delete $("d-body").dataset.key;
     renderDrawer(true);
   }
   function closeDrawer() {
     S.drawer = null;
-    $("drawer").classList.remove("open"); $("scrim").classList.remove("open");
+    $("drawer").classList.remove("open"); $("drawer").setAttribute("aria-hidden", "true");
+    if (!$("modal").classList.contains("open")) $("scrim").classList.remove("open");
   }
   $("d-close").onclick = closeDrawer;
-  $("scrim").onclick = closeDrawer;
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+  $("scrim").onclick = () => { if ($("modal").classList.contains("open")) closeModal(null); else closeDrawer(); };
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { if ($("modal").classList.contains("open")) closeModal(null); else closeDrawer(); } });
 
   function renderDrawer(force) {
     const d = S.byId[S.drawer];
-    if (!d) return;
-    // Don't redraw while the user is selecting text in it.
+    if (!d) { if (S.drawer) closeDrawer(); return; }
     const sel = window.getSelection();
     if (!force && sel && !sel.isCollapsed && $("drawer").contains(sel.anchorNode)) return;
+    if (!force && $("drawer").contains(document.activeElement) && document.activeElement.matches("input, select")) { updateControls($("d-body")); return; }
     $("d-icon").innerHTML = icon(d.class);
-    $("d-name").textContent = d.name || d.id;
+    $("d-name").textContent = devName(d);
     $("d-id").textContent = `${d.id} · ${d.class || ""}`;
     const s = d.stats || {}, sg = signal(d.rssi);
     const recent = S.log.filter(e => e.id === d.id && e.type !== "lease").slice(-12).reverse();
+    const admin = isAdmin();
     const info = [
-      ["Status", d.online ? "online" : `offline (seen ${dur(d.age)} ago)`],
+      ["Status", d.online ? "Online" : `Offline (last heard ${dur(d.age)} ago)`],
       ["IP address", d.last_addr || "—"],
       ["Signal", sg.w ? `${sg.t} (${sg.w})` : sg.t],
-      ["Uptime", dur(uptimeSec(d.uptime))],
+      ["Uptime", d.online ? dur(uptimeSec(d.uptime)) : "—"],
       ["Firmware", d.fw || "—"],
       ["Library", (d.hello || {}).lib || "—"],
-      ["Lease", `${d.lease_ttl || "?"} s, ${Math.max(0, d.expires_in || 0).toFixed(1)} s left`],
-      ["Boot id", d.boot || "—"],
-      ["Session", d.rx_session || "—"],
-      ["Last seq", d.rx_seq ?? "—"],
-      ["Messages received", s.rx || 0],
+      ["Name the device reports", d.name || "—"],
+      ["Lease", `${d.lease_ttl || "?"} s${d.online ? `, ${Math.max(0, d.expires_in || 0).toFixed(1)} s left` : ""}`],
       ["Commands sent / acked / failed", `${s.cmds || 0} / ${s.acked || 0} / ${s.failed || 0}`],
-      ["Ack time last / avg / max", `${ms(s.ack_ms_last)} / ${ms(s.ack_ms_avg)} / ${ms(s.ack_ms_max)}`],
+      ["Response time last / avg / max", `${ms(s.ack_ms_last)} / ${ms(s.ack_ms_avg)} / ${ms(s.ack_ms_max)}`],
+      ["Online/offline changes (10 min)", d.changes_10min || 0],
+      ["Messages received", s.rx || 0],
+      ["Boot id", d.boot || "—"],
+      ["Session / last seq", `${d.rx_session || "—"} / ${d.rx_seq ?? "—"}`],
       ["Features", (d.features || []).join(", ") || "—"],
     ];
+    // Keep the controls' DOM while nothing structural changed (a dragged slider stays put).
+    const key = cardKey(d) + admin + d.online;
+    const ctlBox = $("d-controls");
+    const keep = $("d-body").dataset.key === key && ctlBox;
+    $("d-body").dataset.key = key;
+    const ctlHtml = `<div class="panel" id="d-controls"><div class="panel-h"><h2>Controls</h2></div><div class="controls" style="border:0;margin:0">${controlsHtml(d)}</div></div>`;
     $("d-body").innerHTML = `
-      <div class="links">
-        ${d.ha_device_id ? `<button data-nav="/config/devices/device/${esc(d.ha_device_id)}">Open in Home Assistant</button>` : ""}
-        <button data-copy="1">Copy device JSON</button>
-        <button data-logfor="${esc(d.id)}">Show in live log</button>
+      <div class="actions">
+        ${admin ? `<button class="btn" data-dact="rename">Rename</button>` : ""}
+        ${d.ha_device_id ? `<button class="btn" data-dact="ha">Open in Home Assistant</button>` : ""}
+        <button class="btn" data-dact="log">Show in live log</button>
+        <button class="btn" data-dact="copy">Copy JSON</button>
+        ${admin ? `<button class="btn danger" data-dact="remove" ${d.online ? `disabled title="Unplug it first: an online device would come straight back"` : ""}>Remove</button>` : ""}
       </div>
-      ${d.last_error ? `<div class="box"><h2 style="color:var(--bad)">Last error from the device</h2><div class="kv">${kvRows([[d.last_error.code, tm(d.last_error.ts), d.last_error.message]])}</div></div>` : ""}
-      <div class="box"><h2>Details</h2><div class="kv">${kvRows(info)}</div></div>
-      <div class="box"><h2>Entities</h2><div class="kv">${kvRows((d.entities || []).map(e => {
-        const st = hass() && hass().states[e.entity_id];
-        return [e.entity_id, st ? st.state : (e.disabled ? "disabled" : "—")];
-      })) || `<div class="muted">None yet</div><div></div>`}</div></div>
+      ${d.last_error ? `<div class="panel"><div class="panel-h"><h2 style="color:var(--bad)">Last error from the device</h2></div><div class="kv">${kvRows([[d.last_error.code, tm(d.last_error.ts), d.last_error.message]])}</div></div>` : ""}
+      <div id="d-ctl-slot"></div>
+      <div class="panel"><div class="panel-h"><h2>Details</h2></div><div class="kv">${kvRows(info)}</div></div>
       <div><h3>Last state</h3><pre>${esc(JSON.stringify(d.state || {}, null, 2))}</pre></div>
       <div><h3>Hello</h3><pre>${esc(JSON.stringify(d.hello || {}, null, 2))}</pre></div>
       <div><h3>Recent messages (no leases)</h3><pre>${esc(recent.map(e => `${tm(e.ts)} ${(e.dir || "rx").padEnd(3)} ${e.type.padEnd(10)} ${summary(e)}`).join("\n") || "none yet")}</pre></div>`;
+    const slot = $("d-ctl-slot");
+    if (keep) slot.replaceWith(ctlBox); else slot.outerHTML = ctlHtml;
+    updateControls($("d-body"));
   }
   $("d-body").addEventListener("click", (ev) => {
-    const b = ev.target.closest("button");
+    const b = ev.target.closest("[data-dact]");
     if (!b) return;
     const d = S.byId[S.drawer];
-    if (b.dataset.nav) haNavigate(b.dataset.nav);
-    if (b.dataset.copy && d) navigator.clipboard && navigator.clipboard.writeText(JSON.stringify(d, null, 2));
-    if (b.dataset.logfor) {
-      S.lq = b.dataset.logfor; $("lq").value = S.lq; closeDrawer(); setTab("log");
-    }
+    if (!d) return;
+    const a = b.dataset.dact;
+    if (a === "rename") renameDevice(d.id);
+    if (a === "remove") removeDevice(d.id);
+    if (a === "ha") haNavigate(`/config/devices/device/${d.ha_device_id}`);
+    if (a === "copy") navigator.clipboard.writeText(JSON.stringify(d, null, 2)).then(() => toast("Copied"), () => toast("Copy failed", true));
+    if (a === "log") { S.lq = d.id; $("lq").value = S.lq; closeDrawer(); setTab("log"); }
   });
 
-  // ---- Tabs + toolbar ------------------------------------------------------------
+  // ---- Tabs + toolbar ------------------------------------------------------------------------
   function setTab(t) {
+    if (!["overview", "devices", "log", "health"].includes(t)) t = "overview";
     S.tab = t; saveUi();
     document.querySelectorAll("nav button").forEach(b => b.classList.toggle("active", b.dataset.tab === t));
-    ["devices", "log", "health"].forEach(x => $("tab-" + x).classList.toggle("hidden", x !== t));
-    lastLogSig = "";
-    if (S.hub) render();
+    ["overview", "devices", "log", "health"].forEach(x => $("tab-" + x).classList.toggle("hidden", x !== t));
+    lastLogSig = ""; renderTable.sig = ""; renderMap.key = "";
+    if (S.hub) render(); else if (t === "devices") renderCards([]);
+  }
+  function setView(v, quiet) {
+    S.view = v === "table" ? "table" : "cards";
+    if (!quiet) saveUi();
+    document.querySelectorAll("#view button").forEach(b => b.classList.toggle("on", b.dataset.view === S.view));
+    renderTable.sig = "";
+    if (S.hub && S.tab === "devices") renderDevices();
   }
   document.querySelectorAll("nav button").forEach(b => b.onclick = () => setTab(b.dataset.tab));
-  $("q").oninput = (e) => { S.q = e.target.value; renderCards(); };
+  $("view").onclick = (e) => { const b = e.target.closest("button"); if (b) setView(b.dataset.view); };
+  $("q").oninput = (e) => { S.q = e.target.value; renderDevices(); };
   $("sort").value = S.sort;
-  $("sort").onchange = (e) => { S.sort = e.target.value; saveUi(); renderCards(); };
-  $("kind").onclick = (e) => {
-    const b = e.target.closest("button"); if (!b) return;
-    S.kind = b.dataset.kind;
-    $("kind").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
-    renderCards();
-  };
+  $("sort").onchange = (e) => { S.sort = e.target.value; saveUi(); renderDevices(); };
+  for (const key of ["kind", "stat"]) {
+    $(key).onclick = (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      S[key] = b.dataset[key];
+      $(key).querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+      renderDevices();
+    };
+  }
   $("ltype").onclick = (e) => {
     const b = e.target.closest("button"); if (!b) return;
     S.ltype = b.dataset.t;
@@ -945,6 +1447,8 @@
   $("showlease").classList.toggle("on", S.leases);
 
   applyTheme();
+  document.querySelectorAll(".admin-only").forEach(el => el.classList.toggle("hidden", !isAdmin()));
+  if (S.view) setView(S.view, true);
   setTab(S.tab);
   loop();
   </script>

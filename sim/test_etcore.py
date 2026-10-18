@@ -104,6 +104,29 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         state = next(m for m in got if m["type"] == "state")
         self.assertEqual(state["payload"].get("value"), 21.5)
 
+    async def test_forgotten_device_comes_back_complete(self):
+        # Removed in HA while it was still out there: it must come back as a whole
+        # device (name, class, state), and removal tells the platforms.
+        hub = await self.hub()
+        self.device("relayRM")
+        self.assertTrue(await wait_for(lambda: self.online(hub, "relayRM"), 5))
+        removed = []
+        hub.register_removed_listener(removed.append)
+        self.assertTrue(hub.forget_device("relayRM"))
+        self.assertEqual(removed, ["relayRM"])
+        self.assertNotIn("relayRM", hub.devices)
+        back = lambda: (hub.devices.get("relayRM") or {})
+        self.assertTrue(await wait_for(lambda: back().get("name") and back().get("online"), 15), f"did not come back: {back()}")
+        self.assertEqual(back().get("class"), "switch.relay")
+
+    async def test_wrong_key_source_is_named(self):
+        hub = await self.hub()
+        self.device("wrongKey", psk=os.urandom(32).hex())
+        self.assertTrue(await wait_for(lambda: hub.get_diag_snapshot()["bad_sources"], 5), "no bad source recorded")
+        src = hub.get_diag_snapshot()["bad_sources"][0]
+        self.assertEqual((src["id"], src["why"]), ("wrongKey", "wrong_key"))
+        self.assertTrue(src["ip"].startswith("127.0.0."))
+
     async def test_bye_marks_device_offline_at_once(self):
         hub = await self.hub()
         d = await self._online_device(hub, "relayAD")
