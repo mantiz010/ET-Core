@@ -83,6 +83,7 @@ class EtCoreHub:
     ):
         self.hass = hass
         self._psk = self._parse_psk((config or {}).get(CONF_PSK_HEX))
+        self._ciphers: dict[str, Any] = {}
         self._port = int((config or {}).get(CONF_PORT) or PORT)
         # Key for multicast announces. The label starts with a 0 byte, which no
         # device id can contain, so it can never equal a device key.
@@ -221,8 +222,14 @@ class EtCoreHub:
         self._record_message(msg, addr[0])
         self._remember_event(msg)
 
+        # Straight to the entities (all @callback, and this runs in the event loop):
+        # hass.add_job would wake the loop through its pipe and inspect the
+        # callback on every packet.
         for cb in list(self._message_listeners):
-            self.hass.add_job(cb, msg)
+            try:
+                cb(msg)
+            except Exception:  # noqa: BLE001 - one bad platform must not stop the others
+                _LOGGER.exception("ET-Core listener failed")
 
     def _parse_psk(self, value: Any) -> bytes | None:
         psk = str(value or "").strip()
@@ -264,6 +271,18 @@ class EtCoreHub:
             return None
         return hashlib.sha256(self._psk + dev_id.encode("utf-8")).digest()
 
+    def _cipher_for(self, dev_id: str) -> Any:
+        """The device's cipher, kept: building one costs ~50 us per packet."""
+        cipher = self._ciphers.get(dev_id)
+        if cipher is None:
+            key = self._key_for(dev_id)
+            if not key or ChaCha20Poly1305 is None:
+                return None
+            if len(self._ciphers) >= 256:  # ids come from packets: keep it bounded
+                self._ciphers.clear()
+            cipher = self._ciphers[dev_id] = ChaCha20Poly1305(key)
+        return cipher
+
     def _decode_payload(self, msg: dict[str, Any]) -> bool:
         payload = msg.get("payload")
         if not isinstance(payload, dict) or payload.get("_enc") != 1:
@@ -281,8 +300,8 @@ class EtCoreHub:
                 return False
             return True
         dev_id = str(msg.get("id") or "")
-        key = self._key_for(dev_id)
-        if not key or ChaCha20Poly1305 is None:
+        cipher = self._cipher_for(dev_id)
+        if cipher is None:
             self._warn_limited(f"nokey:{dev_id}", "ET-Core encrypted payload from %s ignored: crypto not configured", dev_id)
             self._decrypt_fail_count += 1
             self._note_bad_source(msg, "hub_has_no_key")
@@ -294,7 +313,7 @@ class EtCoreHub:
             if len(nonce) != 12 or len(tag) != 16 or nonce[0] != 1:
                 raise ValueError("bad nonce or tag")
             aad = self._aad(str(msg.get("type") or ""), dev_id, msg.get("seq"))
-            plain = ChaCha20Poly1305(key).decrypt(nonce, ct + tag, aad)
+            plain = cipher.decrypt(nonce, ct + tag, aad)
             payload = json.loads(plain.decode("utf-8"))
             if not isinstance(payload, dict):
                 raise ValueError("payload is not an object")
@@ -389,8 +408,8 @@ class EtCoreHub:
         return hmac.compare_digest(ch, self._make_challenge(dev_id, session, t))
 
     def _encode_payload(self, dev_id: str, seq: int, payload: dict[str, Any]) -> dict[str, Any]:
-        key = self._key_for(dev_id)
-        if not key or ChaCha20Poly1305 is None:
+        cipher = self._cipher_for(dev_id)
+        if cipher is None:
             return payload
 
         # Address the command to the device's current boot: a recorded command
@@ -405,7 +424,7 @@ class EtCoreHub:
         nonce[10] = (seq >> 16) & 0xFF
         nonce[11] = (seq >> 24) & 0xFF
         plain = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-        out = ChaCha20Poly1305(key).encrypt(bytes(nonce), plain, self._aad("cmd", dev_id, seq))
+        out = cipher.encrypt(bytes(nonce), plain, self._aad("cmd", dev_id, seq))
         return {
             "_enc": 1,
             "alg": "C20P1305",

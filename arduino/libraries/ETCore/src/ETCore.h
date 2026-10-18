@@ -10,10 +10,10 @@
 #ifndef ETCORE_DEFAULT_PORT
 #define ETCORE_DEFAULT_PORT 5560
 #endif
-// Largest datagram the device accepts (a command or announce is well under 1 KB).
 #ifndef ETCORE_MAX_PLAIN
 #define ETCORE_MAX_PLAIN 2048  // largest message a device sends (before encryption)
 #endif
+// Largest datagram the device accepts (a command or announce is well under 1 KB).
 #ifndef ETCORE_MAX_PACKET
 #define ETCORE_MAX_PACKET 1500
 #endif
@@ -102,7 +102,17 @@ private:
   bool _b64encode(const uint8_t* in, size_t in_len, char* out, size_t out_len);
   bool _b64decode(const char* in, uint8_t* out, size_t out_len, size_t* written);
 
+  // Network: on the ESP32 a plain lwIP socket (WiFiUDP copies every packet in and
+  // out a byte at a time and splits sends over 1460 bytes); WiFiUDP elsewhere.
+  void _netBegin();
+  int _netRecv(char* buf, size_t max);
+  void _netSend(IPAddress ip, const char* data, size_t len);
+  IPAddress _rxFrom;
+#if defined(ESP_PLATFORM)
+  int _sock = -1;
+#else
   WiFiUDP _udp;
+#endif
   IPAddress _mcast;
   IPAddress _hubIp;
   bool _hubKnown = false;

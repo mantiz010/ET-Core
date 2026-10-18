@@ -2,6 +2,65 @@
 
 #include <mbedtls/base64.h>
 #include <mbedtls/sha256.h>
+#if defined(ESP_PLATFORM)
+#include <lwip/sockets.h>
+#include <fcntl.h>
+#endif
+
+// ---- JSON memory ----------------------------------------------------------------
+// ArduinoJson asks the heap for every block and string; on an ESP32 that made
+// reading a command ~290 us. All the library's documents live only while one
+// message is handled (from loop()), so they share one static block that is handed
+// back when each one goes out of scope: ~77 us. Spills to the heap when full.
+#ifndef ETCORE_JSON_ARENA
+#define ETCORE_JSON_ARENA 6144
+#endif
+namespace {
+struct EtArena : ArduinoJson::Allocator {
+  alignas(8) uint8_t buf[ETCORE_JSON_ARENA];
+  size_t used = 0;
+  uint8_t* last = nullptr;  // most recent block: can grow in place
+  bool mine(void* p) const { return (uint8_t*)p >= buf && (uint8_t*)p < buf + sizeof(buf); }
+  static size_t round8(size_t n) { return (n + 7) & ~(size_t)7; }
+  void* allocate(size_t n) override {
+    const size_t r = round8(n);
+    if (used + r <= sizeof(buf)) {
+      last = buf + used;
+      used += r;
+      return last;
+    }
+    return malloc(n);
+  }
+  void deallocate(void* p) override {
+    if (p && !mine(p)) free(p);
+  }
+  void* reallocate(void* p, size_t n) override {
+    if (!p) return allocate(n);
+    if (!mine(p)) return realloc(p, n);
+    uint8_t* q = (uint8_t*)p;
+    if (q == last && (size_t)(q - buf) + round8(n) <= sizeof(buf)) {
+      used = (size_t)(q - buf) + round8(n);
+      return p;
+    }
+    const size_t had = (size_t)(buf + used - q);  // at most what follows p
+    void* fresh = allocate(n);
+    if (fresh) memcpy(fresh, p, had < n ? had : n);
+    return fresh;
+  }
+};
+EtArena g_arena;
+// Gives back everything allocated since it was made. Declare it before the
+// document, so the document is destroyed first.
+struct ArenaScope {
+  size_t mark;
+  uint8_t* last;
+  ArenaScope() : mark(g_arena.used), last(g_arena.last) {}
+  ~ArenaScope() {
+    g_arena.used = mark;
+    g_arena.last = last;
+  }
+};
+}  // namespace
 
 ETCore::ETCore() : _mcast(239, 10, 0, 2), _hubIp(0, 0, 0, 0) {}
 
@@ -34,7 +93,7 @@ void ETCore::begin(const char* device_id, const char* device_class, const char* 
   WiFi.setSleep(false);
 #endif
 
-  _udp.beginMulticast(_mcast, _port);
+  _netBegin();
   sendHello();
   sendLease();
   _lastLeaseMs = millis();
@@ -109,13 +168,8 @@ void ETCore::loop() {
     if (_syncHandler) _syncHandler();  // a new hub has no state for us yet
   }
 
-  const int packetSize = _udp.parsePacket();
-  if (!packetSize) return;
-  // Read the whole datagram, then parse: parsing straight from the UDP stream
-  // reads it a byte at a time (measured ~2-3 ms slower per command on a C3).
   static char buf[ETCORE_MAX_PACKET + 1];
-  if (packetSize > ETCORE_MAX_PACKET) return;  // the next parsePacket() drops the rest
-  const int len = _udp.read((uint8_t*)buf, ETCORE_MAX_PACKET);
+  const int len = _netRecv(buf, ETCORE_MAX_PACKET);
   if (len <= 0) return;
   buf[len] = 0;
 
@@ -131,7 +185,8 @@ void ETCore::loop() {
     }
   }
 
-  JsonDocument doc;
+  ArenaScope docMem;
+  JsonDocument doc(&g_arena);
   DeserializationError err = deserializeJson(doc, (const char*)buf, (size_t)len);
   if (err) return;
 
@@ -167,7 +222,8 @@ void ETCore::_runCmd(const char* cls, uint32_t seq, const char* n64, const char*
     if (!_cryptoEnabled && seq <= _lastCmdSeq) return;
 
     JsonObject payload = plain;
-    JsonDocument plainDoc;
+    ArenaScope plainDocMem;
+    JsonDocument plainDoc(&g_arena);
     if (_cryptoEnabled) {
       if (!_decryptB64("cmd", seq, n64, c64, t64, plainDoc)) return;
       payload = plainDoc.as<JsonObject>();
@@ -186,7 +242,7 @@ void ETCore::_runCmd(const char* cls, uint32_t seq, const char* n64, const char*
     }
 
     _lastCmdSeq = seq;
-    _learnHub(_udp.remoteIP());  // only after the command checked out
+    _learnHub(_rxFrom);  // only after the command checked out
 
     // A resend after a lost ack carries the same cmd_id with a new seq:
     // answer it again, but do not run the command twice.
@@ -301,20 +357,21 @@ void ETCore::_handleAnnounce(JsonDocument& doc, uint32_t now) {
   const bool unicast = _id && strcmp(to, _id) == 0;
   if (!unicast && strcmp(to, "hub") != 0) return;
   JsonObject payload = doc["payload"].as<JsonObject>();
-  JsonDocument plainDoc;
+  ArenaScope plainDocMem;
+  JsonDocument plainDoc(&g_arena);
   if (_cryptoEnabled) {
     uint32_t seq = doc["seq"].as<uint32_t>();
     if (!_decryptPayload("announce", seq, payload, plainDoc, unicast ? _key : _siteKey, 3, to)) return;
     payload = plainDoc.as<JsonObject>();
     IPAddress claimed;
-    if (!claimed.fromString(payload["hub"] | "") || claimed != _udp.remoteIP()) return;
+    if (!claimed.fromString(payload["hub"] | "") || claimed != _rxFrom) return;
     if (unicast) {
       char ds[15];
       _sessionHex(ds);
       if (strcmp(payload["_ds"] | "", ds) != 0) return;
     }
   }
-  _learnHub(_udp.remoteIP());
+  _learnHub(_rxFrom);
   // A new challenge is fresh by construction, so its hello request is never held
   // back; anything else (incl. a replayed announce) at most once per 10 s.
   const char* ch = payload["ch"] | "";
@@ -345,7 +402,8 @@ void ETCore::_sendEnvelope(const char* type, JsonObject payload, bool multicast_
   if (!_hubKnown && !multicast_fallback) return;
   if (_cryptoEnabled && _sendEncryptedFast(type, payload, target)) return;
 
-  JsonDocument doc;
+  ArenaScope docMem;
+  JsonDocument doc(&g_arena);
   doc["v"] = 1;
   doc["type"] = type;
   doc["id"] = _id ? _id : "";
@@ -362,9 +420,10 @@ void ETCore::_sendEnvelope(const char* type, JsonObject payload, bool multicast_
     }
   }
 
-  _udp.beginPacket(target, _port);
-  serializeJson(doc, _udp);
-  _udp.endPacket();
+  static char pkt[ETCORE_MAX_PLAIN * 4 / 3 + 320];
+  const size_t n = serializeJson(doc, pkt, sizeof(pkt));
+  if (n == 0 || n >= sizeof(pkt)) return;
+  _netSend(target, pkt, n);
 }
 
 static bool _jsonSafe(const char* s) {
@@ -391,14 +450,76 @@ bool ETCore::_sendEncryptedFast(const char* type, JsonObject payload, IPAddress 
                          "\"ct\":\"%s\",\"tag\":\"%s\"}}",
                          type, id, cls, _boot, (unsigned long)_seq, n64, c64, t64);
   if (n <= 0 || n >= (int)sizeof(pkt)) return false;
-  _udp.beginPacket(target, _port);
-  _udp.write((const uint8_t*)pkt, (size_t)n);
-  _udp.endPacket();
+  _netSend(target, pkt, (size_t)n);
   return true;
 }
 
+// ---- network ------------------------------------------------------------------
+#if defined(ESP_PLATFORM)
+void ETCore::_netBegin() {
+  if (_sock >= 0) close(_sock);
+  _sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (_sock < 0) {
+    log_e("ETCore: no UDP socket (%d)", errno);
+    return;
+  }
+  int one = 1;
+  setsockopt(_sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+  struct sockaddr_in a = {};
+  a.sin_family = AF_INET;
+  a.sin_port = htons(_port);
+  a.sin_addr.s_addr = htonl(INADDR_ANY);
+  if (bind(_sock, (struct sockaddr*)&a, sizeof(a)) < 0) log_e("ETCore: bind port %u failed (%d)", _port, errno);
+  struct ip_mreq m = {};
+  m.imr_multiaddr.s_addr = (uint32_t)_mcast;
+  m.imr_interface.s_addr = htonl(INADDR_ANY);
+  if (setsockopt(_sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &m, sizeof(m)) < 0) {
+    log_e("ETCore: multicast join failed (%d)", errno);
+  }
+  fcntl(_sock, F_SETFL, fcntl(_sock, F_GETFL, 0) | O_NONBLOCK);
+}
+
+int ETCore::_netRecv(char* buf, size_t max) {
+  if (_sock < 0) return 0;
+  struct sockaddr_in from;
+  socklen_t fl = sizeof(from);
+  // One datagram straight into buf; anything longer than max is cut and dropped below.
+  const int n = recvfrom(_sock, buf, max + 1, MSG_DONTWAIT, (struct sockaddr*)&from, &fl);
+  if (n <= 0 || (size_t)n > max) return 0;
+  _rxFrom = IPAddress(from.sin_addr.s_addr);
+  return n;
+}
+
+void ETCore::_netSend(IPAddress ip, const char* data, size_t len) {
+  if (_sock < 0) return;
+  struct sockaddr_in to = {};
+  to.sin_family = AF_INET;
+  to.sin_port = htons(_port);
+  to.sin_addr.s_addr = (uint32_t)ip;
+  sendto(_sock, data, len, 0, (struct sockaddr*)&to, sizeof(to));
+}
+#else
+void ETCore::_netBegin() { _udp.beginMulticast(_mcast, _port); }
+
+int ETCore::_netRecv(char* buf, size_t max) {
+  const int size = _udp.parsePacket();
+  if (!size) return 0;
+  if ((size_t)size > max) return 0;  // the next parsePacket() drops the rest
+  const int n = _udp.read((uint8_t*)buf, max);
+  _rxFrom = _udp.remoteIP();
+  return n;
+}
+
+void ETCore::_netSend(IPAddress ip, const char* data, size_t len) {
+  _udp.beginPacket(ip, _port);
+  _udp.write((const uint8_t*)data, len);
+  _udp.endPacket();
+}
+#endif
+
 void ETCore::sendHello() {
-  JsonDocument d;
+  ArenaScope dMem;
+  JsonDocument d(&g_arena);
   JsonObject p = d.to<JsonObject>();
   p["name"] = _name ? _name : "";
   p["fw"] = _fw ? _fw : "";
@@ -419,7 +540,8 @@ void ETCore::sendHello() {
 }
 
 void ETCore::sendLease() {
-  JsonDocument d;
+  ArenaScope dMem;
+  JsonDocument d(&g_arena);
   JsonObject p = d.to<JsonObject>();
   p["ttl"] = _leaseTtlSec;
   p["uptime"] = (uint32_t)(millis() / 1000);
@@ -434,7 +556,8 @@ void ETCore::sendState(JsonObject payload) {
 }
 
 void ETCore::sendError(const char* code, const char* message) {
-  JsonDocument d;
+  ArenaScope dMem;
+  JsonDocument d(&g_arena);
   JsonObject p = d.to<JsonObject>();
   p["code"] = code && code[0] ? code : "error";
   if (message && message[0]) p["message"] = message;
@@ -443,14 +566,16 @@ void ETCore::sendError(const char* code, const char* message) {
 
 // Same payloads as the ET-Bus helpers, so ET-Bus sketches port with no other change.
 void ETCore::sendSwitchState(bool on) {
-  JsonDocument d;
+  ArenaScope dMem;
+  JsonDocument d(&g_arena);
   JsonObject p = d.to<JsonObject>();
   p["on"] = on;
   sendState(p);
 }
 
 void ETCore::sendSwitchesState(const bool* states, uint8_t count) {
-  JsonDocument d;
+  ArenaScope dMem;
+  JsonDocument d(&g_arena);
   JsonObject sw = d["switches"].to<JsonObject>();
   char id[4];
   for (uint8_t i = 0; i < count; i++) {
@@ -462,7 +587,8 @@ void ETCore::sendSwitchesState(const bool* states, uint8_t count) {
 
 void ETCore::sendRgbStateFx(bool on, uint8_t r, uint8_t g, uint8_t b, uint8_t brightness,
                             const char* effect, uint8_t speed) {
-  JsonDocument d;
+  ArenaScope dMem;
+  JsonDocument d(&g_arena);
   JsonObject p = d.to<JsonObject>();
   p["on"] = on;
   p["r"] = r;
@@ -475,7 +601,8 @@ void ETCore::sendRgbStateFx(bool on, uint8_t r, uint8_t g, uint8_t b, uint8_t br
 }
 
 void ETCore::sendFanSpeed(bool on, uint8_t percent) {
-  JsonDocument d;
+  ArenaScope dMem;
+  JsonDocument d(&g_arena);
   JsonObject p = d.to<JsonObject>();
   p["on"] = on;
   p["speed"] = percent > 100 ? 100 : percent;
@@ -483,7 +610,8 @@ void ETCore::sendFanSpeed(bool on, uint8_t percent) {
 }
 
 void ETCore::sendFanPreset(bool on, const char* preset) {
-  JsonDocument d;
+  ArenaScope dMem;
+  JsonDocument d(&g_arena);
   JsonObject p = d.to<JsonObject>();
   p["on"] = on;
   p["preset"] = preset && preset[0] ? preset : "off";
@@ -491,7 +619,8 @@ void ETCore::sendFanPreset(bool on, const char* preset) {
 }
 
 void ETCore::sendValue(float value, const char* unit) {
-  JsonDocument d;
+  ArenaScope dMem;
+  JsonDocument d(&g_arena);
   JsonObject p = d.to<JsonObject>();
   p["value"] = value;
   if (unit && unit[0]) p["unit"] = unit;
@@ -499,14 +628,16 @@ void ETCore::sendValue(float value, const char* unit) {
 }
 
 void ETCore::sendBye() {
-  JsonDocument d;
+  ArenaScope dMem;
+  JsonDocument d(&g_arena);
   JsonObject p = d.to<JsonObject>();
   p["reason"] = "restart";
   _sendEnvelope("bye", p, true);
 }
 
 void ETCore::_sendStale(const char* cmd_id) {
-  JsonDocument d;
+  ArenaScope dMem;
+  JsonDocument d(&g_arena);
   JsonObject p = d.to<JsonObject>();
   p["cmd_id"] = cmd_id ? cmd_id : "";
   p["ok"] = false;
@@ -520,7 +651,8 @@ void ETCore::sendAck(const char* cmd_id, bool ok) {
     _curAcked = true;
     _curOk = ok;
   }
-  JsonDocument d;
+  ArenaScope dMem;
+  JsonDocument d(&g_arena);
   JsonObject p = d.to<JsonObject>();
   p["cmd_id"] = cmd_id ? cmd_id : "";
   p["ok"] = ok;
