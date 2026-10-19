@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/img/electronicstech-logo-dark.png">
+    <img src="docs/img/electronicstech-logo.png" alt="ElectronicsTech" width="480">
+  </picture>
+</p>
+
 # ET-Core
 
 ET-Core is a local-first UDP device protocol for fast ESP32-to-Home Assistant control.
