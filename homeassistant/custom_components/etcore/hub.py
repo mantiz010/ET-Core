@@ -387,7 +387,9 @@ class EtCoreHub:
             while len(sent) > 16:  # forgetting one only means it may be asked again sooner
                 sent.pop(next(iter(sent)))
             dev["told_hub_at"] = time.time()
-            self._send_announce(str(ip), hello=not dev.get("name"), dev_id=dev["id"],
+            # Always ask for a hello: a new session is a reboot (often an OTA), and
+            # its boot hello was dropped above, so fw/effects would stay stale.
+            self._send_announce(str(ip), hello=True, dev_id=dev["id"],
                                 ds=session, ch=self._make_challenge(dev["id"], session, int(now)))
         return False
 
@@ -490,6 +492,13 @@ class EtCoreHub:
             dev["uptime"] = payload.get("uptime")
 
         if mtype in ("lease", "state", "hello"):
+            # Any authenticated packet of the live session shows the device is up.
+            # After a reboot the challenge is answered with a hello, not a lease, so
+            # without this the old boot's expired lease marks it offline a moment later.
+            if mtype == "hello" and payload.get("ttl"):
+                dev["lease_ttl"] = max(2, int(payload.get("ttl") or DEFAULT_LEASE_TTL))
+            dev["lease_expires"] = max(float(dev.get("lease_expires") or 0),
+                                       now + float(dev.get("lease_ttl") or DEFAULT_LEASE_TTL))
             dev["online"] = True
             if not was_online:
                 self._fire_status(dev_id, "online")

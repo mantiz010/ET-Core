@@ -77,8 +77,17 @@ def _hubs(hass: HomeAssistant) -> dict[str, Any]:
     return dict(hass.data.get(DOMAIN) or {})
 
 
-def _ha_device(hass: HomeAssistant, dev_id: str) -> dr.DeviceEntry | None:
-    return dr.async_get(hass).async_get_device(identifiers={(DOMAIN, str(dev_id))})
+def _ha_device(hass: HomeAssistant, dev_id: str, entry_id: str | None = None) -> dr.DeviceEntry | None:
+    reg = dr.async_get(hass)
+    ident = (DOMAIN, str(dev_id))
+    by_ident = getattr(reg, "async_get_device_by_identifier", None)  # HA 2026.10+
+    if by_ident is None:
+        return reg.async_get_device(identifiers={ident})
+    for eid in [entry_id] if entry_id else list(_hubs(hass)):
+        device = by_ident(ident, eid)
+        if device is not None:
+            return device
+    return None
 
 
 def _diag(hass: HomeAssistant, since: int | None) -> dict[str, Any]:
@@ -93,7 +102,7 @@ def _diag(hass: HomeAssistant, since: int | None) -> dict[str, Any]:
         # Which HA entities belong to each device, so the page can show and
         # control them through the normal HA services.
         for dev in snap["devices"]:
-            device = _ha_device(hass, dev.get("id"))
+            device = _ha_device(hass, dev.get("id"), entry_id)
             dev["ha_device_id"] = device.id if device else None
             dev["ha_name"] = device.name_by_user if device else None
             dev["entities"] = [
@@ -147,7 +156,7 @@ def _ws_remove(hass: HomeAssistant, connection: websocket_api.ActiveConnection, 
             connection.send_error(msg["id"], "online", "The device is online. Unplug it first, then remove it.")
             return
         hub.forget_device(dev_id)
-        device = _ha_device(hass, dev_id)
+        device = _ha_device(hass, dev_id, entry_id)
         if device is not None:
             dr.async_get(hass).async_update_device(device.id, remove_config_entry_id=entry_id)
         connection.send_result(msg["id"], {"removed": dev_id})

@@ -300,6 +300,21 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
             attacker.close()
         self.assertFalse(self.online(hub, "relayD"), "replayed lease kept a dead device online")
 
+    async def test_reboot_with_new_firmware_updates_hello(self):
+        # After an OTA the boot hello comes from a session the hub has not proven
+        # yet and is dropped; the challenge must ask for a fresh one, or HA keeps
+        # the old firmware's effects/version until it restarts.
+        hub = await self.hub()
+        ip = self.ip()
+        d1 = Device("lightFW", "light.rgb", ip, PSK, lease_ms=500, env={"ETCORE_SIM_EFFECTS": "3"})
+        self.devices.append(d1)
+        self.assertTrue(await wait_for(lambda: len(hub.devices.get("lightFW", {}).get("effects") or []) == 3, 5))
+        d1.kill()
+        d2 = Device("lightFW", "light.rgb", ip, PSK, lease_ms=500, env={"ETCORE_SIM_EFFECTS": "5"})
+        self.devices.append(d2)
+        self.assertTrue(await wait_for(lambda: len(hub.devices["lightFW"].get("effects") or []) == 5, 5),
+                        "hub kept the hello from before the reboot")
+
     async def test_leases_from_an_earlier_boot_cannot_fake_online(self):
         hub = await self.hub()
         ip = self.ip()

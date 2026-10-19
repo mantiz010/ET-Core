@@ -694,7 +694,12 @@ void ETCore::_deriveKey() {
 }
 
 void ETCore::_sessionHex(char out[15]) {
-  for (uint8_t i = 0; i < sizeof(_session); i++) snprintf(out + i * 2, 3, "%02x", _session[i]);
+  static const char hex[] = "0123456789abcdef";  // runs on every command: no snprintf
+  for (uint8_t i = 0; i < sizeof(_session); i++) {
+    out[i * 2] = hex[_session[i] >> 4];
+    out[i * 2 + 1] = hex[_session[i] & 15];
+  }
+  out[sizeof(_session) * 2] = 0;
 }
 
 void ETCore::_makeNonce(uint8_t direction, uint32_t seq, uint8_t nonce[12]) {
