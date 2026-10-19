@@ -111,7 +111,7 @@ With HACS (updates show up in HACS like any other integration):
 2. Search **ET-Core** in HACS, *Download*, restart Home Assistant.
 3. *Settings → Devices & services → Add integration → ET-Core*.
 
-By hand: copy `homeassistant/custom_components/etcore` (or unzip `etcore.zip` from the
+By hand: copy `homeassistant/custom_components/etcore` (or unzip `etcore-ha.zip` from the
 [latest release](https://github.com/mantiz010/ET-Core/releases/latest)) to
 `/config/custom_components/etcore`, restart Home Assistant and add `ET-Core`.
 
