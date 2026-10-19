@@ -11,8 +11,10 @@ static const char* WIFI_SSID  = "YOUR_WIFI_SSID";
 static const char* WIFI_PASS  = "YOUR_WIFI_PASSWORD";
 static const char* ETCORE_KEY = "";  // 64 hex characters, same key as in Home Assistant
 
-#define SDA_PIN   8
-#define SCL_PIN   9
+// The board's own I2C pins (ESP32: 21/22, ESP32-C3: 8/9). GPIO6-11 are the flash
+// on a standard ESP32, so never hard-code 8/9 there.
+#define SDA_PIN   SDA
+#define SCL_PIN   SCL
 #define EVERY_MS  10000
 
 ETCore etcore;

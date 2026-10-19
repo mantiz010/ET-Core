@@ -9,7 +9,11 @@ static const char* WIFI_SSID  = "YOUR_WIFI_SSID";
 static const char* WIFI_PASS  = "YOUR_WIFI_PASSWORD";
 static const char* ETCORE_KEY = "";  // 64 hex characters, same key as in Home Assistant
 
-#define SENSOR_PIN  3       // an ADC pin
+#if CONFIG_IDF_TARGET_ESP32C3
+#define SENSOR_PIN  3       // ADC1 on the ESP32-C3
+#else
+#define SENSOR_PIN  34      // ADC1 (GPIO32-39); ADC2 pins stop working while Wi-Fi is on
+#endif
 #define DRY_RAW     3000
 #define WET_RAW     1200
 #define EVERY_MS    300000  // 5 minutes

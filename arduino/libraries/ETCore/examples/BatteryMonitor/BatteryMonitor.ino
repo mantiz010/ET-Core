@@ -14,7 +14,11 @@ static const char* WIFI_SSID  = "YOUR_WIFI_SSID";
 static const char* WIFI_PASS  = "YOUR_WIFI_PASSWORD";
 static const char* ETCORE_KEY = "";  // 64 hex characters, same key as in Home Assistant
 
-#define ADC_PIN        2
+#if CONFIG_IDF_TARGET_ESP32C3
+#define ADC_PIN        2   // ADC1 on the ESP32-C3
+#else
+#define ADC_PIN        35  // ADC1 (GPIO32-39); ADC2 pins stop working while Wi-Fi is on
+#endif
 #define DIVIDER        (100.0f + 22.0f) / 22.0f   // R1 = 100k (to battery), R2 = 22k (to GND)
 #define EMPTY_V        11.8f                      // 0 %   (LiFePO4 12 V: 12.0)
 #define FULL_V         12.7f                      // 100 % (LiFePO4 12 V: 13.4)

@@ -13,8 +13,13 @@ static const char* WIFI_PASS  = "YOUR_WIFI_PASSWORD";
 static const char* ETCORE_KEY = "";  // 64 hex characters, same key as in Home Assistant
 
 #define RELAY_PIN     4
-#define BUTTON_PIN    9        // BOOT button on most ESP32-C3 boards (0 on ESP32)
+#if CONFIG_IDF_TARGET_ESP32C3
+#define BUTTON_PIN    9        // BOOT button on most ESP32-C3 boards
 #define LED_PIN       8        // status LED, -1 for none
+#else
+#define BUTTON_PIN    0        // BOOT button on ESP32 DevKit boards (GPIO6-11 are the flash)
+#define LED_PIN       2        // on-board LED on most ESP32 DevKits, -1 for none
+#endif
 #define RELAY_ACTIVE  HIGH     // LOW for relay boards that switch on a low input
 
 ETCore etcore;

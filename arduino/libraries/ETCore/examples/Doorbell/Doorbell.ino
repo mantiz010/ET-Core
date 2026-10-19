@@ -9,7 +9,11 @@ static const char* WIFI_SSID  = "YOUR_WIFI_SSID";
 static const char* WIFI_PASS  = "YOUR_WIFI_PASSWORD";
 static const char* ETCORE_KEY = "";  // 64 hex characters, same key as in Home Assistant
 
-#define BUTTON_PIN  9
+#if CONFIG_IDF_TARGET_ESP32C3
+#define BUTTON_PIN  9   // BOOT button on most ESP32-C3 boards
+#else
+#define BUTTON_PIN  0   // BOOT button on ESP32 DevKit boards (GPIO6-11 are the flash)
+#endif
 #define HOLD_MS     1500  // how long Home Assistant shows "pressed"
 
 ETCore etcore;

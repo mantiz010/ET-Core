@@ -8,7 +8,11 @@ static const char* WIFI_SSID = "YOUR_WIFI_SSID";
 static const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
 static const char* ETCORE_PSK_HEX = "";  // 64 hex chars, same key as in Home Assistant
 
+#if CONFIG_IDF_TARGET_ESP32C3
+static const uint8_t RELAY_PINS[] = {4, 5, 6, 7};
+#else
 static const uint8_t RELAY_PINS[] = {26, 27, 32, 33};
+#endif
 static const char* RELAY_NAMES[] = {"Relay 1", "Relay 2", "Relay 3", "Relay 4"};
 static const uint8_t RELAYS = sizeof(RELAY_PINS);
 

@@ -10,7 +10,11 @@ static const char* WIFI_PASS  = "YOUR_WIFI_PASSWORD";
 static const char* ETCORE_KEY = "";  // 64 hex characters, same key as in Home Assistant
 
 static const char* PRESETS[]    = {"low", "medium", "high"};
-static const uint8_t RELAY_PINS[] = {4, 5, 6};   // one relay per speed
+#if CONFIG_IDF_TARGET_ESP32C3
+static const uint8_t RELAY_PINS[] = {4, 5, 6};     // one relay per speed
+#else
+static const uint8_t RELAY_PINS[] = {25, 26, 27};  // GPIO6-11 are the flash on a standard ESP32
+#endif
 static const uint8_t COUNT = 3;
 
 ETCore etcore;
