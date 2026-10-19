@@ -1,0 +1,30 @@
+# On every published release: attach etcore.zip (what HACS installs) and the
+# three Arduino library zips (Sketch -> Include Library -> Add .ZIP Library).
+name: Release zips
+on:
+  release:
+    types: [published]
+permissions:
+  contents: write
+jobs:
+  zips:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Versions match the tag
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          ha=$(python3 -c "import json; print(json.load(open('homeassistant/custom_components/etcore/manifest.json'))['version'])")
+          lib=$(sed -n 's/^version=//p' arduino/libraries/ETCore/library.properties)
+          echo "tag $tag, manifest $ha, library $lib"
+          [ "$tag" = "$ha" ] && [ "$tag" = "$lib" ]
+      - name: Build zips
+        run: |
+          mkdir -p dist
+          (cd homeassistant/custom_components/etcore && zip -qr "$GITHUB_WORKSPACE/dist/etcore.zip" . -x '__pycache__/*' '*.pyc')
+          (cd arduino/libraries && for l in ETCore ETChaCha20Poly1305 ETCoreWiFiManager; do zip -qr "$GITHUB_WORKSPACE/dist/$l.zip" "$l"; done)
+          ls -l dist
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.zip --clobber

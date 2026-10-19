@@ -105,13 +105,21 @@ arduino-cli compile --fqbn esp32:esp32:esp32 --libraries /home/mantiz010/project
 
 ## Home Assistant Install
 
-Copy this folder into Home Assistant:
+With HACS (updates show up in HACS like any other integration):
 
-```text
-homeassistant/custom_components/etcore
-```
+1. HACS → ⋮ → *Custom repositories* → add `https://github.com/mantiz010/ET-Core`, type *Integration*.
+2. Search **ET-Core** in HACS, *Download*, restart Home Assistant.
+3. *Settings → Devices & services → Add integration → ET-Core*.
 
-Then restart Home Assistant and add `ET-Core` from integrations.
+By hand: copy `homeassistant/custom_components/etcore` (or unzip `etcore.zip` from the
+[latest release](https://github.com/mantiz010/ET-Core/releases/latest)) to
+`/config/custom_components/etcore`, restart Home Assistant and add `ET-Core`.
+
+The Arduino libraries are attached to every release too: `ETCore.zip`,
+`ETChaCha20Poly1305.zip` and `ETCoreWiFiManager.zip`
+([latest release](https://github.com/mantiz010/ET-Core/releases/latest)). In the Arduino
+IDE delete an older `ETCore` folder from `Documents/Arduino/libraries` first, then
+*Sketch → Include Library → Add .ZIP Library*.
 
 The sidebar panel is registered at:
 
