@@ -1,5 +1,24 @@
 #include "ETCoreWiFiManager.h"
 
+// Build-time defaults for the owner's own test boards. Pass them hex-encoded
+// so any SSID/password survives the compiler command line, e.g.
+//   -DETCORE_WM_SSID_HEX=x4d794e6574 -DETCORE_WM_PASS_HEX=x... -DETCORE_WM_PSK_HEX=x...
+// (the leading x keeps the token an identifier). They are used only while
+// nothing is saved yet, then saved like a phone setup. Never put them in a
+// sketch that ships to someone else.
+#define ETCORE_WM_STR2(x) #x
+#define ETCORE_WM_STR(x) ETCORE_WM_STR2(x)
+
+static String _wmFromHex(const char* hex) {
+    String out;
+    if (!hex || hex[0] != 'x') return out;
+    for (const char* p = hex + 1; p[0] && p[1]; p += 2) {
+        char b[3] = {p[0], p[1], 0};
+        out += (char)strtol(b, nullptr, 16);
+    }
+    return out;
+}
+
 // ══════════════════════════════════════════════════════════════
 // Branded portal HTML (stored in flash via PROGMEM)
 // ══════════════════════════════════════════════════════════════
@@ -167,6 +186,22 @@ if(d.dev_name)document.getElementById('dev-name').value=d.dev_name}).catch(()=>{
 void ETCoreWiFiManager::begin(const char* apName) {
     _apName = String(apName);
     _loadNVS();
+
+#ifdef ETCORE_WM_SSID_HEX
+    if (_ssid.length() == 0) {
+        _ssid = _wmFromHex(ETCORE_WM_STR(ETCORE_WM_SSID_HEX));
+#ifdef ETCORE_WM_PASS_HEX
+        _pass = _wmFromHex(ETCORE_WM_STR(ETCORE_WM_PASS_HEX));
+#endif
+#ifdef ETCORE_WM_PSK_HEX
+        _psk = _wmFromHex(ETCORE_WM_STR(ETCORE_WM_PSK_HEX));
+#endif
+        if (_ssid.length()) {
+            Serial.println("[WM] No saved config; using the build-time test defaults");
+            _saveNVS();
+        }
+    }
+#endif
 
     if (_ssid.length() > 0) {
         Serial.printf("[WM] Connecting to: %s\n", _ssid.c_str());
@@ -359,10 +394,32 @@ void ETCoreWiFiManager::_startPortal() {
 
     // Block until save or timeout
     unsigned long start = millis();
+    unsigned long lastRetry = millis();
     while (millis() - start < portalTimeout * 1000) {
         _dns->processNextRequest();
         _server->handleClient();
         delay(1);
+
+        // Saved network back (router slower than us after a power cut)? Leave
+        // setup without a reboot. Only retry while nobody is on the setup
+        // hotspot: a connect attempt can move the hotspot's channel.
+        if (_ssid.length() && WiFi.softAPgetStationNum() == 0) {
+            if (WiFi.status() == WL_CONNECTED) {
+                Serial.printf("[WM] Saved WiFi is back, IP %s; leaving setup\n", WiFi.localIP().toString().c_str());
+                _server->stop();
+                _dns->stop();
+                delete _server; _server = nullptr;
+                delete _dns;    _dns = nullptr;
+                WiFi.softAPdisconnect(true);
+                WiFi.mode(WIFI_STA);
+                _portalActive = false;
+                return;
+            }
+            if (millis() - lastRetry > 20000) {
+                lastRetry = millis();
+                WiFi.begin(_ssid.c_str(), _pass.c_str());
+            }
+        }
     }
 
     Serial.println("[WM] Portal timeout — rebooting");

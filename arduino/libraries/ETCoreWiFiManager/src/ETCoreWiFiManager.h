@@ -18,6 +18,10 @@
  *     // wm.getPSK()     — 64-char hex encryption key
  *     // wm.getDevName() — device name
  *   }
+ *
+ * Test boards: build with -DETCORE_WM_SSID_HEX=x<hex> (and _PASS_HEX, _PSK_HEX)
+ * to start with WiFi + key already set; see ETCoreWiFiManager.cpp. While the
+ * setup portal is open it keeps retrying saved WiFi and leaves when it is back.
  */
 
 #ifndef ETCORE_WIFI_MANAGER_H
