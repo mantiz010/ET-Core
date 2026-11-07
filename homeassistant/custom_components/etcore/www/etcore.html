@@ -176,7 +176,7 @@
     .map .node .st { stroke: var(--panel); stroke-width: 2; }
     .map .node text { fill: var(--text2); font-size: 11px; text-anchor: middle; paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
     .map .hub { cursor: default; }
-    .map .hub circle.bg { fill: var(--accent); stroke: none; }
+    .map .hub circle.bg { fill: var(--panel); stroke: var(--accent); stroke-width: 1.5; }
     .map .hub .glyph { fill: #fff; }
     .map .hub text { fill: var(--text); font-weight: 650; font-size: 12px; }
     .legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 10px 16px; border-top: 1px solid var(--line2); color: var(--muted); font-size: 12px; }
@@ -741,7 +741,7 @@
       const line = (k) => `M${cx},${cy} L${pos[k][0].toFixed(1)},${pos[k][1].toFixed(1)}`;
       map.innerHTML = devs.map((d, k) => `<path class="link" data-l="${esc(d.id)}" d="${line(k)}"/>`).join("") +
         devs.map((d, k) => `<circle r="4" class="pulse" data-p="${esc(d.id)}" style="offset-path: path('${line(k)}')"/>`).join("") +
-        `<g class="node hub" transform="translate(${cx},${cy})"><circle class="bg" r="27"/><image href="${HUB_LOGO}" x="-23" y="-23" width="46" height="46" aria-label="ElectronicsTech ET-Core hub"/><text y="45">Home Assistant</text></g>` +
+        `<g class="node hub" transform="translate(${cx},${cy})"><defs><clipPath id="etcore-hub-round" clipPathUnits="userSpaceOnUse"><circle r="25"/></clipPath></defs><circle class="bg" r="27"/><image href="${HUB_LOGO}" x="-25" y="-25" width="50" height="50" clip-path="url(#etcore-hub-round)" aria-label="ElectronicsTech ET-Core hub"/><text y="45">Home Assistant</text></g>` +
         devs.map((d, k) => `<g class="node" data-n="${esc(d.id)}" transform="translate(${pos[k][0].toFixed(1)},${pos[k][1].toFixed(1)})">
             <title></title><circle class="bg" r="20"/><g transform="translate(-11,-11) scale(.917)"><path class="glyph" d="${P[kindOf(d.class)]}"/></g>
             <circle class="st" r="5.5" cx="14" cy="-14"/><text y="35"></text></g>`).join("") +
