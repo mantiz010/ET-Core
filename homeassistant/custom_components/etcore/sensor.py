@@ -14,6 +14,11 @@ from .hub import EtCoreHub
 # enums stand for, so this works across HA versions (ET-Bus's
 # CONCENTRATION_PARTS_PER_MILLION is deprecated in 2026.10).
 _KNOWN: dict[str, tuple[str, SensorDeviceClass | None, str | None]] = {
+    "wind_gust": ("Wind gust", None, "m/s"),
+    "wind_speed": ("Wind speed", None, "m/s"),
+    "wind_direction": ("Wind direction", None, "°"),
+    "rainfall": ("Rainfall", None, "mm"),
+    "battery_ok": ("Battery", None, None),
     "temp": ("Temperature", SensorDeviceClass.TEMPERATURE, "°C"),
     "humidity": ("Humidity", SensorDeviceClass.HUMIDITY, "%"),
     "co2": ("CO2", SensorDeviceClass.CO2, "ppm"),
@@ -128,6 +133,8 @@ class EtCoreSensor(SensorEntity):
         return bool((self._hub.devices.get(self._dev_id) or {}).get("online", False))
 
     def set_value(self, value: Any) -> None:
+        if self._metric == "battery_ok" and isinstance(value, bool):
+            value = "OK" if value else "LOW"
         self._attr_native_value = value
         # Numbers are measurements (history graphs, statistics); text is not.
         if isinstance(value, (int, float)) and not isinstance(value, bool):

@@ -13,7 +13,7 @@ It is not ET-Bus v1. ET-Bus stays as the working legacy protocol. ET-Core starts
 
 ## Current Version
 
-ET-Core is currently at the first working code pass, `0.2.0`.
+Current repository version: **0.4.4** (Arduino library and Home Assistant integration).
 
 The repo includes:
 
@@ -70,6 +70,24 @@ Rules for 100-device operation:
 - Sensors should use compact field names and avoid large JSON bodies.
 - Home Assistant keeps device state in one hub table and updates entities from that table.
 - The web panel must support filtering or pagination before ET-Core is considered production-ready for 100+ devices.
+
+## Bresser weather station
+
+The [Bresser 6-in-1 example](arduino/libraries/ETCore/examples/Bresser6In1) receives weather packets with a standard ESP32 and CC1101, then reports them using encrypted ET-Core. It preserves Serial diagnostics, Telnet and Arduino OTA, with no MQTT client. See its [setup guide](arduino/libraries/ETCore/examples/Bresser6In1/README.md) for wiring, tested versions and installation.
+
+## Generate your encryption key
+
+Download **ETCore-Key-Generator.html** from the [latest release](https://github.com/mantiz010/ET-Core/releases/latest), or download [the repository copy](tools/key-generator.html) using **Download raw file**, then open the saved HTML file in your browser. It uses Web Crypto, works without an Internet connection and sends nothing to a server. Generate a new key for your own installation; put the same key in Home Assistant and your devices. Do not use another household's key or replace an existing network key unless you are updating all of its devices.
+
+With Python 3:
+
+```sh
+python3 tools/generate_key.py
+# Or create a private file, without printing the key or overwriting an existing file:
+python3 tools/generate_key.py --output network.key
+```
+
+The result is a cryptographically random 256-bit key written as **64 hexadecimal characters**. File permissions are private on POSIX systems; on Windows, keep the file in a private user folder. Do not commit keys, passwords or configured firmware binaries.
 
 ## Encryption
 
