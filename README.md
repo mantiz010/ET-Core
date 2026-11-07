@@ -7,7 +7,7 @@
 
 # ET-Core
 
-**[Encryption key generator — download and open this app](https://github.com/mantiz010/ET-Core/releases/download/v0.4.4/ETCore-Key-Generator.html)** · [View its source](ETCore-Key-Generator.html)
+**[Encryption key generator — download and open this app](https://github.com/mantiz010/ET-Core/releases/download/v0.4.5/ETCore-Key-Generator.html)** · [View its source](ETCore-Key-Generator.html)
 
 ET-Core is a local-first UDP device protocol for fast ESP32-to-Home Assistant control.
 
@@ -15,7 +15,7 @@ It is not ET-Bus v1. ET-Bus stays as the working legacy protocol. ET-Core starts
 
 ## Current Version
 
-Current repository version: **0.4.4** (Arduino library and Home Assistant integration).
+Current repository version: **0.4.5** (Arduino library and Home Assistant integration).
 
 The repo includes:
 
