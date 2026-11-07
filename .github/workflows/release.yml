@@ -23,7 +23,7 @@ jobs:
           mkdir -p dist
           (cd homeassistant/custom_components/etcore && zip -qr "$GITHUB_WORKSPACE/dist/etcore-ha.zip" . -x '__pycache__/*' '*.pyc')
           (cd arduino/libraries && for l in ETCore ETChaCha20Poly1305 ETCoreWiFiManager; do zip -qr "$GITHUB_WORKSPACE/dist/$l.zip" "$l"; done)
-          cp tools/key-generator.html dist/ETCore-Key-Generator.html
+          cp ETCore-Key-Generator.html dist/ETCore-Key-Generator.html
           ls -l dist
       - name: Attach to the release
         env:

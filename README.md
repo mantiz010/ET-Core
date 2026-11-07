@@ -7,6 +7,8 @@
 
 # ET-Core
 
+**[Encryption key generator — download and open this app](https://github.com/mantiz010/ET-Core/releases/download/v0.4.4/ETCore-Key-Generator.html)** · [View its source](ETCore-Key-Generator.html)
+
 ET-Core is a local-first UDP device protocol for fast ESP32-to-Home Assistant control.
 
 It is not ET-Bus v1. ET-Bus stays as the working legacy protocol. ET-Core starts clean with lease-based availability, command acknowledgements, and fixed crypto rules from day one.
@@ -77,7 +79,7 @@ The [Bresser 6-in-1 example](arduino/libraries/ETCore/examples/Bresser6In1) rece
 
 ## Generate your encryption key
 
-Download **ETCore-Key-Generator.html** from the [latest release](https://github.com/mantiz010/ET-Core/releases/latest), or download [the repository copy](tools/key-generator.html) using **Download raw file**, then open the saved HTML file in your browser. It uses Web Crypto, works without an Internet connection and sends nothing to a server. Generate a new key for your own installation; put the same key in Home Assistant and your devices. Do not use another household's key or replace an existing network key unless you are updating all of its devices.
+Download **ETCore-Key-Generator.html** from the [latest release](https://github.com/mantiz010/ET-Core/releases/latest), or download [the repository copy](ETCore-Key-Generator.html) using **Download raw file**, then open the saved HTML file in your browser. It uses Web Crypto, works without an Internet connection and sends nothing to a server. Generate a new key for your own installation; put the same key in Home Assistant and your devices. Do not use another household's key or replace an existing network key unless you are updating all of its devices.
 
 With Python 3:
 
