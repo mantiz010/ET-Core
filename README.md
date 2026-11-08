@@ -35,7 +35,7 @@ The repo includes:
 - Home Assistant availability follows lease expiry.
 - ESP32 firmware remains simple and fast.
 - Security design avoids nonce reuse across reboot.
-- Support at least 50 devices, with a design target of 100 devices.
+- Simulator-tested with 1,000 encrypted devices; physical deployment capacity depends on workload, Wi-Fi and Home Assistant.
 
 ## Protocol Shape
 
@@ -56,22 +56,18 @@ Default timing:
 
 For larger networks around 100 devices, use a `3s` lease interval and `9s` TTL if WiFi airtime or Home Assistant load becomes noisy.
 
-## Scale Target
+## Tested scale
 
-ET-Core is designed to support:
+**ET-Core 0.4.6 is simulator-tested with 1,000 encrypted devices.** The isolated Linux test used the real Arduino library, encryption and hub, with Home Assistant framework/storage stubbed. It recorded 6,001 state reports with none missing, 50/50 command acknowledgements and no false offline events. See the [workload, results and limitations](docs/benchmarks/2026-11-08-main-046/REPORT.md).
 
-- Minimum target: `50` devices.
-- Normal design target: `100` devices.
-- Stress-test target: `150-256` devices.
+An earlier 0.4.3 bounded test passed with 2,000 simulated devices. Higher attempts reached the benchmark host resource guard; the protocol maximum remains unknown. These results do not guarantee 1,000 physical Wi-Fi devices or equivalent full Home Assistant performance.
 
-Rules for 100-device operation:
+For larger deployments:
 
-- Devices send `lease` packets only at the configured interval.
-- Devices send `state` on change, plus a slow refresh.
-- UDP payloads should stay under about `1200` bytes.
-- Sensors should use compact field names and avoid large JSON bodies.
-- Home Assistant keeps device state in one hub table and updates entities from that table.
-- The web panel must support filtering or pagination before ET-Core is considered production-ready for 100+ devices.
+- Send leases only at the configured interval, and state on change plus a slow refresh.
+- Keep UDP payloads under about `1200` bytes and avoid large JSON bodies.
+- Size and measure Wi-Fi airtime, access points and Home Assistant load for the actual reporting rate.
+- Validate dashboard filtering/pagination, recorder load and recovery before scaling production.
 
 ## Bresser weather station
 
