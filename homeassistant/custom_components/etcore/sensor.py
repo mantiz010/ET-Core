@@ -53,6 +53,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     """sensor.* devices, ET-Bus payloads: {"value": 21.5, "unit": "°C"} (metric from the
     class, e.g. sensor.temperature) or several readings {"co2": 600, "temp": 21.5}."""
     hub: EtCoreHub = hass.data[DOMAIN][entry.entry_id]
+    from .hydro_bucket import setup_bucket_sensors
+    setup_bucket_sensors(hass, entry, hub, async_add_entities)
     entities: dict[tuple[str, str], EtCoreSensor] = {}
 
     @callback
@@ -60,7 +62,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         dev_id = str(msg.get("id") or "")
         dev_class = str(msg.get("class") or "")
         payload = msg.get("payload") if isinstance(msg.get("payload"), dict) else {}
-        if not dev_id or not dev_class.startswith("sensor."):
+        if not dev_id or not dev_class.startswith("sensor.") or dev_class == "sensor.hydro_bucket":
             return
         # Only state carries readings; lease/ack/hello fields are not sensors.
         if msg.get("type") != "state":

@@ -69,6 +69,10 @@ For larger deployments:
 - Size and measure Wi-Fi airtime, access points and Home Assistant load for the actual reporting rate.
 - Validate dashboard filtering/pagination, recorder load and recovery before scaling production.
 
+## Hydroponics bucket
+
+The [EC-fixed bucket controller example](arduino/libraries/ETCore/examples/HydroBucket) replaces MQTT telemetry with encrypted ET-Core while retaining the existing two-point EC calibration, pH conversion, dosing controls, display, web interface, Telnet and OTA. Its native HA adapter supports preserving the five original sensor IDs and their history. See the example's exact hardware, backup and cutover instructions before use.
+
 ## Bresser weather station
 
 The [Bresser 6-in-1 example](arduino/libraries/ETCore/examples/Bresser6In1) receives weather packets with a standard ESP32 and CC1101, then reports them using encrypted ET-Core. It preserves Serial diagnostics, Telnet and Arduino OTA, with no MQTT client. See its [setup guide](arduino/libraries/ETCore/examples/Bresser6In1/README.md) for wiring, tested versions and installation.
