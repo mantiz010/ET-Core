@@ -371,7 +371,7 @@
           <div id="problems"><div class="skcard"><div class="sk" style="height:16px;width:60%"></div><div class="sk" style="height:12px;width:85%"></div><div class="sk" style="height:12px;width:40%"></div></div></div>
         </div>
         <div class="panel">
-          <div class="panel-h"><h2>Network map</h2><span class="spacer"></span><span class="muted hide-sm">Click a device for details</span></div>
+          <div class="panel-h"><h2>Network map</h2><span class="spacer"></span><span class="muted hide-sm">Encrypted hub links · tap a device</span></div>
           <svg class="map" id="map" viewBox="0 0 700 420" role="img" aria-label="Network map"></svg>
           <div class="legend">
             <span><i style="border-color:var(--good)"></i>Strong signal</span>
@@ -393,6 +393,8 @@
           <button data-kind="light">Lights</button>
           <button data-kind="fan">Fans</button>
           <button data-kind="sensor">Sensors</button>
+          <button data-kind="bridge">Gateways</button>
+          <button data-kind="other">Other</button>
         </div>
         <div class="seg" id="stat">
           <button data-stat="" class="on">Any</button>
@@ -527,7 +529,15 @@
     switch: "M16.56 5.44l-1.45 1.45A5.97 5.97 0 0118 12a6 6 0 01-12 0c0-2.17 1.16-4.06 2.88-5.12L7.44 5.44A7.96 7.96 0 004 12a8 8 0 0016 0c0-2.72-1.36-5.12-3.44-6.56M13 3h-2v10h2",
     light: "M12 2a7 7 0 00-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 001 1h6a1 1 0 001-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 00-7-7M9 21a1 1 0 001 1h4a1 1 0 001-1v-1H9v1z",
     fan: "M12 11a1 1 0 110 2 1 1 0 010-2m.5-9c4.5 0 4.61 3.57 2.25 4.75-.99.49-1.43 1.54-1.62 2.47.48.2.9.51 1.22.91 3.7-2 7.68-1.21 7.68 2.37 0 4.5-3.57 4.6-4.75 2.23-.5-.99-1.56-1.43-2.49-1.62-.2.48-.51.89-.91 1.23 1.99 3.69 1.2 7.66-2.38 7.66-4.5 0-4.61-3.57-2.25-4.75.98-.49 1.42-1.53 1.62-2.45-.49-.2-.92-.52-1.24-.92C5.96 15.1 2 14.3 2 10.75c0-4.5 3.56-4.6 4.74-2.24.5.99 1.56 1.43 2.49 1.62.2-.48.52-.9.92-1.23C8.16 5.22 8.95 2 12.5 2z",
-    sensor: "M15 13V5a3 3 0 00-6 0v8a5 5 0 106 0m-3-9a1 1 0 011 1v3h-2V5a1 1 0 011-1z",
+    temperature: "M15 13V5a3 3 0 00-6 0v8a5 5 0 106 0m-3-9a1 1 0 011 1v3h-2V5a1 1 0 011-1z",
+    sensor: "M9 3h6v2h4v4h2v6h-2v4h-4v2H9v-2H5v-4H3V9h2V5h4V3m-2 4v10h10V7H7m2 2h6v6H9V9z",
+    lightning: "M13 2L4 14h7l-1 8 10-13h-7l1-7z",
+    weather: "M7 2h2v3H7V2M2 7h3v2H2V7m1-4 2 2 1-1-2-2-1 1m10-1-2 2 1 1 2-2-1-1M8 6a3 3 0 00-2 5 6 6 0 013-1 6 6 0 012 0 3 3 0 00-3-4m7 5a5 5 0 00-4 2 4 4 0 00-7 3 4 4 0 004 4h10a4 4 0 001-8 5 5 0 00-4-1z",
+    scanner: "M11 3h2v10h-2V3M7 6l1 1a6 6 0 000 8l-1 1a8 8 0 010-10m10 0a8 8 0 010 10l-1-1a6 6 0 000-8l1-1M4 3l1 1a11 11 0 000 14l-1 1A13 13 0 014 3m16 0a13 13 0 010 16l-1-1a11 11 0 000-14l1-1M8 21l4-7 4 7H8z",
+    ai: "M4 3h16v14H8l-4 4V3m2 2v11l1-1h11V5H6m3 3h2v3H9V8m4 0h2v3h-2V8m-4 5h6v1H9v-1z",
+    bridge: "M4 12h16v8H4v-8m2 2v4h12v-4H6m1 1h2v2H7v-2m4 0h2v2h-2v-2m0-12h2v7h-2V3M7 5l1 1a5 5 0 000 4l-1 1a7 7 0 010-6m10 0a7 7 0 010 6l-1-1a5 5 0 000-4l1-1z",
+    rf24: "M10 2h4v4h-4V2M2 17h4v4H2v-4m8 0h4v4h-4v-4m8 0h4v4h-4v-4M11 7h2v3h8v6h-2v-4h-6v4h-2v-4H5v4H3v-6h8V7z",
+    sms: "M3 4h18v14H8l-5 4V4m2 2v11l2-1h12V6H5m1 2 6 4 6-4v2l-6 4-6-4V8z",
     other: "M4 6h16v2H4V6m0 5h16v2H4v-2m0 5h16v2H4v-2z",
     alert: "M13 14h-2V9h2m0 9h-2v-2h2M1 21h22L12 2 1 21z",
     off: "M12 2a10 10 0 100 20 10 10 0 000-20m5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z",
@@ -537,8 +547,18 @@
     info: "M13 9h-2V7h2m0 10h-2v-6h2m-1-9A10 10 0 002 12a10 10 0 0010 10 10 10 0 0010-10A10 10 0 0012 2z",
   };
   const svg = (k) => `<svg viewBox="0 0 24 24"><path d="${P[k] || P.other}"/></svg>`;
-  const kindOf = (cls) => { let k = String(cls || "").split(".")[0]; if (k === "binary_sensor") k = "sensor"; return ["switch", "light", "fan", "sensor"].includes(k) ? k : "other"; };
-  const icon = (cls) => svg(kindOf(cls));
+  const kindOf = (cls) => { let k = String(cls || "").split(".")[0]; if (k === "binary_sensor") k = "sensor"; return ["switch", "light", "fan", "sensor", "bridge"].includes(k) ? k : "other"; };
+  // A sensor is not necessarily a thermometer: use advertised device roles.
+  // Unknown roles retain a neutral icon rather than guessing from user names.
+  const deviceIcon = (cls) => {
+    const role = String(cls || "").toLowerCase();
+    const roles = { "sensor.lightning": "lightning", "sensor.weather": "weather",
+      "sensor.rf_scanner": "scanner", "sensor.kate_ai": "ai",
+      "sensor.temperature": "temperature", "bridge.espnow": "bridge",
+      "bridge.rf24": "rf24", "bridge.sms": "sms" };
+    return roles[role] || kindOf(role);
+  };
+  const icon = (cls) => svg(deviceIcon(cls));
   function dur(sec) {
     if (sec == null || isNaN(sec)) return "—";
     sec = Math.max(0, Math.round(sec));
@@ -734,7 +754,7 @@
     const pos = [];
     rings.forEach(([rr, k], ri) => { for (let j = 0; j < k; j++) { const a = -Math.PI / 2 + 2 * Math.PI * (j + (ri % 2 ? 0.5 : 0)) / k; pos.push([cx + Math.cos(a) * rr * sx, cy + Math.sin(a) * rr]); } });
     const map = $("map");
-    const key = devs.map(d => d.id).join("|");
+    const key = JSON.stringify(devs.map(d => [d.id, deviceIcon(d.class)]));
     if (renderMap.key !== key) {
       renderMap.key = key;
       map.setAttribute("viewBox", `0 0 ${W} ${Math.max(H, 380)}`);
@@ -743,7 +763,7 @@
         devs.map((d, k) => `<circle r="4" class="pulse" data-p="${esc(d.id)}" style="offset-path: path('${line(k)}')"/>`).join("") +
         `<g class="node hub" transform="translate(${cx},${cy})"><defs><clipPath id="etcore-hub-round" clipPathUnits="userSpaceOnUse"><circle r="25"/></clipPath></defs><circle class="bg" r="27"/><image href="${HUB_LOGO}" x="-25" y="-25" width="50" height="50" clip-path="url(#etcore-hub-round)" aria-label="ElectronicsTech ET-Core hub"/><text y="45">Home Assistant</text></g>` +
         devs.map((d, k) => `<g class="node" data-n="${esc(d.id)}" transform="translate(${pos[k][0].toFixed(1)},${pos[k][1].toFixed(1)})">
-            <title></title><circle class="bg" r="20"/><g transform="translate(-11,-11) scale(.917)"><path class="glyph" d="${P[kindOf(d.class)]}"/></g>
+            <title></title><circle class="bg" r="20"/><g transform="translate(-11,-11) scale(.917)"><path class="glyph" d="${P[deviceIcon(d.class)]}"/></g>
             <circle class="st" r="5.5" cx="14" cy="-14"/><text y="35"></text></g>`).join("") +
         (n ? "" : `<text x="${cx}" y="${cy + 80}" text-anchor="middle" fill="var(--muted)" font-size="13">No devices yet</text>`);
     }
