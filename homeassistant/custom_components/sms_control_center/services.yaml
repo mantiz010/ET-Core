@@ -1,0 +1,27 @@
+send_sms:
+  name: Send SMS
+  description: Send an SMS through the configured SMS gateway transport.
+  fields:
+    message:
+      name: Message
+      description: SMS text to send.
+      required: true
+      selector:
+        text:
+    number:
+      name: Number
+      description: Optional destination phone number. If omitted, the bridge default is used.
+      required: false
+      selector:
+        text:
+    topic:
+      name: Topic
+      description: Optional MQTT topic override.
+      required: false
+      selector:
+        text:
+
+clear_log:
+  name: Clear Log
+  description: Clear the SMS Control Center in-memory message log.
+

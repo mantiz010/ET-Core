@@ -28,6 +28,8 @@ def light_effects(info: dict[str, Any]) -> list[str]:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     hub: EtCoreHub = hass.data[DOMAIN][entry.entry_id]
+    from .bridge import setup_bridge_platform
+    setup_bridge_platform(hass, entry, hub, async_add_entities, 'light')
     entities: dict[str, EtCoreLight] = {}
 
     @callback

@@ -14,6 +14,18 @@ from .hub import EtCoreHub
 # enums stand for, so this works across HA versions (ET-Bus's
 # CONCENTRATION_PARTS_PER_MILLION is deprecated in 2026.10).
 _KNOWN: dict[str, tuple[str, SensorDeviceClass | None, str | None]] = {
+    "strikes_total": ("Strike total", None, "events"),
+    "storm_distance_km": ("Storm distance", SensorDeviceClass.DISTANCE, "km"),
+    "storm_distance_status": ("Storm distance status", None, None),
+    "lightning_energy": ("Lightning energy raw", None, None),
+    "noise_count": ("Noise count", None, "events"),
+    "disturber_count": ("Disturber count", None, "events"),
+    "wifi_rssi": ("Wi-Fi signal", SensorDeviceClass.SIGNAL_STRENGTH, "dBm"),
+    "wind_gust": ("Wind gust", None, "m/s"),
+    "wind_speed": ("Wind speed", None, "m/s"),
+    "wind_direction": ("Wind direction", None, "°"),
+    "rainfall": ("Rainfall", None, "mm"),
+    "battery_ok": ("Battery", None, None),
     "temp": ("Temperature", SensorDeviceClass.TEMPERATURE, "°C"),
     "humidity": ("Humidity", SensorDeviceClass.HUMIDITY, "%"),
     "co2": ("CO2", SensorDeviceClass.CO2, "ppm"),
@@ -36,7 +48,7 @@ _KNOWN: dict[str, tuple[str, SensorDeviceClass | None, str | None]] = {
 # Other spellings devices use (ET-Bus normalises "temperature" to "temp").
 _ALIASES = {"temperature": "temp", "rh": "humidity", "pm2_5": "pm25", "illuminance": "lux"}
 # Payload fields that are not readings.
-_SKIP = {"unit", "name", "fw", "lib", "features"}
+_SKIP = {"unit", "name", "fw", "lib", "features", "lightning_detected"}
 
 
 def _metric(key: str) -> str:
@@ -48,6 +60,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     """sensor.* devices, ET-Bus payloads: {"value": 21.5, "unit": "°C"} (metric from the
     class, e.g. sensor.temperature) or several readings {"co2": 600, "temp": 21.5}."""
     hub: EtCoreHub = hass.data[DOMAIN][entry.entry_id]
+    from .bridge import setup_bridge_platform
+    setup_bridge_platform(hass, entry, hub, async_add_entities, 'sensor')
     entities: dict[tuple[str, str], EtCoreSensor] = {}
 
     @callback
@@ -72,7 +86,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
         new = []
         for metric, value in readings.items():
-            if value is None or not isinstance(value, (int, float, str, bool)):
+            if value is not None and not isinstance(value, (int, float, str, bool)):
                 continue
             key = (dev_id, metric)
             if key not in entities:
@@ -128,11 +142,13 @@ class EtCoreSensor(SensorEntity):
         return bool((self._hub.devices.get(self._dev_id) or {}).get("online", False))
 
     def set_value(self, value: Any) -> None:
+        if self._metric == "battery_ok" and isinstance(value, bool):
+            value = "OK" if value else "LOW"
         self._attr_native_value = value
         # Numbers are measurements (history graphs, statistics); text is not.
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             # An energy meter only counts up; HA's Energy dashboard needs that.
-            self._attr_state_class = (SensorStateClass.TOTAL_INCREASING if self._metric == "energy"
+            self._attr_state_class = (SensorStateClass.TOTAL_INCREASING if self._metric in {"energy", "strikes_total", "noise_count", "disturber_count"}
                                       else SensorStateClass.MEASUREMENT)
         if self.hass is not None:  # not yet added: HA writes it when it is
             self.async_write_ha_state()

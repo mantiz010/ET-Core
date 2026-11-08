@@ -27,6 +27,8 @@ def _switch_list(hello: dict[str, Any]) -> list[tuple[str, str]]:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     hub: EtCoreHub = hass.data[DOMAIN][entry.entry_id]
+    from .bridge import setup_bridge_platform
+    setup_bridge_platform(hass, entry, hub, async_add_entities, 'switch')
     entities: dict[tuple[str, str], EtCoreSwitch] = {}
 
     @callback

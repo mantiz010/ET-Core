@@ -1,0 +1,5 @@
+gateway_secrets.h
+build/
+*.bin
+*.elf
+*.map
