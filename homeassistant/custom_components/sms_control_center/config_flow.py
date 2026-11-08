@@ -46,6 +46,7 @@ class SMSControlCenterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema(
                 {
+                    vol.Required("transport", default="etcore"): vol.In(["etcore", "mqtt"]),
                     vol.Required(CONF_INCOMING_TOPIC, default=DEFAULT_INCOMING_TOPIC): str,
                     vol.Required(CONF_OUTGOING_TOPIC, default=DEFAULT_OUTGOING_TOPIC): str,
                     vol.Optional(CONF_TRUSTED_NUMBERS, default=""): str,

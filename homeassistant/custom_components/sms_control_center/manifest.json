@@ -3,14 +3,13 @@
   "name": "SMS Control Center",
   "codeowners": [],
   "config_flow": true,
-  "dependencies": [
-    "mqtt"
-  ],
+  "dependencies": [],
   "documentation": "https://github.com/mantiz010/ET-Core/tree/sms-etcore-20261108/arduino/libraries/ETCore/examples/SMSGateway",
   "iot_class": "local_push",
   "requirements": [],
   "version": "1.1.0",
   "after_dependencies": [
-    "etcore"
+    "etcore",
+    "mqtt"
   ]
 }
