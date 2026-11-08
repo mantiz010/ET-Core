@@ -56,7 +56,7 @@ inline void command(const char*,JsonObject p) {
      (recipient!=1 && recipient!=2) || !storageOK) {core.sendAck(cid,false);return;}
   for(auto& old:journal)if(old==id){return;} // Persistent reservation; never resubmit after reboot.
   unsigned pending=0;for(auto& e:outbox)if(e.id.length())++pending;
-  if(!modemReady || pending>10 || uxQueueSpacesAvailable(requests)==0) {core.sendAck(cid,false);return;}
+  if(!modemReady || !reservationSpace(pending,uxQueueMessagesWaiting(events),uxQueueSpacesAvailable(requests)) || uxQueueSpacesAvailable(requests)==0) {core.sendAck(cid,false);return;}
   char k[8];unsigned slot=journalCursor%32;snprintf(k,sizeof(k),"r%u",slot);
   if(!prefs.putString(k,id)){core.sendAck(cid,false);return;}
   journal[slot]=id;++journalCursor;

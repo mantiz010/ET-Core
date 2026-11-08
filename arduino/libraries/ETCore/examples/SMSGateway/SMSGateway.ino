@@ -1,9 +1,7 @@
 /* ESP32 Dev Module + existing SIM7600SA-H wiring.
- * Version 2026.09.27.1: password-protected ArduinoOTA, explicit 512-byte
- * MQTT buffer, bounded network retries and validated JSON messages.
+ * Encrypted ET-Core transport with durable request reservations/event outbox.
  * Existing modem setup/recovery is preserved. OTA waits for an active SMS
- * submission to finish. First installation needs USB if current firmware
- * has no OTA. Private settings are in gateway_secrets.h.
+ * submission to finish. Private settings are in gateway_secrets.h.
  */
 #define TINY_GSM_MODEM_SIM7600
 

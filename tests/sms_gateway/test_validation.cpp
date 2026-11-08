@@ -2,6 +2,7 @@
 #include <cassert>
 #include <string>
 int main(){using namespace SmsTransport;
+ assert(reservationSpace(0,0,4));assert(!reservationSpace(16,0,4));assert(!reservationSpace(0,16,4));assert(!reservationSpace(10,0,0));
  assert(validId("01234567-89ab-cdef-0123-456789abcdef"));assert(!validId("0123"));assert(!validId(nullptr));
  assert(validBody("hello"));assert(validBody(std::string(160,'a').c_str()));assert(!validBody(std::string(161,'a').c_str()));
  assert(validBody(std::string(80,'^').c_str()));assert(!validBody(std::string(81,'^').c_str()));

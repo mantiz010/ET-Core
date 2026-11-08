@@ -2,6 +2,12 @@
 #include <cstring>
 #include <cctype>
 namespace SmsTransport {
+// Reserve queued/result events for four queued requests plus one active send.
+inline bool reservationSpace(unsigned stored,unsigned waiting,unsigned requestSpaces) {
+  return requestSpaces<=4 && stored<=16 && waiting<=16 &&
+         stored+waiting+2*(5-requestSpaces)+2<=16;
+}
+
 inline bool validId(const char* s) {
   if(!s || strlen(s)!=36)return false;
   for(size_t i=0;i<36;++i)if((i==8 || i==13 || i==18 || i==23) ? s[i]!='-' : !isxdigit((unsigned char)s[i]))return false;
