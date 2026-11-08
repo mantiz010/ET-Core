@@ -15,11 +15,21 @@ from homeassistant.core import callback
 from homeassistant.helpers.event import async_track_time_interval
 from .const import DOMAIN
 from .bridge_profiles import PROFILE, PROFILE_HASH, CHANNELS
+from . import rf24_profiles
+
+
+def profile_for(info):
+    hello=info.get('hello') or {}
+    profiles=[('bridge.espnow',PROFILE,PROFILE_HASH,CHANNELS),
+              ('bridge.rf24',rf24_profiles.PROFILE,rf24_profiles.PROFILE_HASH,rf24_profiles.CHANNELS)]
+    for cls,profile,digest,channels in profiles:
+        if info.get('class')==cls and hello.get('profile')==profile and hello.get('profile_hash')==digest:
+            return channels
+    return None
 
 
 def valid_profile(info):
-    hello=info.get('hello') or {}
-    return info.get('class')=='bridge.espnow' and hello.get('profile')==PROFILE and hello.get('profile_hash')==PROFILE_HASH
+    return profile_for(info) is not None
 
 
 def valid_value(desc,value):
@@ -41,7 +51,7 @@ def setup_bridge_platform(hass,entry,hub,add_entities,platform):
         dev_id=str(msg.get('id') or '');info=hub.devices.get(dev_id,{})
         if not dev_id or not valid_profile(info) or msg.get('type') not in ('hello','state','lease'):return
         new=[]
-        for key,desc in CHANNELS.items():
+        for key,desc in profile_for(info).items():
             if desc['platform']!=platform:continue
             identity=(dev_id,key)
             if identity not in entities:
@@ -83,10 +93,10 @@ class BridgeEntity:
     _attr_should_poll=False
     _attr_has_entity_name=True
     def __init__(self,hub,dev_id,key,desc,info):
-        self.hub=hub;self.dev_id=dev_id;self.key=key;self.desc=desc;self.sample_at=None;self._last_available=False;self.boot=info.get("boot")
+        self.hub=hub;self.dev_id=dev_id;self.dev_class=info.get('class');self.key=key;self.desc=desc;self.sample_at=None;self._last_available=False;self.boot=info.get("boot")
         self._attr_unique_id=f'etcore_{dev_id}_bridge_{key}'
         self._attr_name=desc['name'];self._attr_icon=desc.get('icon');self._attr_device_class=desc.get('device_class')
-        self._attr_device_info={'identifiers':{(DOMAIN,dev_id)},'name':info.get('name') or dev_id,'manufacturer':'ElectronicsTech','model':'ESP32 ESP-NOW UART/E220 Gateway','sw_version':str(info.get('fw') or '')}
+        self._attr_device_info={'identifiers':{(DOMAIN,dev_id)},'name':info.get('name') or dev_id,'manufacturer':'ElectronicsTech','model':'ESP32-S3 RF24Network Gateway' if self.dev_class=='bridge.rf24' else 'ESP32 ESP-NOW UART/E220 Gateway','sw_version':str(info.get('fw') or '')}
     @property
     def available(self):
         if not (self.hub.devices.get(self.dev_id) or {}).get('online',False):return False
@@ -95,11 +105,11 @@ class BridgeEntity:
         return self.sample_at is not None and time.monotonic()-self.sample_at<=self.desc['ttl']
     @property
     def extra_state_attributes(self):
-        if self.desc['platform'] in ('switch','light'):return {'state_confirmation':'gateway command echo; remote actuation unconfirmed'}
+        if self.desc['platform'] in ('switch','light'):return {'state_confirmation':self.desc.get('confirmation','gateway command echo; remote actuation unconfirmed')}
         return None
     def write(self):
         if self.hass is not None:self.async_write_ha_state()
-    def send(self,payload):self.hub.send_command(self.dev_id,'bridge.espnow',{'command':self.desc['command'],**payload})
+    def send(self,payload):self.hub.send_command(self.dev_id,self.dev_class,{'command':self.desc['command'],**payload})
     def apply(self,value,when):
         self.sample_at=when
         if self.desc['platform']=='sensor':self._attr_native_value=value
