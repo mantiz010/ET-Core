@@ -39,3 +39,20 @@ A pass establishes only this workload on this host. It does not establish Wi-Fi
 station capacity, airtime, real device latency, full HA entity/recorder capacity,
 a production HA VM limit, or unlimited protocol capacity. Large bridge packets or
 more frequent state updates require a separate workload test.
+
+## Extended ceiling search
+
+`python3 capacity_ceiling.py` tests 500, 1000, 2000, 4000, 8000 and 16000 devices,
+with a 60-second steady window per level. It stops after the first failed level.
+`ETCORE_CEILING_COUNTS=750,875` can select intermediate levels to investigate a
+boundary; `ETCORE_CEILING_OUTPUT` selects a separate output directory. Join/recovery
+checks take one device-table snapshot per check, avoiding a quadratic benchmark
+artifact. This does not modify protocol/firmware code or any live configuration.
+
+The search reserves at least 4 GiB of available host memory, 2048 cgroup PID slots
+(where exposed) and stops spawning when the host's one-minute load exceeds 85%
+of logical CPU count. A host resource guard is not an ET-Core protocol limit.
+These guards do not turn this into a production stress tool. Keep the test on
+loopback, at low scheduler priority, and do not run it on an already overloaded
+machine. Larger simulator counts also introduce kernel scheduling/multicast work;
+interpret failures by phase rather than claiming a universal device maximum.
