@@ -1,4 +1,4 @@
-#include "../../examples/RF24Gateway/Rf24Protocol.h"
+#include "../../arduino/libraries/ETCore/examples/RF24Gateway/Rf24Protocol.h"
 #include <cassert>
 #include <random>
 #include <limits>
