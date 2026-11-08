@@ -1,0 +1,14 @@
+{
+  "passed_stages": 5,
+  "max_concurrent_virtual_devices": 250,
+  "state_reports_generated": 1725,
+  "missing_state_reports": 0,
+  "commands_attempted": 225,
+  "commands_failed": 0,
+  "false_offline_events": 0,
+  "unplugged_detected": 50,
+  "all_simulated_hub_restarts_recovered": true,
+  "child_processes_remaining": 0,
+  "production_source_unchanged": true,
+  "scope": "Linux host simulator; no live HA/Wi-Fi/ESP32 capacity claim"
+}

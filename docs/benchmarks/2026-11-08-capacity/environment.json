@@ -1,0 +1,22 @@
+{
+  "started_utc": "2026-11-08T05:28:46Z",
+  "python": "3.10.12",
+  "logical_cpus": 32,
+  "mem_available": "59686052 kB",
+  "host_kernel": "5.15.0-198-generic",
+  "port": 18560,
+  "multicast_interface": "127.0.0.1",
+  "multicast_ttl": 0,
+  "state_interval_ms": 10000,
+  "lease_ms": 2000,
+  "ttl_s": 10,
+  "steady_seconds_per_stage": 30,
+  "device_binary_sha256": "9ff80b2ad8d861cb41f80cff1c1dd0d4ed11ede1f4ffc397df579e3c26f4d9f3",
+  "counts": [
+    25,
+    50,
+    100,
+    150,
+    250
+  ]
+}
