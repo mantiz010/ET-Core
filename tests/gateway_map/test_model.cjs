@@ -1,0 +1,30 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const html=fs.readFileSync(require('path').resolve(__dirname,'../../homeassistant/custom_components/etcore/www/etcore.html'),'utf8');
+const model=html.split('// CHILD_MODEL_BEGIN')[1].split('// CHILD_MODEL_END')[0];
+const ctx={Date,Map,Number,Object};vm.createContext(ctx);vm.runInContext(model+';globalThis.api={gatewayProfile,gatewayChildren,observeGateway,ingestGatewayData,gatewaySamples,GATEWAY_PROFILES};',ctx);
+const a=ctx.api, now=10000;
+function dev(cls='bridge.espnow'){const p=a.GATEWAY_PROFILES[cls];return {id:'gateway',class:cls,boot:'one',online:true,uptime:100,last_seen:now,hello:{profile:p.profile,profile_hash:p.hash}};}
+let d=dev();assert.equal(a.gatewayChildren(d,now).length,17);assert.equal(a.gatewayChildren(d,now).filter(n=>!n.logical).length,16);
+assert.equal(a.gatewayChildren(dev('bridge.rf24'),now).length,10);
+assert.equal(a.gatewayChildren(d,now)[0].status,'Not seen');
+a.observeGateway(d,{values:{bedroom_temperature:21},age_ms:{bedroom_temperature:2000}},now,now);
+let n=a.gatewayChildren(d,now)[0];assert.equal(n.status,'Partial data');assert.equal(n.lastSeen,9998);
+a.observeGateway(d,{values:{bedroom_humidity:50,bedroom_battery:3.7},age_ms:{bedroom_humidity:0,bedroom_battery:0}},now,now);
+assert.equal(a.gatewayChildren(d,now)[0].status,'Reporting');assert.equal(a.gatewayChildren(d,now+1801)[0].status,'No recent data');
+d.online=false;assert.equal(a.gatewayChildren(d,now)[0].status,'Gateway offline');d.online=true;
+a.observeGateway(d,{values:{rgb2:{state:'ON',brightness:255}},age_ms:{rgb2:0}},now,now);
+n=a.gatewayChildren(d,now).find(n=>n.id==='node12');assert.equal(n.status,'No device feedback');assert.equal(n.lastSeen,null);
+for(const value of [null,true,'25',NaN,Infinity])a.observeGateway(d,{values:{bedroom_temperature:value},age_ms:{bedroom_temperature:0}},now,now);
+assert.equal(a.gatewayChildren(d,now)[0].samples[0].sample.value,21);
+for(const age of [-1,1.2,'1',0x100000000])a.observeGateway(d,{values:{bedroom_temperature:99},age_ms:{bedroom_temperature:age}},now,now);
+assert.equal(a.gatewayChildren(d,now)[0].samples[0].sample.value,21);
+a.observeGateway(d,{values:{unknown:123,toString:1},age_ms:{unknown:0,toString:0}},now,now);assert.equal(Object.hasOwn(a.gatewaySamples.get(d.id).values,'unknown'),false);
+a.observeGateway(d,{values:{bedroom_temperature:99},age_ms:{bedroom_temperature:0}},now-4,now);assert.equal(a.gatewayChildren(d,now)[0].samples[0].sample.value,21);
+d.boot='two';d.uptime=0;d.last_seen=now+1;a.ingestGatewayData([d],[{id:d.id,type:'state',dir:'rx',ts:now,payload:{values:{bedroom_temperature:99},age_ms:{bedroom_temperature:0}}}],now+1);
+assert.equal(a.gatewayChildren(d,now+1)[0].status,'Not seen');
+a.observeGateway(d,{values:{bedroom_temperature:22},age_ms:{bedroom_temperature:0}},now+2,now+2);assert.equal(a.gatewayChildren(d,now+2)[0].status,'Partial data');
+d.hello.profile_hash='wrong';assert.equal(a.gatewayChildren(d,now).length,0);
+a.ingestGatewayData([],[],now);assert.equal(a.gatewaySamples.size,0);
+const rf=dev('bridge.rf24');assert.equal(a.gatewayChildren(rf,now).find(n=>n.id==='node10').address,'012');
+for(const profile of Object.values(a.GATEWAY_PROFILES)){const keys=profile.nodes.flatMap(n=>n.keys);assert.equal(keys.length,new Set(keys).size);assert.deepEqual([...keys].sort(),Object.keys(profile.channels).sort());}
+console.log('Gateway model checks passed: coverage, sparse data, TTL, gateway outage, no-feedback controls, validation, ordering, reboot, profile and removal');

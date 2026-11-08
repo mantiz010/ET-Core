@@ -160,6 +160,28 @@
     .allgood b { display: block; color: var(--text); font-size: 15px; margin-bottom: 2px; }
 
     /* Map */
+    .gateway-tabs { display:flex; flex-wrap:wrap; gap:6px; padding:12px 16px 4px; }
+    .gateway-tabs .on { background:var(--accent-soft); color:var(--accent); border-color:var(--accent); }
+    .gateway-tree { padding:14px 16px; }
+    .gateway-route { display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+    .gateway-route .route-box { border:1px solid var(--line); border-radius:12px; padding:10px 14px; background:var(--panel2); text-align:center; }
+    .gateway-route .route-box b { display:block; }
+    .child-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px; border-top:2px solid var(--line); padding-top:14px; }
+    .child-card { text-align:left; color:var(--text); background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px; cursor:pointer; min-width:0; }
+    .child-card:hover, .child-card:focus-visible { border-color:var(--accent); outline:2px solid var(--accent-soft); }
+    .child-top { display:flex; align-items:center; gap:9px; margin-bottom:8px; }
+    .child-top svg { width:22px; height:22px; fill:var(--accent); flex:none; }
+    .child-top b { font-size:13px; overflow-wrap:anywhere; }
+    .child-state { font-size:11px; font-weight:650; color:var(--muted); }
+    .child-state.good { color:var(--good); } .child-state.warn { color:var(--warn); } .child-state.bad { color:var(--bad); }
+    .child-reading { font-family:var(--mono); font-size:12px; margin:7px 0; overflow-wrap:anywhere; }
+    .child-seen { font-size:11px; color:var(--muted); }
+    .child-pages { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:12px; font-size:12px; color:var(--muted); }
+    .child-note { color:var(--muted); font-size:12px; margin:12px 0 0; }
+    .child-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .child-table td { padding:8px; border-bottom:1px solid var(--line); overflow-wrap:anywhere; }
+    .child-table button { max-width:100%; white-space:normal; }
+    @media(max-width:520px) { .child-grid { grid-template-columns:1fr; } .gateway-route { flex-direction:column; gap:8px; } .gateway-route > span { transform:rotate(90deg); } .gateway-route .route-box { max-width:100%; overflow-wrap:anywhere; } }
     .map { width: 100%; display: block; max-height: 520px; }
     .map .link { stroke-width: 2; fill: none; transition: stroke .3s; }
     .map .link.good { stroke: var(--good); } .map .link.warn { stroke: var(--warn); } .map .link.bad { stroke: var(--bad); }
@@ -372,8 +394,10 @@
         </div>
         <div class="panel">
           <div class="panel-h"><h2>Network map</h2><span class="spacer"></span><span class="muted hide-sm">Encrypted hub links · tap a device</span></div>
+          <div class="gateway-tabs" id="gateway-tabs" role="tablist" aria-label="Network map view"></div>
+          <div id="gateway-tree" class="gateway-tree hidden"></div>
           <svg class="map" id="map" viewBox="0 0 700 420" role="img" aria-label="Network map"></svg>
-          <div class="legend">
+          <div class="legend" id="map-legend">
             <span><i style="border-color:var(--good)"></i>Strong signal</span>
             <span><i style="border-color:var(--warn)"></i>Weak</span>
             <span><i style="border-color:var(--bad)"></i>Very weak</span>
@@ -531,6 +555,10 @@
     fan: "M12 11a1 1 0 110 2 1 1 0 010-2m.5-9c4.5 0 4.61 3.57 2.25 4.75-.99.49-1.43 1.54-1.62 2.47.48.2.9.51 1.22.91 3.7-2 7.68-1.21 7.68 2.37 0 4.5-3.57 4.6-4.75 2.23-.5-.99-1.56-1.43-2.49-1.62-.2.48-.51.89-.91 1.23 1.99 3.69 1.2 7.66-2.38 7.66-4.5 0-4.61-3.57-2.25-4.75.98-.49 1.42-1.53 1.62-2.45-.49-.2-.92-.52-1.24-.92C5.96 15.1 2 14.3 2 10.75c0-4.5 3.56-4.6 4.74-2.24.5.99 1.56 1.43 2.49 1.62.2-.48.52-.9.92-1.23C8.16 5.22 8.95 2 12.5 2z",
     temperature: "M15 13V5a3 3 0 00-6 0v8a5 5 0 106 0m-3-9a1 1 0 011 1v3h-2V5a1 1 0 011-1z",
     sensor: "M9 3h6v2h4v4h2v6h-2v4h-4v2H9v-2H5v-4H3V9h2V5h4V3m-2 4v10h10V7H7m2 2h6v6H9V9z",
+    illuminance: "M11 1h2v3h-2V1m0 19h2v3h-2v-3M1 11h3v2H1v-2m19 0h3v2h-3v-2M4 3l3 3-1 1-3-3 1-1m13 14 3 3 1-1-3-3-1 1M3 20l3-3 1 1-3 3-1-1M17 6l3-3 1 1-3 3-1-1M12 6a6 6 0 100 12 6 6 0 000-12z",
+    solar: "M8 2h8v4H8V2M3 9h18l2 11H1L3 9m2 2-1 3h7v-3H5m8 0v3h7l-1-3h-6M4 16l-1 2h8v-2H4m9 0v2h8l-1-2h-7z",
+    water: "M12 2S4 11 4 15a8 8 0 0016 0c0-4-8-13-8-13m-4 13a4 4 0 004 4v-2a2 2 0 01-2-2H8z",
+    motion: "M13 2a2 2 0 110 4 2 2 0 010-4m-3 5h5l3 4 3 1-1 2-4-2-2-2v5l3 6h-3l-3-5-2 5H6l3-8V9l-3 4-2-1 4-5h2z",
     hydro: "M9 2h6v2h-1v5l5 9a3 3 0 01-3 4H8a3 3 0 01-3-4l5-9V4H9V2m3 8-4 8h8l-4-8z",
     lightning: "M13 2L4 14h7l-1 8 10-13h-7l1-7z",
     weather: "M7 2h2v3H7V2M2 7h3v2H2V7m1-4 2 2 1-1-2-2-1 1m10-1-2 2 1 1 2-2-1-1M8 6a3 3 0 00-2 5 6 6 0 013-1 6 6 0 012 0 3 3 0 00-3-4m7 5a5 5 0 00-4 2 4 4 0 00-7 3 4 4 0 004 4h10a4 4 0 001-8 5 5 0 00-4-1z",
@@ -649,6 +677,8 @@
     S.hub = hub;
     S.devices = hub.devices || [];
     S.byId = Object.fromEntries(S.devices.map(d => [d.id, d]));
+    ingestGatewayData(S.devices, fresh);
+    await refreshChildEntityIndex();
     const now = Date.now() / 1000;
     S.rxHist.push([now, hub.rx_count || 0]);
     while (S.rxHist.length && now - S.rxHist[0][0] > 60) S.rxHist.shift();
@@ -741,10 +771,199 @@
     if (b.dataset.pact === "log") { S.lq = b.dataset.dev; $("lq").value = S.lq; setTab("log"); }
   });
 
+  // CHILD_MODEL_BEGIN
+  const GATEWAY_PROFILES = {"bridge.espnow":{"profile":"espnow_uart_v1","hash":"3f1744b4c5fa9629","nodes":[{"id":"node1","name":"Bedroom \u00b7 Node 1","icon":"temperature","keys":["bedroom_temperature","bedroom_humidity","bedroom_battery"]},{"id":"node2","name":"Lounge \u00b7 Node 2","icon":"temperature","keys":["lounge_temperature","lounge_humidity","lounge_battery"]},{"id":"node3","name":"Bedroom 1 \u00b7 Node 3","icon":"temperature","keys":["bedroom1_temperature","bedroom1_humidity","bedroom1_battery"]},{"id":"node4","name":"Hydro solar \u00b7 Node 4","icon":"solar","keys":["solar10a_panelv","solar10a_paneli","solar10a_batteryv","solar10a_batteryi","solar10a_loadv","solar10a_loadi"]},{"id":"node5","name":"Solar \u00b7 Node 5","icon":"solar","keys":["solar20a_panelv","solar20a_paneli","solar20a_batteryv","solar20a_batteryi","solar20a_loadv","solar20a_loadi"]},{"id":"node6","name":"Dust sensor \u00b7 Node 6","icon":"sensor","keys":["espnow_node6_dustdensity","espnow_node6_voltage"]},{"id":"node7","name":"Weather \u00b7 Node 7","icon":"weather","keys":["temperature_degreecelsius","humidity_percentrelative","barometer_hectopascal","gas_gas","voltage_volts"]},{"id":"node8","name":"Garden water \u00b7 Node 8","icon":"water","keys":["garden_battery","garden_solar","garden_amps","garden_lux","garden_moisture1","garden_moisture2","garden_moisture3","garden_moisture4","garden_watercheck","garden_relaystate"]},{"id":"node9","name":"Hydro pH \u00b7 Node 9","icon":"hydro","keys":["espph_ph"]},{"id":"node10","name":"Hydro CF \u00b7 Node 10","icon":"hydro","keys":["espcf_cf"]},{"id":"node11","name":"Battery PIR \u00b7 Node 11","icon":"motion","keys":["pir_pirbatt_state1","pirbatt_voltage"]},{"id":"lora1","name":"Water monitor \u00b7 LoRa 1","icon":"water","keys":["espnow_lora1_battery","espnow_lora1_water"],"transport":"LoRa"},{"id":"lora2","name":"Climate \u00b7 LoRa 2","icon":"temperature","keys":["loranode2_temp","loranode2_humd","loranode2_battery"],"transport":"LoRa"},{"id":"node12","name":"RGB light \u00b7 Node 12","icon":"light","keys":["rgb2"],"feedbackOnly":true},{"id":"node13","name":"RGB light \u00b7 Node 13","icon":"light","keys":["rgb3"],"feedbackOnly":true},{"id":"node14","name":"RGB light \u00b7 Node 14","icon":"light","keys":["rgb1"],"feedbackOnly":true},{"id":"pump","name":"Pump feedback","icon":"water","keys":["pump_state"],"logical":true}],"channels":{"bedroom_temperature":{"platform":"sensor","name":"Bedroom Temperature","ttl":1800,"unit":"\u00baC"},"bedroom_humidity":{"platform":"sensor","name":"Bedroom Humidity","ttl":1800,"unit":"%"},"bedroom_battery":{"platform":"sensor","name":"Bedroom Battery Voltage","ttl":1800,"unit":"Volts"},"lounge_temperature":{"platform":"sensor","name":"Lounge Temperature","ttl":1800,"unit":"\u00baC"},"lounge_humidity":{"platform":"sensor","name":"Lounge Humidity","ttl":1800,"unit":"%"},"lounge_battery":{"platform":"sensor","name":"Lounge Battery Voltage","ttl":1800,"unit":"Volts"},"bedroom1_temperature":{"platform":"sensor","name":"Bedroom 1 Temperature","ttl":1800,"unit":"\u00baC"},"bedroom1_humidity":{"platform":"sensor","name":"Bedroom 1 Humidity","ttl":1800,"unit":"%"},"bedroom1_battery":{"platform":"sensor","name":"Bedroom 1 Battery Voltage","ttl":1800,"unit":"Volts"},"solar10a_panelv":{"platform":"sensor","name":"Hydro Solar Voltage","ttl":1800,"unit":"Volts"},"solar10a_paneli":{"platform":"sensor","name":"Hydro Solar Amps","ttl":1800,"unit":"Amps"},"solar10a_batteryv":{"platform":"sensor","name":"Hydro Battery Voltage","ttl":1800,"unit":"Volts"},"solar10a_batteryi":{"platform":"sensor","name":"Hydro Battery Amps","ttl":1800,"unit":"Amps"},"solar10a_loadv":{"platform":"sensor","name":"Hydro Load Voltage","ttl":1800,"unit":"Volts"},"solar10a_loadi":{"platform":"sensor","name":"Hydro Load Amps","ttl":1800,"unit":"Amps"},"solar20a_panelv":{"platform":"sensor","name":"Solar Voltage","ttl":1800,"unit":"Volts"},"solar20a_paneli":{"platform":"sensor","name":"Solar Amps","ttl":1800,"unit":"Amps"},"solar20a_batteryv":{"platform":"sensor","name":"Solar Battery Voltage","ttl":1800,"unit":"Volts"},"solar20a_batteryi":{"platform":"sensor","name":"Solar Battery Amps","ttl":1800,"unit":"Amps"},"solar20a_loadv":{"platform":"sensor","name":"Solar Load Voltage","ttl":1800,"unit":"Volts"},"solar20a_loadi":{"platform":"sensor","name":"Solar Load Amps","ttl":1800,"unit":"Amps"},"espnow_node6_dustdensity":{"platform":"sensor","name":"Espnow Node6 Dustdensity","ttl":1800},"espnow_node6_voltage":{"platform":"sensor","name":"Espnow Node6 Voltage","ttl":1800},"temperature_degreecelsius":{"platform":"sensor","name":"Weather Station Temperature","ttl":1800,"unit":"\u00baC"},"humidity_percentrelative":{"platform":"sensor","name":"Weather Station Humidity","ttl":1800,"unit":"%"},"barometer_hectopascal":{"platform":"sensor","name":"Weather Station Air pressure","ttl":1800,"unit":"Hpa"},"gas_gas":{"platform":"sensor","name":"Weather Station gas","ttl":1800,"unit":"KOhms"},"voltage_volts":{"platform":"sensor","name":"Weather Station Battery Voltage","ttl":1800,"unit":"Volts"},"garden_battery":{"platform":"sensor","name":"Garden Battery Voltage","ttl":1800,"unit":"Volts"},"garden_solar":{"platform":"sensor","name":"Garden Solar Panel Voltage","ttl":1800,"unit":"Volts"},"garden_amps":{"platform":"sensor","name":"Garden Solar Panel Amps","ttl":1800,"unit":"mAmps"},"garden_lux":{"platform":"sensor","name":"Garden Lux level","ttl":1800,"unit":"lux"},"garden_moisture1":{"platform":"sensor","name":"Garden moisture sensor 1","ttl":1800,"unit":"Moisture"},"garden_moisture2":{"platform":"sensor","name":"Garden moisture sensor 2","ttl":1800,"unit":"Moisture"},"garden_moisture3":{"platform":"sensor","name":"Garden moisture sensor 3","ttl":1800,"unit":"Moisture"},"garden_moisture4":{"platform":"sensor","name":"Garden moisture sensor 4","ttl":1800,"unit":"Moisture"},"garden_watercheck":{"platform":"sensor","name":"Garden Water Count","ttl":1800,"unit":"count"},"espph_ph":{"platform":"sensor","name":"Hydro PH","ttl":1800,"unit":"PH"},"espcf_cf":{"platform":"sensor","name":"Hydro CF","ttl":1800,"unit":"CF"},"pir_pirbatt_state1":{"platform":"binary_sensor","name":"Battery PIR ","ttl":1800},"pirbatt_voltage":{"platform":"sensor","name":"PIR Battery Voltage","ttl":1800,"unit":"Volts"},"espnow_lora1_battery":{"platform":"sensor","name":"Espnow Lora1 Battery","ttl":1800},"espnow_lora1_water":{"platform":"sensor","name":"Espnow Lora1 Water","ttl":1800},"loranode2_temp":{"platform":"sensor","name":"Loranode2 Temp","ttl":1800},"loranode2_humd":{"platform":"sensor","name":"Loranode2 Humd","ttl":1800},"loranode2_battery":{"platform":"sensor","name":"Loranode2 Battery","ttl":1800},"garden_relaystate":{"platform":"switch","name":"Garden Water Solenoid","ttl":1800},"pump_state":{"platform":"binary_sensor","name":"Pump State","ttl":1800},"rgb2":{"platform":"light","name":"mqtt Light 2 ws2812b","ttl":1800},"rgb3":{"platform":"light","name":"mqtt Light 3 ws2812b","ttl":1800},"rgb1":{"platform":"light","name":"mqtt Light ws2812b","ttl":1800}}},"bridge.rf24":{"profile":"rf24_network_v1","hash":"46418962e822ff68","nodes":[{"id":"node1","name":"Node 1","icon":"sensor","keys":["node1_temperature","node1_humidity","node1_pressure","node1_aqi","node1_tvoc","node1_eco2"],"address":"01","feedbackOnly":false,"transport":"RF24"},{"id":"node2","name":"Node 2","icon":"illuminance","keys":["node2_lux"],"address":"02","feedbackOnly":false,"transport":"RF24"},{"id":"node3","name":"Node 3","icon":"sensor","keys":["node3_temperature","node3_humidity","node3_eco2","node3_agsppb"],"address":"03","feedbackOnly":false,"transport":"RF24"},{"id":"node4","name":"Node 4","icon":"sensor","keys":["node4_temperature","node4_humidity","node4_pressure","node4_eco2","node4_tvoc","node4_aqi"],"address":"04","feedbackOnly":false,"transport":"RF24"},{"id":"node5","name":"Node 5","icon":"illuminance","keys":["node5_lux","node5_batteryvoltage"],"address":"05","feedbackOnly":false,"transport":"RF24"},{"id":"node6","name":"Node 6","icon":"illuminance","keys":["node6_lux","node6_batteryvoltage"],"address":"033","feedbackOnly":false,"transport":"RF24"},{"id":"node7","name":"Node 7","icon":"sensor","keys":["node7_temperature","node7_humidity"],"address":"034","feedbackOnly":false,"transport":"RF24"},{"id":"node8","name":"Node 8","icon":"sensor","keys":["node8_ahttemperature","node8_ahthumidity","node8_bmptemperature","node8_bmppressure","node8_batteryvoltage"],"address":"011","feedbackOnly":false,"transport":"RF24"},{"id":"node9","name":"Node 9","icon":"sensor","keys":["node9_temperature","node9_humidity","node9_pressure","node9_gasresistance","node9_batteryvoltage"],"address":"013","feedbackOnly":false,"transport":"RF24"},{"id":"node10","name":"Node 10 \u00b7 Switch","icon":"switch","keys":["node1_switch_state"],"address":"012","feedbackOnly":true,"transport":"RF24"}],"channels":{"node1_temperature":{"platform":"sensor","name":"Node 1 Temperature","ttl":1800,"unit":"\u00b0C"},"node1_humidity":{"platform":"sensor","name":"Node 1 Humidity","ttl":1800,"unit":"%"},"node1_pressure":{"platform":"sensor","name":"Node 1 Pressure","ttl":1800,"unit":"hPa"},"node1_aqi":{"platform":"sensor","name":"Node 1 AQI","ttl":1800,"unit":"AQI"},"node1_tvoc":{"platform":"sensor","name":"Node 1 TVOC","ttl":1800,"unit":"ppb"},"node1_eco2":{"platform":"sensor","name":"Node 1 eCO2","ttl":1800,"unit":"ppm"},"node2_lux":{"platform":"sensor","name":"Node 2 Lux","ttl":1800,"unit":"lx"},"node3_temperature":{"platform":"sensor","name":"Node 3 Temperature","ttl":1800,"unit":"\u00b0C"},"node3_humidity":{"platform":"sensor","name":"Node 3 Humidity","ttl":1800,"unit":"%"},"node3_eco2":{"platform":"sensor","name":"Node 3 eCO2","ttl":1800,"unit":"ppm"},"node3_agsppb":{"platform":"sensor","name":"Node 3 AGS PPB","ttl":1800,"unit":"ppb"},"node4_temperature":{"platform":"sensor","name":"Node 4 Temperature","ttl":1800,"unit":"\u00b0C"},"node4_humidity":{"platform":"sensor","name":"Node 4 Humidity","ttl":1800,"unit":"%"},"node4_pressure":{"platform":"sensor","name":"Node 4 Pressure","ttl":1800,"unit":"hPa"},"node4_eco2":{"platform":"sensor","name":"Node 4 eCO2","ttl":1800,"unit":"ppm"},"node4_tvoc":{"platform":"sensor","name":"Node 4 TVOC","ttl":1800,"unit":"ppb"},"node4_aqi":{"platform":"sensor","name":"Node 4 AQI","ttl":1800,"unit":"AQI"},"node5_lux":{"platform":"sensor","name":"Node 5 Lux","ttl":1800,"unit":"lx"},"node5_batteryvoltage":{"platform":"sensor","name":"Node 5 Battery Voltage","ttl":1800,"unit":"V"},"node6_lux":{"platform":"sensor","name":"Node 6 Lux","ttl":1800,"unit":"lx"},"node6_batteryvoltage":{"platform":"sensor","name":"Node 6 Battery Voltage","ttl":1800,"unit":"V"},"node7_temperature":{"platform":"sensor","name":"Node 7 Temperature","ttl":1800,"unit":"\u00b0C"},"node7_humidity":{"platform":"sensor","name":"Node 7 Humidity","ttl":1800,"unit":"%"},"node8_ahttemperature":{"platform":"sensor","name":"Node 8 AHT Temperature","ttl":1800,"unit":"\u00b0C"},"node8_ahthumidity":{"platform":"sensor","name":"Node 8 AHT Humidity","ttl":1800,"unit":"%"},"node8_bmptemperature":{"platform":"sensor","name":"Node 8 BMP Temperature","ttl":1800,"unit":"\u00b0C"},"node8_bmppressure":{"platform":"sensor","name":"Node 8 BMP Pressure","ttl":1800,"unit":"hPa"},"node8_batteryvoltage":{"platform":"sensor","name":"Node 8 Battery Voltage","ttl":1800,"unit":"V"},"node9_temperature":{"platform":"sensor","name":"Node 9 Temperature","ttl":1800,"unit":"\u00b0C"},"node9_humidity":{"platform":"sensor","name":"Node 9 Humidity","ttl":1800,"unit":"%"},"node9_pressure":{"platform":"sensor","name":"Node 9 Pressure","ttl":1800,"unit":"hPa"},"node9_gasresistance":{"platform":"sensor","name":"Node 9 Gas Resistance","ttl":1800,"unit":"\u03a9"},"node9_batteryvoltage":{"platform":"sensor","name":"Node 9 Battery Voltage","ttl":1800,"unit":"V"},"node1_switch_state":{"platform":"switch","name":"Node 1 Switch","ttl":1800,"confirmation":"RF24 network.write success; remote actuator state unconfirmed"}}}};
+  const gatewaySamples = new Map();
+  function gatewayProfile(d) {
+    const p = d && GATEWAY_PROFILES[d.class], h = (d && d.hello) || {};
+    return p && h.profile === p.profile && h.profile_hash === p.hash ? p : null;
+  }
+  function gatewayCache(d, now = Date.now() / 1000) {
+    let cache = gatewaySamples.get(d.id);
+    if (!cache || cache.boot !== d.boot) {
+      const up = typeof d.uptime === "number" && Number.isFinite(d.uptime) ? d.uptime : 0;
+      cache = { boot: d.boot, floor: cache ? now : Math.max(0, (Number(d.last_seen) || now) - up - 2), values: {} };
+      gatewaySamples.set(d.id, cache);
+    }
+    return cache;
+  }
+  function observeGateway(d, payload, stamp, now = Date.now() / 1000) {
+    const profile = gatewayProfile(d);
+    if (!profile || !payload || typeof payload.values !== "object" || !payload.values || !payload.age_ms) return;
+    const cache = gatewayCache(d, now);
+    if (!Number.isFinite(stamp) || stamp <= 0 || stamp > now + 5 || stamp < cache.floor) return;
+    for (const [key, value] of Object.entries(payload.values)) {
+      const desc = profile.channels[key], age = payload.age_ms[key];
+      if (!Object.hasOwn(profile.channels, key) || !desc || !Number.isInteger(age) || age < 0 || age > 0xffffffff) continue;
+      if (desc.platform === "sensor" && (typeof value !== "number" || !Number.isFinite(value))) continue;
+      if (desc.platform === "binary_sensor" && ![true, false, 0, 1].includes(value)) continue;
+      const at = stamp - age / 1000;
+      if (!cache.values[key] || at >= cache.values[key].at) cache.values[key] = { value, at };
+    }
+  }
+  function ingestGatewayData(devices, events, now = Date.now() / 1000) {
+    const byId = Object.fromEntries(devices.map(d => [d.id, d]));
+    for (const d of devices) if (gatewayProfile(d)) {
+      gatewayCache(d, now);
+      observeGateway(d, d.state, Number(d.state_ts), now);
+    }
+    for (const e of events) {
+      const d = byId[e.id];
+      if (d && e.type === "state" && e.dir !== "tx") observeGateway(d, e.payload, Number(e.ts), now);
+    }
+    for (const id of gatewaySamples.keys()) if (!byId[id] || !gatewayProfile(byId[id])) gatewaySamples.delete(id);
+  }
+  function gatewayChildren(d, now = Date.now() / 1000) {
+    const profile = gatewayProfile(d);
+    if (!profile) return [];
+    const cache = gatewayCache(d, now);
+    return profile.nodes.map(node => {
+      const samples = node.keys.map(key => ({ key, desc: profile.channels[key], sample: cache.values[key] }));
+      const telemetry = samples.filter(x => ["sensor", "binary_sensor"].includes(x.desc.platform));
+      const fresh = telemetry.filter(x => x.sample && now - x.sample.at <= x.desc.ttl);
+      const seen = telemetry.filter(x => x.sample).map(x => x.sample.at);
+      const lastSeen = seen.length ? Math.max(...seen) : null;
+      let status = "Not seen", tone = "muted";
+      if (!d.online) { status = "Gateway offline"; tone = "bad"; }
+      else if (node.feedbackOnly) status = "No device feedback";
+      else if (fresh.length) { status = fresh.length === telemetry.length ? "Reporting" : "Partial data"; tone = fresh.length === telemetry.length ? "good" : "warn"; }
+      else if (lastSeen !== null) { status = "No recent data"; tone = "warn"; }
+      return { ...node, samples, fresh, lastSeen, status, tone, gateway: d.id };
+    });
+  }
+
+  // CHILD_MODEL_END
+  let gatewayFocus = "", gatewayPage = 0, childSelection = null;
+  let childEntityIndex = new Map(), childIndexAt = 0, childIndexBusy = false;
+  async function refreshChildEntityIndex() {
+    if (childIndexBusy || Date.now() - childIndexAt < 60000 || !S.devices.some(gatewayProfile)) return;
+    childIndexBusy = true; childIndexAt = Date.now();
+    try {
+      const entries = await ws({ type: "config/entity_registry/list" });
+      childEntityIndex = new Map(entries.filter(e => e.platform === "etcore").map(e => [e.unique_id, e.entity_id]));
+    } catch (_) { /* Readings still work if this user's registry access is restricted. */ }
+    finally { childIndexBusy = false; }
+  }
+  function childEntities(d, node) {
+    const ids = new Set(node.keys.map(key => childEntityIndex.get(`etcore_${d.id}_bridge_${key}`)).filter(Boolean));
+    return (d.entities || []).filter(e => ids.has(e.entity_id) && !e.disabled);
+  }
+  function childValue(row) {
+    if (!row.sample) return "Not reported";
+    const value = row.sample.value;
+    if (typeof value === "boolean") return value ? "On" : "Off";
+    if (typeof value === "number") return `${Number(value.toFixed(2))}${row.desc.unit ? " " + row.desc.unit : ""}`;
+    if (value && typeof value === "object") return `${value.state || "Unknown"} (command echo)`;
+    return String(value);
+  }
+  function childSeen(node) { return node.lastSeen === null ? "No sensor report observed" : `Last report ${dur(Math.max(0, Date.now() / 1000 - node.lastSeen))} ago`; }
+  function childCard(d, node) {
+    const reading = (node.fresh[0] || node.samples.find(s => s.sample));
+    return `<button class="child-card" data-child-gateway="${esc(d.id)}" data-child-node="${esc(node.id)}" aria-label="${esc(node.name + ': ' + node.status)}">
+      <span class="child-top">${svg(node.icon)}<b>${esc(node.name)}</b></span>
+      <span class="child-state ${node.tone}">${esc(node.status)}</span>
+      <div class="child-reading">${reading ? esc(childValue(reading)) : "No readings yet"}</div>
+      <div class="child-seen">${esc(childSeen(node))}</div>
+      ${node.logical ? '<div class="child-seen">Logical feedback group · node not identified</div>' : ""}</button>`;
+  }
+  function renderGatewayTabs() {
+    const gateways = S.devices.filter(gatewayProfile);
+    if (!gateways.some(d => d.id === gatewayFocus)) { gatewayFocus = ""; gatewayPage = 0; }
+    const key = JSON.stringify([gatewayFocus, gateways.map(d => [d.id, devName(d)])]);
+    if (renderGatewayTabs.key === key) return;
+    renderGatewayTabs.key = key;
+    $("gateway-tabs").innerHTML = `<button class="btn ${gatewayFocus ? "" : "on"}" role="tab" aria-selected="${!gatewayFocus}" data-gateway-focus="">All ET-Core devices</button>` + gateways.map(d => `<button class="btn ${gatewayFocus === d.id ? "on" : ""}" role="tab" aria-selected="${gatewayFocus === d.id}" data-gateway-focus="${esc(d.id)}">${esc(devName(d))} · ${gatewayProfile(d).nodes.filter(n => !n.logical).length} nodes</button>`).join("");
+  }
+  function renderGatewayTree(d) {
+    if (!d || !gatewayProfile(d)) return;
+    const nodes = gatewayChildren(d), size = window.matchMedia("(max-width: 520px)").matches ? 3 : 6, pages = Math.ceil(nodes.length / size);
+    gatewayPage = Math.min(gatewayPage, pages - 1);
+    const rows = nodes.slice(gatewayPage * size, (gatewayPage + 1) * size);
+    const reporting = nodes.filter(n => n.fresh.length && !n.logical).length;
+    const tree = $("gateway-tree"), signature = JSON.stringify([d.id, gatewayPage, rows.map(n => [n.id, n.name])]);
+    if (tree.dataset.signature === signature) {
+      const route = tree.querySelector(".route-status");
+      route.textContent = `${d.online ? "Gateway online" : "Gateway offline"} · ${reporting} nodes reporting`;
+      route.className = "child-state route-status " + (d.online ? "good" : "bad");
+      for (const button of tree.querySelectorAll("[data-child-node]")) {
+        const node = rows.find(n => n.id === button.dataset.childNode), reading = node.fresh[0] || node.samples.find(s => s.sample);
+        button.setAttribute("aria-label", `${node.name}: ${node.status}`);
+        button.querySelector(".child-state").textContent = node.status;
+        button.querySelector(".child-state").className = "child-state " + node.tone;
+        button.querySelector(".child-reading").textContent = reading ? childValue(reading) : "No readings yet";
+        button.querySelector(".child-seen").textContent = childSeen(node);
+      }
+      return;
+    }
+    tree.dataset.signature = signature;
+    $("gateway-tree").innerHTML = `<div class="gateway-route"><div class="route-box"><b>ET-Core hub</b><span class="muted">Home Assistant</span></div><span aria-hidden="true">→</span><div class="route-box"><b>${esc(devName(d))}</b><span class="child-state route-status ${d.online ? "good" : "bad"}">${d.online ? "Gateway online" : "Gateway offline"} · ${reporting} nodes reporting</span></div></div>
+      <div class="child-grid">${rows.map(n => childCard(d, n)).join("")}</div>
+      <div class="child-pages"><button class="btn" data-child-page="-1" ${gatewayPage ? "" : "disabled"}>Previous</button><span>${gatewayPage * size + 1}–${Math.min(nodes.length, (gatewayPage + 1) * size)} of ${nodes.length} ${nodes.some(n => n.logical) ? "nodes / groups" : "nodes"}</span><button class="btn" data-child-page="1" ${gatewayPage + 1 < pages ? "" : "disabled"}>Next</button></div>
+      <p class="child-note">Radio reports through this gateway; these are not separate Wi-Fi clients. “No recent data” follows each channel’s reporting timeout. Command echoes do not confirm physical actuation.</p>`;
+  }
+  function gatewayChildrenSection(d) {
+    const nodes = gatewayChildren(d);
+    return `<div class="panel"><div class="panel-h"><h2>Nodes behind this gateway</h2></div><div style="padding:12px"><button class="btn" data-gateway-focus="${esc(d.id)}">Explore gateway map</button><p class="child-note">${nodes.filter(n => n.fresh.length && !n.logical).length} reporting · ${nodes.filter(n => !n.logical).length} configured nodes</p><div class="child-grid">${nodes.map(n => childCard(d, n)).join("")}</div></div></div>`;
+  }
+  function openChild(gateway, id) {
+    const d = S.byId[gateway];
+    if (!d || !gatewayChildren(d).some(n => n.id === id)) return;
+    openDrawer(gateway);
+    childSelection = { gateway, id };
+    delete $("d-body").dataset.key;
+    renderChildDrawer(true);
+  }
+  function renderChildDrawer(force) {
+    const d = S.byId[childSelection.gateway];
+    const node = d && gatewayChildren(d).find(n => n.id === childSelection.id);
+    if (!node) { closeDrawer(); return; }
+    if (!force && $("d-body").contains(document.activeElement) && document.activeElement.matches("input, select")) { updateControls($("d-body")); return; }
+    $("d-icon").innerHTML = svg(node.icon); $("d-name").textContent = node.name;
+    $("d-id").textContent = `${node.transport || "ESP-NOW"}${node.address ? " · address " + node.address : ""} · via ${devName(d)}`;
+    const entities = childEntities(d, node), key = JSON.stringify([d.id, node.id, entities.map(e => e.entity_id)]);
+    const oldControls = $("d-child-controls"), keep = $("d-body").dataset.childKey === key && oldControls;
+    $("d-body").dataset.childKey = key;
+    const details = [["Gateway", `${devName(d)} · ${d.online ? "online" : "offline"}`], ["Node reports", node.status], ["Last sensor report", childSeen(node)], ["Transport", node.transport || "ESP-NOW"], ["Address", node.address ? node.address + " (octal)" : "Not provided by gateway"]];
+    $("d-body").innerHTML = `<div class="actions"><button class="btn" data-child-parent="${esc(d.id)}">Open gateway</button></div>
+      <div class="panel"><div class="panel-h"><h2>Node health</h2></div><div class="kv">${kvRows(details)}</div></div>
+      ${node.feedbackOnly ? '<p class="child-note">This node has command echoes only. Gateway acceptance is not a remote sensor report or physical state confirmation.</p>' : ""}
+      ${node.logical ? '<p class="child-note">The gateway reports pump feedback without a source node address. This is a logical group, not an additional identified radio device.</p>' : ""}
+      <div class="panel"><div class="panel-h"><h2>Reported readings</h2></div><table class="child-table">${node.samples.map(row => {
+        const eid = childEntityIndex.get(`etcore_${d.id}_bridge_${row.key}`), age = row.sample ? Date.now() / 1000 - row.sample.at : null;
+        return `<tr><td>${esc(row.desc.name)}</td><td>${esc(childValue(row))}${age !== null && age > row.desc.ttl ? ' <span class="muted">(stale)</span>' : ""}</td><td>${eid ? `<button class="btn" data-child-entity="${esc(eid)}">Open in HA</button>` : ""}</td></tr>`;
+      }).join("")}</table></div><div id="child-control-slot"></div>`;
+    const slot = $("child-control-slot");
+    if (keep) slot.replaceWith(oldControls);
+    else slot.outerHTML = `<div class="panel" id="d-child-controls"><div class="panel-h"><h2>Home Assistant controls</h2></div><div class="controls">${entities.length ? controlsHtml({ entities }) : '<div class="nocontrols">Entity links are not available yet. Readings above come from gateway reports.</div>'}</div></div>`;
+    updateControls($("d-body"));
+  }
+  document.addEventListener("click", e => {
+    const child = e.target.closest("[data-child-node]");
+    if (child) { openChild(child.dataset.childGateway, child.dataset.childNode); return; }
+    const branch = e.target.closest("[data-gateway-focus]");
+    if (branch) { gatewayFocus = branch.dataset.gatewayFocus; gatewayPage = 0; closeDrawer(); setTab("overview"); renderMap.key = ""; renderMap(); return; }
+    const page = e.target.closest("[data-child-page]");
+    if (page) { gatewayPage = Math.max(0, gatewayPage + Number(page.dataset.childPage)); renderGatewayTree(S.byId[gatewayFocus]); return; }
+    const parent = e.target.closest("[data-child-parent]");
+    if (parent) { openDrawer(parent.dataset.childParent); return; }
+    const entity = e.target.closest("[data-child-entity]");
+    if (entity) {
+      const root = window.parent.document.querySelector("home-assistant");
+      if (root) root.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId: entity.dataset.childEntity }, bubbles: true, composed: true }));
+    }
+  });
+
   // ---- Network map ------------------------------------------------------------------
   // ET-Core is a star: the hub talks to each device directly over WiFi. Devices
   // sit on rings around the hub; a link's colour is the device's signal.
   function renderMap() {
+    renderGatewayTabs();
+    const focused = S.byId[gatewayFocus];
+    const useBranch = focused && gatewayProfile(focused);
+    $("map").classList.toggle("hidden", !!useBranch);
+    $("map-legend").classList.toggle("hidden", !!useBranch);
+    $("gateway-tree").classList.toggle("hidden", !useBranch);
+    if (useBranch) { renderGatewayTree(focused); return; }
     const devs = S.devices.slice().sort((a, b) => devName(a).localeCompare(devName(b)));
     const W = 700, n = devs.length;
     const rings = []; let left = n, r = 140;
@@ -765,7 +984,7 @@
         `<g class="node hub" transform="translate(${cx},${cy})"><defs><clipPath id="etcore-hub-round" clipPathUnits="userSpaceOnUse"><circle r="25"/></clipPath></defs><circle class="bg" r="27"/><image href="${HUB_LOGO}" x="-25" y="-25" width="50" height="50" clip-path="url(#etcore-hub-round)" aria-label="ElectronicsTech ET-Core hub"/><text y="45">Home Assistant</text></g>` +
         devs.map((d, k) => `<g class="node" data-n="${esc(d.id)}" transform="translate(${pos[k][0].toFixed(1)},${pos[k][1].toFixed(1)})">
             <title></title><circle class="bg" r="20"/><g transform="translate(-11,-11) scale(.917)"><path class="glyph" d="${P[deviceIcon(d.class)]}"/></g>
-            <circle class="st" r="5.5" cx="14" cy="-14"/><text y="35"></text></g>`).join("") +
+            <circle class="st" r="5.5" cx="14" cy="-14"/><text y="35"></text><text y="49" data-child-count style="font-size:9px"></text></g>`).join("") +
         (n ? "" : `<text x="${cx}" y="${cy + 80}" text-anchor="middle" fill="var(--muted)" font-size="13">No devices yet</text>`);
     }
     const now = Date.now() / 1000;
@@ -779,6 +998,7 @@
         const nm = devName(d);
         g.querySelector("text").textContent = nm.length > 16 ? nm.slice(0, 15) + "…" : nm;
         g.querySelector("title").textContent = `${nm} (${d.id})\n${d.online ? "online" : "offline"} · ${d.last_addr || "no IP"} · ${s.t}`;
+        g.querySelector("[data-child-count]").textContent = gatewayProfile(d) ? `${gatewayProfile(d).nodes.filter(n => !n.logical).length} nodes · tap to explore` : "";
         g.querySelector(".st").setAttribute("fill", d.online ? "var(--good)" : "var(--bad)");
       }
       // A dot runs along the link for each message: hub→device purple, device→hub blue.
@@ -993,6 +1213,7 @@
     return (b.last_updated || "") > (a.last_updated || "") ? b : a;
   }
   function refreshControls() {
+    if (S.tab === "overview" && gatewayFocus) renderGatewayTree(S.byId[gatewayFocus]);
     for (const id of ["cards", "tbody", "d-body"]) { const r = $(id); if (r) updateControls(r); }
   }
   let watching = false, refreshQueued = false;
@@ -1394,12 +1615,14 @@ etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
 
   // ---- Drawer ------------------------------------------------------------------------------
   function openDrawer(id) {
+    childSelection = null;
     S.drawer = id;
     $("drawer").classList.add("open"); $("drawer").setAttribute("aria-hidden", "false"); $("scrim").classList.add("open");
     delete $("d-body").dataset.key;
     renderDrawer(true);
   }
   function closeDrawer() {
+    childSelection = null;
     S.drawer = null;
     $("drawer").classList.remove("open"); $("drawer").setAttribute("aria-hidden", "true");
     if (!$("modal").classList.contains("open")) $("scrim").classList.remove("open");
@@ -1409,6 +1632,7 @@ etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") { if ($("modal").classList.contains("open")) closeModal(null); else closeDrawer(); } });
 
   function renderDrawer(force) {
+    if (childSelection) { renderChildDrawer(force); return; }
     const d = S.byId[S.drawer];
     if (!d) { if (S.drawer) closeDrawer(); return; }
     const sel = window.getSelection();
@@ -1452,6 +1676,7 @@ etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
         ${admin ? `<button class="btn danger" data-dact="remove" ${d.online ? `disabled title="Unplug it first: an online device would come straight back"` : ""}>Remove</button>` : ""}
       </div>
       ${d.last_error ? `<div class="panel"><div class="panel-h"><h2 style="color:var(--bad)">Last error from the device</h2></div><div class="kv">${kvRows([[d.last_error.code, tm(d.last_error.ts), d.last_error.message]])}</div></div>` : ""}
+      ${gatewayProfile(d) ? gatewayChildrenSection(d) : ""}
       <div id="d-ctl-slot"></div>
       <div class="panel"><div class="panel-h"><h2>Details</h2></div><div class="kv">${kvRows(info)}</div></div>
       <div><h3>Last state</h3><pre>${esc(JSON.stringify(d.state || {}, null, 2))}</pre></div>
