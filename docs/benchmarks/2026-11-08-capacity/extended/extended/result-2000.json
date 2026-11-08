@@ -1,0 +1,21 @@
+{
+  "devices": 2000,
+  "lease_ms": 2000,
+  "ttl_s": 10,
+  "steady_s": 60,
+  "state_interval_ms": 10000,
+  "all_online": true,
+  "join_s": 12.320663177175447,
+  "packets_per_s": 1193.8301170179916,
+  "hub_cpu_one_core_pct": 38.01318376865821,
+  "false_offlines": 0,
+  "hub_rss_kb": 305656,
+  "hub_rss_growth_kb": 130812,
+  "simulated_devices_rss_kb": 12660684,
+  "event_loop_lag_p95_ms": 1.156264916062355,
+  "event_loop_lag_max_ms": 181.63471692241728,
+  "state_reports_generated": 12080,
+  "state_reports_missing": 86,
+  "passed": false,
+  "error": "RuntimeError: STEADY_LOAD_FAILURE: reports missing or false offline events"
+}

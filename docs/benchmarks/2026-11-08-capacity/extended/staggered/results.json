@@ -1,0 +1,12 @@
+[
+  {
+    "devices": 3000,
+    "lease_ms": 2000,
+    "ttl_s": 10,
+    "steady_s": 60,
+    "state_interval_ms": 10000,
+    "join_mode": "staggered: yield 100 ms per 10 processes",
+    "passed": false,
+    "error": "RuntimeError: HOST_RESOURCE_GUARD: host load reserve reached; not a protocol limit"
+  }
+]

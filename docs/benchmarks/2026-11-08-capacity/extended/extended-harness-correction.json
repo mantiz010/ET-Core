@@ -1,0 +1,5 @@
+{
+  "at": 1794116242.7185462,
+  "interrupted_before_first_extended_result": true,
+  "reason": "Replace repeated copies of the full hub device dictionary in join/recovery checks with one snapshot per check; no protocol source changes."
+}

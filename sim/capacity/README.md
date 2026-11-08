@@ -56,3 +56,21 @@ These guards do not turn this into a production stress tool. Keep the test on
 loopback, at low scheduler priority, and do not run it on an already overloaded
 machine. Larger simulator counts also introduce kernel scheduling/multicast work;
 interpret failures by phase rather than claiming a universal device maximum.
+
+## Reduce observer effects at high counts
+
+`python3 capacity_bounded.py` uses the same protocol/device workload and OS socket
+settings, but replaces unbounded raw-packet collection with counters, bounds the
+fake event bus, yields while collecting publication counters and samples child
+RSS outside the measurement/loss window. It also records per-socket kernel UDP
+drops and the unchanged SO_RCVBUF value. This separates receiver behavior from
+pauses introduced by test instrumentation. It does not increase socket buffers
+or alter production protocol code. Raw-collector results remain separate.
+`ETCORE_CEILING_COUNTS` selects counts; `ETCORE_BOUNDED_OUTPUT` selects the output
+folder. The default starts at 2000 and increases until a failure.
+
+`python3 capacity_staggered.py` uses the bounded collector and pauses 100 ms per
+ten process starts, allowing the hub to process discovery while more clients are
+created. It starts at 3000 by default and retains the same reporting rates,
+protocol library, socket buffers and resource guards. Results are a different
+startup scenario, not a replacement for simultaneous-start measurements.
