@@ -351,7 +351,7 @@ class EtCoreHub:
 
     def _note_bad_source(self, msg: dict[str, Any], why: str) -> None:
         """Remember which address sends packets we cannot accept, so the panel can
-        say "172.168.1.50 (relay7) has the wrong key" instead of a bare counter."""
+        say "192.0.2.50 (relay7) has the wrong key" instead of a bare counter."""
         ip = str(msg.get("_src_ip") or "?")
         now = time.time()
         src = self._bad_sources.get(ip)

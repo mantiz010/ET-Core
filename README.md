@@ -15,7 +15,7 @@ The repository includes the Arduino SDK, Home Assistant integration, sidebar das
 
 [Get started](#get-started) · [Downloads](https://github.com/mantiz010/ET-Core/releases/latest) · [Network map](docs/gateway-network-map.md) · [Protocol](spec/protocol-v1.md) · [Test results](#tested-scale)
 
-> **Version:** the Arduino SDK and HA integration on `main` identify as **0.4.6**. Recent examples and dashboard improvements on `main` may be newer than the latest release bundle. Use the matching source files when installing those additions.
+> **Version:** the Arduino SDK and HA integration on `main` identify as **0.4.7**. Recent examples and dashboard improvements on `main` may be newer than the latest release bundle. Use the matching source files when installing those additions.
 
 ## What you get
 
