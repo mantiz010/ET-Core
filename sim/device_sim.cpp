@@ -24,10 +24,17 @@ static char g_effect[32] = "Solid";
 static char g_preset[16] = "low";
 static bool g_sw[3] = {false, false, false};
 static float g_value = 21.5f;
+static char g_media_state[16] = "idle";
+static char g_media_url[641] = "";
+static float g_media_volume = 0.3f;
 static bool is(const char* prefix) { return strncmp(g_class, prefix, strlen(prefix)) == 0; }
 
 static void publish() {
-  if (g_rich && strcmp(g_class, "light.rgb") == 0) {
+  if (g_rich && strcmp(g_class, "media_player.audio") == 0) {
+    JsonDocument d; JsonObject p=d.to<JsonObject>();
+    p["state"]=g_media_state; p["volume"]=g_media_volume;
+    p["url"]=g_media_url; core.sendState(p);
+  } else if (g_rich && strcmp(g_class, "light.rgb") == 0) {
     core.sendRgbStateFx(g_on, g_r, g_g, g_b, g_bri, g_effect, g_speed);
   } else if (g_rich && strcmp(g_class, "fan.speed") == 0) {
     core.sendFanSpeed(g_on, g_pct);
@@ -67,6 +74,10 @@ static void onHello(JsonObject p) {
     }
   }
   if (!g_rich) return;
+  if (strcmp(g_class,"media_player.audio")==0) {
+    JsonArray a=p["media_capabilities"].to<JsonArray>();
+    for (const char* cap : {"play_media","play","pause","stop","volume_set","power","tts"}) a.add(cap);
+  }
   if (strcmp(g_class, "fan.preset") == 0) {
     JsonArray a = p["presets"].to<JsonArray>();
     a.add("low"); a.add("medium"); a.add("high");
@@ -105,6 +116,15 @@ static void onCommand(const char* cls, JsonObject payload) {
   if (strcmp(cls, g_class) != 0) return;
   if (payload["on"].is<bool>() && !payload["switch_id"].is<const char*>()) g_on = payload["on"].as<bool>();
   if (g_rich) applyRich(payload);
+  if (g_rich && strcmp(g_class,"media_player.audio")==0) {
+    const char* op=payload["op"] | "";
+    if (!strcmp(op,"volume")) g_media_volume=payload["volume"] | 0.0f;
+    else if (!strcmp(op,"play_media")) { snprintf(g_media_url,sizeof g_media_url,"%s",payload["url"] | ""); snprintf(g_media_state,sizeof g_media_state,"playing"); }
+    else if (!strcmp(op,"tts") || !strcmp(op,"play")) snprintf(g_media_state,sizeof g_media_state,"playing");
+    else if (!strcmp(op,"pause")) snprintf(g_media_state,sizeof g_media_state,"paused");
+    else if (!strcmp(op,"stop")) snprintf(g_media_state,sizeof g_media_state,"idle");
+    else if (!strcmp(op,"power")) snprintf(g_media_state,sizeof g_media_state,"%s",(payload["on"] | false) ? "idle" : "off");
+  }
   if (!g_noack) core.sendAck(payload["cmd_id"] | "", true);
   publish();
 }

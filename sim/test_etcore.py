@@ -89,6 +89,29 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         print(f"\n    offline detected {took:.1f}s after unplug (ttl 6s)")
         self.assertLess(took, 8.5)
 
+    async def test_native_media_encrypted_commands_and_state(self):
+        hub = await self.hub()
+        d = self.device("audioNative", "media_player.audio", env={"ETCORE_SIM_RICH":"1"})
+        self.assertTrue(await wait_for(lambda: (hub.devices.get("audioNative") or {}).get("state"), 5))
+        hello = hub.devices["audioNative"]["hello"]
+        self.assertIn("play_media",hello["media_capabilities"])
+        operations = [({"op":"play_media","url":"https://audio.example/test.mp3"},"playing"),
+                      ({"op":"pause"},"paused"),({"op":"play"},"playing"),
+                      ({"op":"stop"},"idle"),({"op":"power","on":False},"off"),
+                      ({"op":"power","on":True},"idle"),({"op":"tts","text":"Test speech","language":"en"},"playing")]
+        for payload, expected in operations:
+            hub.send_command("audioNative","media_player.audio",payload)
+            self.assertTrue(await wait_for(lambda:hub.devices["audioNative"].get("state",{}).get("state")==expected,2))
+        hub.send_command("audioNative","media_player.audio",{"op":"volume","volume":0.55})
+        self.assertTrue(await wait_for(lambda: abs(hub.devices["audioNative"].get("state",{}).get("volume",0)-0.55)<0.001,2))
+        self.assertTrue(await wait_for(lambda:not hub._pending,2),"media commands were not acknowledged")
+        for packet in packets(hub.rec.tx,d.ip,"cmd"):
+            self.assertEqual(packet["payload"].get("_enc"),1)
+            self.assertNotIn(b"https://audio.example",packet["_raw"])
+            self.assertLess(len(packet["_raw"]),1500)
+        ids=[json.loads(c)["cmd_id"] for c in d.commands()]
+        self.assertEqual(len(ids),len(set(ids)))
+
     async def test_late_listener_gets_known_hello_and_state(self):
         # HA starts the hub before the entity platforms; a device can answer the
         # start-up announce first. A platform that registers late must still get the

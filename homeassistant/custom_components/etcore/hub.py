@@ -74,6 +74,16 @@ def _small(payload: dict[str, Any]) -> Any:
     return payload if len(text) <= 800 else {"_truncated": text[:800]}
 
 
+def _event_payload(dev_class: str, payload: dict[str, Any]) -> Any:
+    # Signed stream URLs and spoken text are needed by the device, not event logs.
+    if dev_class == "media_player.audio":
+        payload = dict(payload)
+        for key in ("url", "text"):
+            if key in payload:
+                payload[key] = "<redacted>"
+    return _small(payload)
+
+
 class EtCoreHub:
     def __init__(
         self,
@@ -633,7 +643,7 @@ class EtCoreHub:
             "seq": msg.get("seq"),
             "encrypted": bool(msg.get("_encrypted", False)),
             "src": msg.get("_src_ip"),
-            "payload": _small(payload),
+            "payload": _event_payload(str(msg.get("class") or ""), payload),
         }
         if msg.get("_ack_ms") is not None:
             event["ack_ms"] = msg["_ack_ms"]
@@ -706,7 +716,7 @@ class EtCoreHub:
         }
         self._devices[dev_id].setdefault("stats", _new_stats())["cmds"] += 1
         self._add_event({"dir": "tx", "type": "command", "id": dev_id, "class": dev_class,
-                         "cmd_id": cmd_id, "payload": _small(payload)})
+                         "cmd_id": cmd_id, "payload": _event_payload(dev_class, payload)})
         self._transmit(cmd_id, first=True)
 
     def _transmit(self, cmd_id: str, first: bool = False) -> None:
