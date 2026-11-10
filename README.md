@@ -188,3 +188,13 @@ See the [protocol specification](spec/protocol-v1.md) for encryption, sessions, 
 The authenticated diagnostics endpoint is `/etcore/api/diag`. The sidebar uses the logged-in HA frontend connection rather than storing a separate access token.
 
 For bug reports, include the board/FQBN, Arduino core and ETCore versions, HA version, device firmware version, expected behaviour and sanitised logs. Remove network keys and passwords before sharing. [Open an issue](https://github.com/mantiz010/ET-Core/issues).
+
+## Native media-player development
+
+The development candidate uses SDK and integration version **0.4.7**; this is not
+a published release or a completed device migration. It adds encrypted native
+media controls and password-protected
+WROVER OTA while retaining HTTP/HTTPS audio streaming. See the
+[media-player contract and acceptance gates](docs/media-player.md) and the
+[staged MQTT replacement roadmap](docs/mqtt-replacement-roadmap.md). A successful
+compile or simulator run is not a completed hardware migration.
