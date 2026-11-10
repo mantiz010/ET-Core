@@ -1,3 +1,4 @@
+#include <esp_heap_caps.h>
 /* ET-Core native audio player: ESP32-WROVER, MAX98357A, encrypted control + OTA.
  * Audio remains HTTP/HTTPS. See README.md for exact dependency and OTA partition.
  * GPIO 26=BCLK, 25=LRC, 22=DOUT. No SD card is mounted or required.
@@ -91,6 +92,7 @@ void commandReceived(const char* cls, JsonObject payload) {
 void audioTask(void*) {
   MediaState state{}; state.state = Playback::IDLE; state.volume = 0.30f;
   audio.setPinout(PIN_I2S_BCLK,PIN_I2S_LRC,PIN_I2S_DOUT);
+  audio.setConnectionTimeout(10000,15000);
   audio.setVolume(6); // Original player's initial 30% on its 0..21 hardware scale.
   uint32_t lastReportAt = 0;
   for (;;) {
@@ -174,6 +176,7 @@ void setup() {
   Serial.println("ET-Core WROVER native media + OTA starting");
   Serial.printf("[BOARD] Flash=%lu PSRAM=%s\n",(unsigned long)ESP.getFlashChipSize(),psramFound()?"present":"missing");
   if (!psramFound()) { Serial.println("[AUDIO] PSRAM is required; audio player not started"); return; }
+  heap_caps_malloc_extmem_enable(256); // Preserve internal RAM for TLS certificate parsing.
   commands=xQueueCreate(4,sizeof(MediaCommand)); reports=xQueueCreate(1,sizeof(MediaState));
   if (!commands || !reports) { Serial.println("[AUDIO] Queue allocation failed"); return; }
   if (xTaskCreatePinnedToCore(audioTask,"etcore-audio",16384,nullptr,1,&audioTaskHandle,1)!=pdPASS) {

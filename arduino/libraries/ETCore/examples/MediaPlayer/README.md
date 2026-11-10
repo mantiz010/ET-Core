@@ -36,3 +36,8 @@ HTTP files use `ST_WEBFILE`; without that case playback works but pause/resume
 cannot be preserved. Apply the patch only to that matching implementation, then
 compile and test the exact board. Other audio versions require API review.
 The firmware only reports paused after the audio library accepts the operation.
+
+The tested dependency also uses `audio-tts-compatibility.patch` to select the
+working speech hostname and bound the saved speech text to its actual allocation.
+The WROVER example prioritises PSRAM for general allocations above 256 bytes so
+internal-only TLS allocations have enough memory for certificate parsing.

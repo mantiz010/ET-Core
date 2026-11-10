@@ -1,0 +1,26 @@
+--- a/src/Audio.cpp
++++ b/src/Audio.cpp
+@@ -783,12 +783,12 @@
+     xSemaphoreTakeRecursive(mutex_audio, portMAX_DELAY);
+ 
+     setDefaults();
+-    char host[] = "translate.google.com.vn";
++    char host[] = "translate.google.com";
+     char path[] = "/translate_tts";
+ 
+     uint16_t speechLen = strlen(speech);
+     uint16_t speechBuffLen = speechLen + 300;
+-    memcpy(m_lastHost, speech, 256);
++    strlcpy(m_lastHost, speech, 512);
+     char* speechBuff = (char*)malloc(speechBuffLen);
+     if(!speechBuff) {
+         log_e("out of memory");
+@@ -882,7 +882,7 @@
+ 
+     uint16_t speechLen = strlen(speech);
+     uint16_t speechBuffLen = speechLen + 300;
+-    memcpy(m_lastHost, speech, 256);
++    strlcpy(m_lastHost, speech, 512);
+     char* speechBuff = (char*)malloc(speechBuffLen);
+     if(!speechBuff) {log_e("out of memory");
+         xSemaphoreGive(mutex_audio);
