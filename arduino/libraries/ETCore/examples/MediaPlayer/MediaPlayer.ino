@@ -114,7 +114,7 @@ void audioTask(void*) {
           break;
         case Operation::STOP: audio.stopSong(); state.state=Playback::IDLE; break;
         case Operation::PAUSE:
-          if (audio.isRunning()) { audio.pauseResume(); state.state=Playback::PAUSED; } break;
+          if (audio.isRunning() && audio.pauseResume()) { state.state=Playback::PAUSED; } break;
         case Operation::PLAY:
           if (state.state==Playback::PAUSED) {
             state.state=audio.pauseResume() ? Playback::PLAYING : Playback::IDLE;

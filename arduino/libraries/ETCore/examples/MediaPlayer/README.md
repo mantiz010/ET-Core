@@ -27,3 +27,12 @@ Do not erase a working device before saving and verifying its current firmware.
 The included `partitions.csv` pins the tested dual-slot OTA layout. Keep it with
 the sketch. Arduino-ESP32 3.3.6 copies a sketch-local partition table on both
 Windows and Linux. Image size must remain below 1,966,080 bytes for either slot.
+
+### HTTP file pause compatibility
+
+The tested audio dependency needs the accompanying `audio-http-file-pause.patch`
+when its `Audio::pauseResume()` only accepts `AUDIO_LOCALFILE` or `ST_WEBSTREAM`.
+HTTP files use `ST_WEBFILE`; without that case playback works but pause/resume
+cannot be preserved. Apply the patch only to that matching implementation, then
+compile and test the exact board. Other audio versions require API review.
+The firmware only reports paused after the audio library accepts the operation.
