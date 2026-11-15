@@ -1141,6 +1141,7 @@
         <div class="fact"><div class="k">Uptime</div><div class="v" data-f="up"></div></div>
         <div class="fact"><div class="k">Response</div><div class="v" data-f="ack"></div></div>
       </div>
+      <div class="sub" data-f="sleep" style="margin:0 14px 8px;white-space:normal" hidden></div>
       <div class="lease" title="Time left before the hub would mark it offline"><div data-f="lease"></div></div>
       <div class="controls">${controlsHtml(d)}</div>`;
     return card;
@@ -1187,6 +1188,22 @@
     return parts.join("");
   }
   const subline = (d) => [devName(d) !== d.id ? d.id : "", d.last_addr, d.class].filter(Boolean).join(" · ");
+  // Explicit sleep intent comes from a lease, not from guessing at silence.
+  function sleepLabel(d) {
+    if (!d.online) return "Offline";
+    if (d.sleep_state === "sleeping") return "Sleeping";
+    if (d.sleep_state === "awaiting_report") return "Report due";
+    return "Online";
+  }
+  function sleepReport(d) {
+    if (!(Number(d.sleep_interval) > 0)) return "";
+    const interval = `Sleep interval ${dur(Number(d.sleep_interval))}`;
+    if (!d.online) return `${interval} · lease expired; last heard ${dur(d.age)} ago`;
+    if (d.sleep_state === "sleeping" && typeof d.next_report_in === "number")
+      return `Next report expected in ${dur(Math.max(0, Math.ceil(d.next_report_in)))} · ${interval}`;
+    if (d.sleep_state === "awaiting_report") return `Report due · waiting within lease allowance · ${interval}`;
+    return `Awake / no sleep announced · ${interval}`;
+  }
   function updateCard(card, d) {
     const f = (n) => card.querySelector(`[data-f="${n}"]`);
     card.classList.toggle("off", !d.online);
@@ -1194,7 +1211,9 @@
     f("sub").textContent = subline(d);
     f("sub").title = `${d.id} · ${d.class || "?"} · ${d.last_addr || "no IP"}${d.fw ? " · fw " + d.fw : ""}`;
     f("pill").className = "pill " + (d.online ? "online" : "offline");
-    f("pill").textContent = d.online ? "Online" : "Offline";
+    f("pill").textContent = sleepLabel(d);
+    f("sleep").textContent = sleepReport(d);
+    f("sleep").hidden = !sleepReport(d);
     const s = signal(d.rssi);
     f("rssi").innerHTML = d.online ? `${bars(s)}<span>${esc(s.t)}</span>` : "—";
     f("up").textContent = d.online ? dur(uptimeSec(d.uptime)) : `${dur(d.age)} ago`;
@@ -1319,7 +1338,7 @@
         const sensor = !ctl.length && entitiesOf(d).find(e => /^(binary_)?sensor\./.test(e.entity_id));
         return `<tr class="clickable ${d.online ? "" : "off"}" data-id="${esc(d.id)}">
           <td data-act="open"><div class="devcell"><div class="icon">${icon(d.class)}</div><div><div class="name">${esc(devName(d))}</div><div class="sub mono">${esc(d.id)}</div></div></div></td>
-          <td data-act="open"><span class="pill ${d.online ? "online" : "offline"}">${d.online ? "Online" : "Offline"}</span></td>
+          <td data-act="open"><span class="pill ${d.online ? "online" : "offline"}">${esc(sleepLabel(d))}</span></td>
           <td data-act="open" class="hide-sm">${esc(d.class || "")}</td>
           <td data-act="open" class="mono">${esc(d.last_addr || "—")}</td>
           <td data-act="open" class="num">${d.online ? `${bars(s)} ${esc(s.t)}` : "—"}</td>
@@ -1597,7 +1616,7 @@ etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
       const err = d.last_error ? `${d.last_error.code}: ${d.last_error.message} (${tm(d.last_error.ts)})` : "";
       return `<tr>
         <td><a href="#" data-open="${esc(d.id)}">${esc(devName(d))}</a> <span class="muted mono">${esc(d.id)}</span></td>
-        <td><span class="pill ${d.online ? "online" : "offline"}">${d.online ? "Online" : "Offline"}</span></td>
+        <td><span class="pill ${d.online ? "online" : "offline"}">${esc(sleepLabel(d))}</span></td>
         <td class="num">${d.online ? `${bars(sg)} ${esc(sg.t)}` : "—"}</td>
         <td class="num">${d.online ? dur(uptimeSec(d.uptime)) : "—"}</td>
         <td class="num">${s.rx || 0}</td><td class="num">${s.cmds || 0}</td>
@@ -1645,7 +1664,8 @@ etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
     const recent = S.log.filter(e => e.id === d.id && e.type !== "lease").slice(-12).reverse();
     const admin = isAdmin();
     const info = [
-      ["Status", d.online ? "Online" : `Offline (last heard ${dur(d.age)} ago)`],
+      ["Status", d.online ? sleepLabel(d) : `Offline (last heard ${dur(d.age)} ago)`],
+      ...(Number(d.sleep_interval) > 0 ? [["Sleep schedule", sleepReport(d)]] : []),
       ["IP address", d.last_addr || "—"],
       ["Signal", sg.w ? `${sg.t} (${sg.w})` : sg.t],
       ["Uptime", d.online ? dur(uptimeSec(d.uptime)) : "—"],
