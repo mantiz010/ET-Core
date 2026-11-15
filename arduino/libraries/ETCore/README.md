@@ -25,6 +25,7 @@ The network key is on the ET-Core page in Home Assistant (*Add device*).
 
 | Example | Class | In Home Assistant |
 |---|---|---|
+| **[C3OTA](examples/C3OTA)** | OTA starter | USB-flash first on ESP32-C3; prints IP and stays awake for WiFi updates. [Download ZIP](https://github.com/mantiz010/ET-Core/raw/refs/heads/main/downloads/C3OTA.zip). |
 | **Blink** | `switch.led` | The board's LED as a switch. Start here. |
 | **RelayOne** | `switch.relay` | One relay. |
 | **RelayButton** | `switch.relay` | Relay + wall button + status LED, state kept over power cuts. |
