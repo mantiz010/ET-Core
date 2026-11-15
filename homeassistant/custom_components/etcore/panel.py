@@ -99,6 +99,8 @@ def _diag(hass: HomeAssistant, since: int | None) -> dict[str, Any]:
             continue
         snap = get_snapshot(since)
         snap["entry_id"] = entry_id
+        entry = hass.config_entries.async_get_entry(entry_id)
+        snap["title"] = entry.title if entry else "ET-Core"
         # Which HA entities belong to each device, so the page can show and
         # control them through the normal HA services.
         for dev in snap["devices"]:
@@ -196,6 +198,7 @@ async def async_setup_panel(hass: HomeAssistant) -> None:
         frontend_url_path=PANEL_URL_PATH,
         config={"url": VIEW_URL},
         require_admin=False,
+        update=True,  # Multiple ET-Core entries share one dashboard.
     )
 
 

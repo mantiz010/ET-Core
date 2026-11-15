@@ -46,3 +46,11 @@ GPIO wake, power-cut and battery-current tests remain outstanding.
 
 Firmware 1.1 also passed the controlled 35-second WiFi-disconnection test;
 encrypted leases and OTA recovered without rebooting.
+
+### Show the dummy in Home Assistant
+
+Stop the standalone test hub first. In Home Assistant, add another **ET-Core** integration entry using the test firmware's separate encryption key and UDP port **15561**. Name it **ET-Core — C3 Battery Test**. Do not change the existing production entry or its key.
+
+The ET-Core panel now provides a **Connection** selector when multiple entries exist. Select the test connection to see **C3 Battery TEST ONLY**, its test counter and its own live logs. The counter is simulated test data, not a physical sensor reading. A cold boot holds the board awake with a counter of zero; sleep cycles start only when explicitly requested.
+
+The dashboard remembers the selected connection in that browser. Switch back to the production connection to view normal devices. No firmware reflash is needed when the test hub moves from the standalone monitor to Home Assistant on the same LAN.

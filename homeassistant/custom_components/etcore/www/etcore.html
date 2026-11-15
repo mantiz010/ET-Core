@@ -359,6 +359,7 @@
         <div>
           <h1>ET-Core</h1>
           <div class="hubsub" id="hubsub">Connecting to Home Assistant…</div>
+          <label id="hubselectwrap" hidden style="display:none;margin-top:8px">Connection <select id="hubselect" aria-label="ET-Core connection" style="max-width:100%"></select></label>
         </div>
       </div>
       <div class="hubline">
@@ -669,7 +670,26 @@
   let failures = 0;
   async function poll() {
     const data = await ws({ type: "etcore/diag", since: S.eventN });
-    const hub = data.hubs && data.hubs[0];
+    const hubs = data.hubs || [];
+    let selected = "";
+    try { selected = localStorage.getItem("etcore-hub") || ""; } catch (_) {}
+    const hub = hubs.find(h => h.entry_id === selected) || hubs[0];
+    const picker = $("hubselect");
+    const options = hubs.map(h => `${h.entry_id}:${h.title}:${h.port}`).join("|");
+    if (picker.dataset.options !== options) {
+      picker.replaceChildren(...hubs.map(h => {
+        const o = document.createElement("option"); o.value = h.entry_id;
+        o.textContent = `${h.title || "ET-Core"} · UDP ${h.port}`; return o;
+      }));
+      picker.dataset.options = options;
+    }
+    if (hub) picker.value = hub.entry_id;
+    $("hubselectwrap").hidden = hubs.length < 2;
+    $("hubselectwrap").style.display = hubs.length < 2 ? "none" : "block";
+    picker.onchange = () => {
+      try { localStorage.setItem("etcore-hub", picker.value); } catch (_) {}
+      location.reload(); // Reset logs/cursors before switching connections.
+    };
     if (!hub) throw new Error("ET-Core is not set up in Home Assistant");
     if (hub.event_n < S.eventN) { S.eventN = 0; return poll(); }  // hub reloaded: numbering restarted
     const fresh = hub.events || [];
