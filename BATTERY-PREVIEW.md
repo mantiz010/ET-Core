@@ -119,3 +119,7 @@ phone and tablet widths. No real device credentials are included in this branch.
 ### Physical power-loss verification — 15 November 2026
 
 The user disconnected and restored USB power on the spare C3. Verification confirmed a power-on reset, cleared RTC wake state, a new encrypted session, fresh test readings received by the isolated hub, and OTA still enabled while held awake. This completes the physical cold-start check; electrical current consumption remains unmeasured.
+
+### Home Assistant deep-sleep verification — 15 November 2026
+
+With the spare C3 connected to a separate encrypted test entry in live Home Assistant, all ten deep-sleep wakes produced fresh dummy counter readings (1–10). The panel reported Sleeping between wakes. After cycle 10 the board held awake with OTA enabled, the HA counter read 10, and Home Assistant reported RUNNING. No production-device firmware was changed.
