@@ -35,6 +35,12 @@ containing newer hub features with the integration folder from this branch.
 - Configure a real shared encryption key before use. Blank example keys are
   placeholders, not a secure deployment configuration.
 
+## OTA starter
+
+Before the battery test, USB-flash the always-awake [C3OTA example](arduino/libraries/ETCore/examples/C3OTA).
+[Download C3OTA.zip](https://github.com/mantiz010/ET-Core/raw/refs/heads/feature/battery-review/downloads/C3OTA.zip).
+It uses only the ESP32 core libraries; enter WiFi and OTA credentials in the sketch.
+
 ## Next
 
 1. Add replay-resistant wake confirmation and regression coverage.
