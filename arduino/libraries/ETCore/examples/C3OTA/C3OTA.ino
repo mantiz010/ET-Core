@@ -16,33 +16,37 @@ const char* OTA_HOSTNAME = "etcore-c3-test";
 constexpr uint32_t WIFI_RETRY_MS = 15000;
 constexpr uint32_t STATUS_MS = 5000;
 bool configured = false;
+bool otaConfigured = false;
 bool otaReady = false;
 uint32_t lastWifiAttempt = 0;
 uint32_t lastStatus = 0;
 
 void printStatus() {
-  if (!configured) {
-    Serial.println("[SETUP] Edit WIFI_SSID, WIFI_PASSWORD and OTA_PASSWORD at the top of C3OTA.ino, then upload over USB.");
-    return;
-  }
+  if (!WIFI_SSID[0] || strcmp(WIFI_SSID, "YOUR_WIFI_SSID") == 0)
+    Serial.println("[SETUP] WIFI_SSID is missing: edit line 3, save, then upload over USB.");
+  if (!WIFI_PASSWORD[0] || strcmp(WIFI_PASSWORD, "YOUR_WIFI_PASSWORD") == 0)
+    Serial.println("[SETUP] WIFI_PASSWORD is missing: edit line 4, save, then upload over USB.");
+  if (!otaConfigured)
+    Serial.println("[OTA DISABLED] OTA_PASSWORD is missing: edit line 5 for future OTA uploads. WiFi can still connect.");
+  if (!configured) return;
   if (WiFi.status() != WL_CONNECTED) {
     Serial.printf("[WAITING] SSID=%s WiFi status=%d NO IP YET\n", WIFI_SSID, (int)WiFi.status());
     return;
   }
   Serial.printf("[READY] IP=%s MAC=%s RSSI=%d OTA=%s.local:3232 (%s) uptime=%lu s\n",
                 WiFi.localIP().toString().c_str(), WiFi.macAddress().c_str(),
-                (int)WiFi.RSSI(), OTA_HOSTNAME, otaReady ? "password protected" : "starting",
+                (int)WiFi.RSSI(), OTA_HOSTNAME, otaReady ? "password protected" : (otaConfigured ? "starting" : "DISABLED: password not set"),
                 (unsigned long)(millis() / 1000));
 }
 
 void setup() {
   Serial.begin(115200);
   delay(1000);  // bounded USB enumeration grace period; never wait for a monitor
-  Serial.println("\nET-Core C3 OTA starter 1.0 — stays awake; no sensor or hub connection");
-  configured = WIFI_SSID[0] && WIFI_PASSWORD[0] && OTA_PASSWORD[0] &&
+  Serial.println("\nET-Core C3 OTA starter 1.1 — stays awake; no sensor or hub connection");
+  configured = WIFI_SSID[0] && WIFI_PASSWORD[0] &&
                strcmp(WIFI_SSID, "YOUR_WIFI_SSID") != 0 &&
-               strcmp(WIFI_PASSWORD, "YOUR_WIFI_PASSWORD") != 0 &&
-               strcmp(OTA_PASSWORD, "CHOOSE_YOUR_OTA_PASSWORD") != 0;
+               strcmp(WIFI_PASSWORD, "YOUR_WIFI_PASSWORD") != 0;
+  otaConfigured = OTA_PASSWORD[0] && strcmp(OTA_PASSWORD, "CHOOSE_YOUR_OTA_PASSWORD") != 0;
   if (!configured) {
     printStatus();
     return;
@@ -85,12 +89,12 @@ void loop() {
   const uint32_t now = millis();
   if (configured) {
     if (WiFi.status() == WL_CONNECTED) {
-      if (!otaReady) {
+      if (otaConfigured && !otaReady) {
         ArduinoOTA.begin();
         otaReady = true;
         printStatus();
       }
-      ArduinoOTA.handle();
+      if (otaReady) ArduinoOTA.handle();
     } else {
       if (otaReady) {
         ArduinoOTA.end();

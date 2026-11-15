@@ -8,7 +8,9 @@ It does not change Home Assistant or send test sensor readings.
 1. Download [C3OTA.zip](https://github.com/mantiz010/ET-Core/raw/refs/heads/main/downloads/C3OTA.zip), extract it, then open **C3OTA/C3OTA.ino** in Arduino IDE.
 2. Edit **WIFI_SSID**, **WIFI_PASSWORD** and **OTA_PASSWORD** at the top of the
    sketch. Use your 2.4 GHz WiFi. Keep the OTA password for future uploads.
-   If placeholders remain, the serial monitor explains what to change.
+   Version **1.1** names each missing setting in the serial monitor. An unset
+   OTA password disables OTA only; it no longer prevents WiFi connecting or the
+   IP being printed. No passwords are printed.
 3. Install/select the Espressif ESP32 board package. Select **ESP32C3 Dev Module**.
 4. For a 4 MB board select **Flash Size: 4MB** and **Partition Scheme: Default
    4MB with spiffs** (includes OTA). Do not select a No OTA partition. Check the
