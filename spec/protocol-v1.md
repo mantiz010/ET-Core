@@ -229,6 +229,37 @@ the announce counter) and AAD `v1|announce|<id>|<seq>`:
 ```
 decrypted payload: `{"hello": false, "hub": "192.168.1.8"}` (unicast adds `"_ds"`).
 
+### Sleeping (battery) devices
+
+Experimental in SDK 0.4.8-beta.1; see [preview limits](../BATTERY-PREVIEW.md).
+
+A device that deep-sleeps between reports uses the same messages; nothing new is
+needed on the hub.
+
+- It asks for a long lease: `ttl` = 3 x its sleep interval + 10 s (library
+  `setSleepInterval()`, capped at 65535 seconds), so the hub keeps it online while it sleeps and marks it
+  offline after about three missed reports. `lease` and `hello` also carry
+  `"sleep": <seconds>` for display; a hub may ignore it.
+- It keeps its session, `boot` id, `seq`, last command `seq` and the hub address
+  through deep sleep (RTC memory on the ESP32). A wake therefore continues the same
+  session with a rising `seq`: no challenge, no hello. The saved copy is wiped as
+  soon as it is read and written again only just before the next sleep, so no
+  `seq` is ever used twice. Any other reset (power loss, crash) starts a new
+  session, which is challenged as usual.
+- On begin, each wake sends a `lease` with `"nohub": true` straight to the
+  remembered hub address, then the sketch sends its readings. The hub's answering unicast `announce` (authenticated,
+  bound to the session by `_ds`) tells the device it was heard; it then sleeps.
+  The hub answers at most once per device per second, so a second wake within a
+  second is delivered but not confirmed.
+- If the hub was restarted it challenges the session in that same `announce`; the
+  device answers with a hello and sends its reading again (its sync handler, or the
+  library's copy of the last `state` up to 512 bytes) before sleeping.
+- No answer within the wait limit (default 1.5 s): the device sleeps anyway,
+  forgets the hub address and searches by multicast on the next wake.
+- Commands are not held for a sleeping device yet: one sent while it sleeps times
+  out. A recorded announce of the same session could make a wake believe it was
+  heard; it cannot inject data or commands.
+
 ### Command delivery
 
 - The hub assigns every command a unique `cmd_id` (any `cmd_id` from the caller is

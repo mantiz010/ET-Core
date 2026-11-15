@@ -1,4 +1,6 @@
 <p align="center">
+
+> **Battery development branch:** SDK **0.4.8-beta.1**, unchanged HA integration **0.4.7**. Experimental, not hardware-validated. Read [battery preview limits and next steps](BATTERY-PREVIEW.md) before using it.
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/img/electronicstech-logo-dark.png">
     <img src="docs/img/electronicstech-logo.png" alt="ElectronicsTech" width="420">
@@ -47,7 +49,7 @@ flowchart LR
 
 The encrypted ET-Core link runs between the ESP32 and Home Assistant. Downstream radio protocols and physical routing belong to the gateway firmware. ET-Core does not turn radio nodes into individual Wi-Fi clients.
 
-Direct Wi-Fi devices are best suited to powered installations. Sleeping battery nodes need a gateway or a design that explicitly handles their reporting intervals. Wi-Fi recovery, sensor validation and safe output behaviour remain responsibilities of the device firmware.
+Direct Wi-Fi devices are best suited to powered installations. Battery nodes that deep-sleep can report directly with `setSleepInterval()` / `sleepFor()` (examples `SleepySoilMoisture`, `SleepyDoorContact`; simulator-verified, not yet measured on hardware); commands are not held for a sleeping node. Wi-Fi recovery, sensor validation and safe output behaviour remain responsibilities of the device firmware.
 
 ## Get started
 

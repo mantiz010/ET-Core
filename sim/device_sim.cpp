@@ -142,13 +142,28 @@ int main(int argc, char** argv) {
   if (argc > 6) core.setLeaseTtl((uint16_t)atoi(argv[6]));
   if (getenv("ETCORE_SIM_HUB_SILENT_MS")) core.setHubSilentTimeout((uint32_t)atoi(getenv("ETCORE_SIM_HUB_SILENT_MS")));
   if (getenv("ETCORE_SIM_SETPORT")) core.setPort((uint16_t)atoi(getenv("ETCORE_SIM_SETPORT")));
+  // ETCORE_SIM_SLEEP=N: a battery device. It reports once and deep-sleeps for N
+  // seconds (the process ends; see sim/host/sleep_hooks.cpp). ETCORE_SIM_RTC is
+  // the file standing in for the memory that survives deep sleep.
+  const char* sleepy = getenv("ETCORE_SIM_SLEEP");
+  if (sleepy) core.setSleepInterval((uint32_t)atoi(sleepy));
+  if (getenv("ETCORE_SIM_VALUE")) g_value = (float)atof(getenv("ETCORE_SIM_VALUE"));
   core.begin(id, g_class, id, "sim-1");
   core.onCommand(onCommand);
-  core.onSync(publish);
+  if (!getenv("ETCORE_SIM_NOSYNC")) core.onSync(publish);
   g_rich = getenv("ETCORE_SIM_RICH") != nullptr;
   core.onHello(onHello);
   publish();
   printf("READY %s\n", id);
+  if (sleepy) {
+    fflush(stdout);
+    const char* limit = getenv("ETCORE_SIM_SLEEP_TIMEOUT_MS");
+    const bool heard = core.waitForHub(limit ? (uint32_t)atoi(limit) : 1500);
+    printf("SLEEP %d %lu %s\n", heard ? 1 : 0, (unsigned long)millis(), sleepy);
+    fflush(stdout);
+    core.sleepFor((uint32_t)atoi(sleepy), 0);
+    return 0;  // never reached: the sleep hook ends the process
+  }
   bool sentError = false;
   fflush(stdout);
   uint32_t t0 = millis();

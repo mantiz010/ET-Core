@@ -1,5 +1,8 @@
 # ETCore library
 
+> Battery support is experimental in SDK 0.4.8-beta.1. See
+> [preview limits](../../../BATTERY-PREVIEW.md); hardware validation is pending.
+
 ET-Core connects ESP32 devices to Home Assistant over your local network:
 encrypted (ChaCha20-Poly1305), fast (a few ms per command) and with no cloud or
 MQTT broker. Install the **ET-Core** integration in Home Assistant, give every
@@ -7,7 +10,10 @@ device the same 64-character network key, and they appear on their own.
 
 ET-Core is for **powered** devices. A device checks in every 2 seconds so Home
 Assistant knows within seconds when it goes away, which keeps WiFi on all the
-time (about 80-120 mA). Battery sensors that deep-sleep need Zigbee or ESP-NOW.
+time (about 80-120 mA). Battery sensors that deep-sleep use
+`setSleepInterval(seconds)` before `begin()` and `sleepFor()` after sending: the
+hub keeps them online between reports and a wake needs no new handshake (examples
+`SleepySoilMoisture`, `SleepyDoorContact`). They cannot receive commands while asleep.
 
 ## Install (Arduino IDE)
 

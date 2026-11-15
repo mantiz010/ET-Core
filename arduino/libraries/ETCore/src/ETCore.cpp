@@ -7,6 +7,37 @@
 #include <fcntl.h>
 #endif
 
+// ---- deep sleep: what survives it, and how to enter it ---------------------------
+#define ETCORE_SLEEP_MAGIC 0x45544353u  // "ETCS"
+#ifndef ETCORE_SLEEP_STATE_CACHE
+#define ETCORE_SLEEP_STATE_CACHE 512  // largest reading the library re-sends itself
+#endif
+#ifndef ETCORE_SLEEP_LINGER_MS
+#define ETCORE_SLEEP_LINGER_MS 30     // stay awake this long after the hub answered
+#endif
+#if defined(ESP_PLATFORM)
+#include <esp_sleep.h>
+#include <esp_system.h>
+// RTC memory keeps its contents through deep sleep and is cleared by every other
+// reset, so a crash or a power cut always starts a new session.
+static RTC_DATA_ATTR ETCoreSleepState g_etcoreSleepState;
+bool etcoreSleepLoad(ETCoreSleepState& state) {
+  if (esp_reset_reason() != ESP_RST_DEEPSLEEP) return false;
+  state = g_etcoreSleepState;
+  return true;
+}
+void etcoreSleepSave(const ETCoreSleepState& state) { g_etcoreSleepState = state; }
+void etcoreDeepSleep(uint32_t seconds) {
+  esp_sleep_enable_timer_wakeup((uint64_t)seconds * 1000000ULL);
+  esp_deep_sleep_start();
+}
+#else
+// Other hosts (the simulator) supply their own; these keep nothing and only wait.
+__attribute__((weak)) bool etcoreSleepLoad(ETCoreSleepState&) { return false; }
+__attribute__((weak)) void etcoreSleepSave(const ETCoreSleepState&) {}
+__attribute__((weak)) void etcoreDeepSleep(uint32_t seconds) { delay(seconds * 1000UL); }
+#endif
+
 // ---- JSON memory ----------------------------------------------------------------
 // ArduinoJson asks the heap for every block and string; on an ESP32 that made
 // reading a command ~290 us. All the library's documents live only while one
@@ -85,18 +116,103 @@ void ETCore::begin(const char* device_id, const char* device_class, const char* 
   _class = device_class;
   _name = device_name;
   _fw = fw_version;
-  _makeBootId();
-  _makeSessionNonce();
   if (_cryptoEnabled) _deriveKey();
+  _resumed = false;
+  _hubConfirmed = false;
+  _challenged = false;
+  if (_sleepSec) {
+    // A wake from deep sleep carries on the saved session: the hub sees the same
+    // session with a rising seq and needs no new handshake. The saved copy is
+    // wiped at once, so the same counters can never be used by two wakes.
+    ETCoreSleepState st;
+    if (etcoreSleepLoad(st) && st.magic == ETCORE_SLEEP_MAGIC && st.check == _sleepCheck(st)) {
+      memcpy(_session, st.session, sizeof(_session));
+      memcpy(_boot, st.boot, sizeof(_boot));
+      _boot[sizeof(_boot) - 1] = 0;
+      _seq = st.seq;
+      _lastCmdSeq = st.lastCmdSeq;
+      _hubKnown = st.hubKnown != 0;
+      if (_hubKnown) _hubIp = IPAddress(st.hubIp[0], st.hubIp[1], st.hubIp[2], st.hubIp[3]);
+      _lastHubRxMs = millis();
+      _resumed = true;
+    }
+    memset(&st, 0, sizeof(st));
+    etcoreSleepSave(st);
+  }
+  if (!_resumed) {
+    _makeBootId();
+    _makeSessionNonce();
+  }
 
 #if defined(ARDUINO_ARCH_ESP32)
   WiFi.setSleep(false);
 #endif
 
   _netBegin();
-  sendHello();
+  if (!_resumed) sendHello();  // a wake is not a reboot; the hub asks if it wants one
+  _askHub = _sleepSec != 0;    // the hub's answer tells this wake it was heard
   sendLease();
   _lastLeaseMs = millis();
+}
+
+void ETCore::setSleepInterval(uint32_t seconds) {
+  _sleepSec = seconds;
+  if (!seconds) return;
+  const uint32_t ttl = seconds > 21841 ? 65535 : seconds * 3 + 10;
+  _leaseTtlSec = (uint16_t)ttl;
+  if (!_stateCache) _stateCache = (char*)calloc(1, ETCORE_SLEEP_STATE_CACHE + 1);
+}
+
+uint32_t ETCore::_sleepCheck(const ETCoreSleepState& st) const {
+  uint32_t h = 2166136261u;  // FNV-1a over the state, the device id and its key
+  auto mix = [&h](const uint8_t* p, size_t n) {
+    for (size_t i = 0; i < n; i++) { h ^= p[i]; h *= 16777619u; }
+  };
+  mix((const uint8_t*)&st.seq, sizeof(st.seq));
+  mix((const uint8_t*)&st.lastCmdSeq, sizeof(st.lastCmdSeq));
+  mix(st.hubIp, sizeof(st.hubIp));
+  mix(st.session, sizeof(st.session));
+  mix(&st.hubKnown, 1);
+  mix((const uint8_t*)st.boot, sizeof(st.boot));
+  if (_id) mix((const uint8_t*)_id, strlen(_id));
+  mix(_key, sizeof(_key));
+  return h;
+}
+
+bool ETCore::waitForHub(uint32_t timeout_ms) {
+  const uint32_t t0 = millis();
+  uint32_t doneAt = 0;
+  bool done = false;
+  while (millis() - t0 < timeout_ms) {
+    loop();
+    if (_hubConfirmed && !_helloPending) {
+      // Linger a moment: a command or a challenge can follow the hub's answer.
+      if (!done) { done = true; doneAt = millis(); }
+      else if (millis() - doneAt >= ETCORE_SLEEP_LINGER_MS) return true;
+    } else {
+      done = false;
+    }
+    delay(1);
+  }
+  return _hubConfirmed && !_helloPending;
+}
+
+void ETCore::sleepFor(uint32_t seconds, uint32_t timeout_ms) {
+  if (!seconds) seconds = _sleepSec ? _sleepSec : 60;
+  const bool heard = waitForHub(timeout_ms);
+  ETCoreSleepState st;
+  memset(&st, 0, sizeof(st));
+  st.magic = ETCORE_SLEEP_MAGIC;
+  st.seq = _seq;
+  st.lastCmdSeq = _lastCmdSeq;
+  // An unanswered wake forgets the hub address: the next one searches by multicast.
+  st.hubKnown = (heard && _hubKnown) ? 1 : 0;
+  if (st.hubKnown) for (uint8_t i = 0; i < 4; i++) st.hubIp[i] = _hubIp[i];
+  memcpy(st.session, _session, sizeof(st.session));
+  memcpy(st.boot, _boot, sizeof(st.boot));
+  st.check = _sleepCheck(st);
+  etcoreSleepSave(st);
+  etcoreDeepSleep(seconds);
 }
 
 void ETCore::onCommand(CommandHandler cb) {
@@ -153,6 +269,8 @@ void ETCore::_learnHub(IPAddress ip) {
   _hubIp = ip;
   _hubKnown = true;
   _lastHubRxMs = millis();
+  _hubConfirmed = true;
+  _askHub = false;
 }
 
 void ETCore::loop() {
@@ -165,7 +283,17 @@ void ETCore::loop() {
   if (_helloPending && (int32_t)(now - _helloDueMs) >= 0) {
     _helloPending = false;
     sendHello();
-    if (_syncHandler) _syncHandler();  // a new hub has no state for us yet
+    if (_syncHandler) {
+      _syncHandler();  // a new hub has no state for us yet
+    } else if (_stateCache && _stateCache[0]) {
+      // Battery device without a sync handler: the reading it sent before the
+      // hub accepted this session was dropped, so send it again.
+      ArenaScope dMem;
+      JsonDocument d(&g_arena);
+      if (!deserializeJson(d, (const char*)_stateCache) && d.is<JsonObject>()) {
+        _sendEnvelope("state", d.as<JsonObject>(), true);
+      }
+    }
   }
 
   static char buf[ETCORE_MAX_PACKET + 1];
@@ -388,6 +516,7 @@ void ETCore::_handleAnnounce(JsonDocument& doc, uint32_t now) {
   // carries it back the hub ignores us (it cannot tell us from a recording of an
   // earlier boot). Answer at once with a lease unless a hello is about to go.
   if (newCh) {
+    _challenged = true;
     snprintf(_hubCh, sizeof(_hubCh), "%s", ch);
     if (!_helloPending) {
       sendLease();
@@ -526,6 +655,7 @@ void ETCore::sendHello() {
   p["lib"] = ETCORE_LIBRARY_VERSION;
   p["lease_interval_ms"] = _leaseIntervalMs;
   p["ttl"] = _leaseTtlSec;
+  if (_sleepSec) p["sleep"] = _sleepSec;
   if (_hubCh[0]) p["ch"] = _hubCh;
   JsonArray features = p.createNestedArray("features");
   features.add("lease");
@@ -547,11 +677,19 @@ void ETCore::sendLease() {
   p["uptime"] = (uint32_t)(millis() / 1000);
   p["rssi"] = WiFi.RSSI();
   if (_hubCh[0]) p["ch"] = _hubCh;
-  if (!_hubKnown) p["nohub"] = true;  // multicast: the hub answers with an announce
+  // nohub: the hub answers with an announce. A device that lost the hub sends it
+  // by multicast; a battery device sends it on every wake to learn it was heard.
+  if (!_hubKnown || _askHub) p["nohub"] = true;
+  if (_sleepSec) p["sleep"] = _sleepSec;
   _sendEnvelope("lease", p, true);
 }
 
 void ETCore::sendState(JsonObject payload) {
+  if (_stateCache) {
+    const size_t n = measureJson(payload);
+    if (n <= ETCORE_SLEEP_STATE_CACHE) serializeJson(payload, _stateCache, ETCORE_SLEEP_STATE_CACHE + 1);
+    else _stateCache[0] = 0;  // too big to keep: such a sketch needs onSync()
+  }
   _sendEnvelope("state", payload, true);
 }
 

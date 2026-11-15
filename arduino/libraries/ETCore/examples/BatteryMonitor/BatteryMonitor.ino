@@ -5,8 +5,8 @@
 // Power the ESP32 from mains, or from that big bank through a 5 V buck
 // converter. Do NOT run it from a small cell: an ET-Core device stays on WiFi
 // all the time (it checks in every 2 s so Home Assistant knows it is alive),
-// about 80-120 mA, so a 2000 mAh cell lasts roughly a day. ET-Core is for
-// powered devices; battery sensors that sleep need Zigbee or ESP-NOW.
+// about 80-120 mA, so a 2000 mAh cell lasts roughly a day.
+// For a sensor that runs from a small cell see the SleepySoilMoisture example.
 #include <WiFi.h>
 #include <ETCore.h>
 
