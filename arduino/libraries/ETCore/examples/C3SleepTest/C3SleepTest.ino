@@ -38,6 +38,9 @@ ETCore core;
 WebServer web(80);
 bool servicesReady = false, otaReady = false, updating = false, coreReady = false;
 uint32_t awakeStarted = 0, lastWifiAttempt = 0, lastStatus = 0;
+bool wifiPaused = false;
+uint32_t wifiPausedAt = 0;
+uint32_t wifiRecoveryCount = 0;
 
 void publishTest() {
   if (!coreReady) return;
@@ -53,7 +56,7 @@ void publishTest() {
 
 void statusReply() {
   JsonDocument d;
-  d["firmware"] = "c3-sleep-test-1.0";
+  d["firmware"] = "c3-sleep-test-1.1";
   d["mac"] = WiFi.macAddress();
   d["ip"] = WiFi.localIP().toString();
   d["wake_count"] = wakeCount;
@@ -66,6 +69,8 @@ void statusReply() {
   d["flash_bytes"] = ESP.getFlashChipSize();
   d["free_heap"] = ESP.getFreeHeap();
   d["test_port"] = TEST_PORT;
+  d["wifi_recovery_count"] = wifiRecoveryCount;
+  d["sdk"] = ETCORE_LIBRARY_VERSION;
   String body;
   serializeJson(d, body);
   web.send(200, "application/json", body);
@@ -100,6 +105,15 @@ void setup() {
     publishTest();
     statusReply();
   });
+  web.on("/wifi-off", HTTP_POST, []() {
+    // Disconnect only this spare board, never the router or other WiFi clients.
+    runTest = false;
+    statusReply();
+    wifiPaused = true;
+    wifiPausedAt = millis();
+    WiFi.setAutoReconnect(false);
+    WiFi.disconnect(false, false);
+  });
   web.on("/run", HTTP_POST, []() {
     if (!coreReady || updating) { web.send(409, "text/plain", "Test not ready"); return; }
     wakeCount = 0;
@@ -112,6 +126,13 @@ void setup() {
 
 void loop() {
   const uint32_t now = millis();
+  if (wifiPaused && now - wifiPausedAt >= 35000) {
+    wifiPaused = false;
+    ++wifiRecoveryCount;
+    WiFi.setAutoReconnect(true);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    lastWifiAttempt = now;
+  }
   if (WiFi.status() == WL_CONNECTED) {
     if (!otaReady) { ArduinoOTA.begin(); otaReady = true; }
     if (!servicesReady) {
@@ -121,7 +142,7 @@ void loop() {
       core.setSleepInterval(SLEEP_SECONDS);
       core.onSync(publishTest);
       if (core.enableEncryptionHex(TEST_KEY)) {
-        core.begin("c3-battery-test", "sensor.test", "C3 Battery TEST ONLY", "c3-sleep-test-1.0");
+        core.begin("c3-battery-test", "sensor.test", "C3 Battery TEST ONLY", "c3-sleep-test-1.1");
         coreReady = true;
         publishTest();
       } else {
@@ -141,7 +162,7 @@ void loop() {
     }
   } else {
     if (otaReady) { ArduinoOTA.end(); otaReady = false; }
-    if (now - lastWifiAttempt >= 15000) {
+    if (!wifiPaused && now - lastWifiAttempt >= 15000) {
       lastWifiAttempt = now;
       WiFi.reconnect();
     }

@@ -1,8 +1,10 @@
-# Battery / deep-sleep preview — SDK 0.4.8-beta.1
+# Battery / deep-sleep preview — SDK 0.4.8-beta.2
 
 Experimental development branch based on SDK/hub 0.4.7. Not a production release.
-The Home Assistant integration is unchanged. Do not replace an installation
-containing newer hub features with the integration folder from this branch.
+The hub now includes sleep-protocol 2 changes. Do not replace an installation
+containing other newer hub features with this whole integration folder; merge
+the targeted changes instead. The manifest remains at its 0.4.7 base version, so
+check `sleep_protocol: 2` in diagnostics to identify this development build.
 
 ## Included
 
@@ -22,10 +24,12 @@ containing newer hub features with the integration folder from this branch.
   the example default, not a promise of compatibility with every ESP32 module.
 - Commands are not queued during sleep. Sleeping actuators are not supported
   by this preview's command-delivery model.
-- `waitForHub()` confirms receiving a hub packet, not a durable acknowledgement
-  that every reading was stored. A recorded announce for the same session can
-  falsely confirm a wake. Replay-resistant wake confirmation remains required
-  before treating this as reliable delivery.
+- SDK beta.2 requires a unicast reply echoing a fresh random token generated for
+  this wake. Use the updated hub (diagnostics `sleep_protocol: 2`) and encryption
+  for authenticated confirmation. Replayed replies from earlier wakes cannot
+  confirm a new wake. This is still not a durable acknowledgement of every reading.
+  An older hub can receive readings, but the new SDK times out rather than claiming
+  fresh confirmation without the token echo.
 - The hub rate-limits nohub replies to one per device per second. Rapid repeat
   wakes can deliver their reading but wait until timeout without confirmation.
 - Lease TTL is capped at 65535 seconds (about 18.2 hours); the three-missed-report
@@ -44,7 +48,7 @@ It uses only the ESP32 core libraries; enter WiFi and OTA credentials in the ske
 
 ## Next
 
-1. Add replay-resistant wake confirmation and regression coverage.
+1. Replay-resistant wake confirmation and regression coverage are implemented.
 2. Extend the C3 timer-wake test to physical power loss, WiFi access-point outage
    and GPIO wake. Measure actual awake time/current without the debug window.
 3. Only after those checks, promote the SDK into the firmware build environment.
@@ -85,3 +89,29 @@ Run the isolated host suite with `sh sim/run-tests.sh`. No live hub is needed.
 - [C3SleepTest source and operation](arduino/libraries/ETCore/examples/C3SleepTest).
   A known OTA starter rollback image and private test evidence were retained
   locally; credentials and device addresses are excluded from this repository.
+
+## Wake confirmation and sleep display — SDK beta.2
+
+- Added a fresh random per-wake token, echoed inside the encrypted unicast hub
+  reply. The reproduced replay regression fails before the fix and passes after.
+- Final leases explicitly report `sleeping_for`. Ordinary awake leases clear that
+  intent. The hub exposes `sleep_state`, `sleep_interval`, and `next_report_in`.
+- Panel cards, tables and details distinguish Sleeping, Report due, Online and
+  Offline. Report due does not shorten the existing offline lease allowance.
+- Verified 54 simulator tests plus a targeted older-hub compatibility test;
+  three targeted tests also passed against the staged extended live hub.
+- Phone/tablet panel checks passed at 412 and 1280 pixels, including powered-device
+  fallback and no horizontal overflow in the sleep notice.
+- Revised C3 firmware passed ten timer wakes, isolated hub restart, a 19-second
+  hub outage, and a 35-second disconnection of only the spare C3's WiFi. Encrypted
+  reporting and OTA recovered after WiFi returned (about 38 seconds total).
+- Production gateway firmware and the installed Arduino build library are not
+  updated by these changes. Physical power removal and current measurement are
+  separate checks, not inferred from the simulator or software resets.
+
+Live deployment check: targeted hub/panel changes were applied after backing up
+the integration and entity/device registries. All 216 existing ET-Core entity IDs
+and unique IDs were preserved, and all eight previously-online devices returned
+after the Home Assistant restart. The already-offline scanner was not changed.
+Existing live log labels and the migration dialog passed regression checks at
+phone and tablet widths. No real device credentials are included in this branch.

@@ -1,6 +1,6 @@
 # C3 isolated sleep test
 
-Experimental SDK 0.4.8-beta.1, dedicated spare ESP32-C3 only. No sensors or
+Experimental SDK 0.4.8-beta.2, dedicated spare ESP32-C3 only. No sensors or
 actuators. Counter readings are explicitly marked `test_only`; they are not
 weather, soil or battery measurements.
 
@@ -18,6 +18,8 @@ port=15561)` for a supervised hardware test; it needs its matching test key.
   wake count, reset reason, session-resume state and test mode.
 - `POST /run`: begin ten deep-sleep wakes. Each wake has an eight-second OTA/debug
   window after WiFi connects, then five seconds of deep sleep.
+- `POST /wifi-off`: disconnect only this C3 for 35 seconds, then automatically
+  reconnect. Cancels sleep first; the router and other clients are untouched.
 - `POST /hold`: cancel further sleeps and stay awake; send while the board is awake.
 - After ten wakes: automatically stay awake. Every cold reboot also cancels the run.
 - Failed WiFi connection: keep retrying; no indefinite setup wait or automatic
@@ -41,3 +43,6 @@ Ten timer-based wakes, isolated hub restart, a 19-second hub outage and OTA afte
 sleep all passed on a 4 MB ESP32-C3. Software reset started a fresh session.
 See the [hardware report](../../../../../BATTERY-PREVIEW.md#c3-hardware-test--15-november-2026).
 GPIO wake, power-cut and battery-current tests remain outstanding.
+
+Firmware 1.1 also passed the controlled 35-second WiFi-disconnection test;
+encrypted leases and OTA recovered without rebooting.
