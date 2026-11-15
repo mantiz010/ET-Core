@@ -15,7 +15,7 @@ import tempfile
 import time
 import unittest
 
-from harness import Device, MemoryCounterStore, make_hub, sender_from, wait_for
+from harness import Device, MemoryCounterStore, PORT, make_hub, sender_from, wait_for
 from test_etcore import PSK, packets
 
 SLEEP_S = 1                      # the device says it sleeps this long between reports
@@ -168,6 +168,63 @@ class Sleepy(unittest.IsolatedAsyncioTestCase):
             s.close()
         self.assertGreaterEqual(hub._replay_count, replays + len(old))
         self.assertEqual(dev["lease_expires"], expires, "a replayed wake extended the lease")
+
+    async def test_sleep_intent_has_due_time_without_early_offline(self):
+        hub = await self.hub()
+        await self.wake(value=12)
+        d = next(d for d in hub.get_diag_snapshot()["devices"] if d["id"] == "soil1")
+        self.assertEqual(d["sleep_state"], "sleeping")
+        self.assertEqual(d["sleep_interval"], SLEEP_S)
+        self.assertGreater(d["next_report_in"], 0)
+        await asyncio.sleep(SLEEP_S + .1)
+        d = next(d for d in hub.get_diag_snapshot()["devices"] if d["id"] == "soil1")
+        self.assertEqual(d["sleep_state"], "awaiting_report")
+        self.assertTrue(d["online"], "report due is not the same as lease expired")
+
+    async def test_powered_hello_clears_sleep_metadata(self):
+        hub = await self.hub()
+        await self.wake()
+        hub._record_message({"id": "soil1", "type": "hello", "payload": {"name": "Powered", "ttl": 6}}, self.ip)
+        d = next(d for d in hub.get_diag_snapshot()["devices"] if d["id"] == "soil1")
+        self.assertEqual(d["sleep_interval"], 0)
+        self.assertEqual(d["sleep_state"], "awake")
+        self.assertIsNone(d["next_report_in"])
+
+    async def test_recorded_announce_cannot_confirm_a_new_wake(self):
+        hub = await self.hub()
+        await self.wake(value=1)
+        old = [m["_raw"] for m in packets(hub.rec.tx, self.ip, "announce")]
+        self.assertTrue(old)
+        await hub.async_stop()
+        self.hubs.remove(hub)
+        sock = sender_from("127.0.0.1")
+        async def replay():
+            while True:
+                for raw in old:
+                    sock.sendto(raw, (self.ip, PORT))
+                await asyncio.sleep(.02)
+        task = asyncio.create_task(replay())
+        try:
+            confirmed, _ = await self.wake(value=2, timeout_ms=500)
+            self.assertFalse(confirmed, "recorded announce falsely confirmed a new wake")
+        finally:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            sock.close()
+
+    async def test_older_hub_delivers_but_cannot_claim_fresh_confirmation(self):
+        hub = await self.hub()
+        send = hub._send_announce
+        def old_announce(target, **kwargs):
+            kwargs.pop("wake", None)
+            return send(target, **kwargs)
+        hub._send_announce = old_announce
+        confirmed, _ = await self.wake(value=25, timeout_ms=500, nosync=True)
+        self.assertFalse(confirmed)
+        self.assertEqual(hub.devices["soil1"]["state"]["value"], 25.0)
 
     async def test_works_without_encryption(self):
         hub = await self.hub(psk=None)

@@ -231,7 +231,7 @@ decrypted payload: `{"hello": false, "hub": "192.168.1.8"}` (unicast adds `"_ds"
 
 ### Sleeping (battery) devices
 
-Experimental in SDK 0.4.8-beta.1; see [preview limits](../BATTERY-PREVIEW.md).
+Experimental in SDK 0.4.8-beta.2; see [preview limits](../BATTERY-PREVIEW.md).
 
 A device that deep-sleeps between reports uses the same messages; nothing new is
 needed on the hub.
@@ -256,9 +256,17 @@ needed on the hub.
   library's copy of the last `state` up to 512 bytes) before sleeping.
 - No answer within the wait limit (default 1.5 s): the device sleeps anyway,
   forgets the hub address and searches by multicast on the next wake.
+- SDK beta.2 adds `wake`, a fresh 16-character random hex token generated on each
+  wake (not restored from RTC). Hello and lease carry it. The updated hub echoes
+  it only in the unicast announce, inside encryption when a PSK is configured.
+  Only a matching unicast echo confirms that wake; multicast and earlier-wake
+  recordings do not. Older hubs still receive data but cannot confirm beta.2 wakes.
+- Immediately before deep sleep, a final lease carries `sleeping_for` in seconds.
+  Awake leases set this to zero. The transmit sequence is saved after this lease.
+  The hub derives the expected next report from the receipt time and this duration.
+  Report due is advisory; only the normal lease expiry makes the device offline.
 - Commands are not held for a sleeping device yet: one sent while it sleeps times
-  out. A recorded announce of the same session could make a wake believe it was
-  heard; it cannot inject data or commands.
+  out. Wake confirmation does not acknowledge durable storage of each reading.
 
 ### Command delivery
 

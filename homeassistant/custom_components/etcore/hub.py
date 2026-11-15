@@ -400,7 +400,8 @@ class EtCoreHub:
             # Always ask for a hello: a new session is a reboot (often an OTA), and
             # its boot hello was dropped above, so fw/effects would stay stale.
             self._send_announce(str(ip), hello=True, dev_id=dev["id"],
-                                ds=session, ch=self._make_challenge(dev["id"], session, int(now)))
+                                ds=session, ch=self._make_challenge(dev["id"], session, int(now)),
+                                wake=payload.get("wake"))
         return False
 
     def _make_challenge(self, dev_id: str, session: str, t: int) -> str:
@@ -469,7 +470,7 @@ class EtCoreHub:
             self._nohub_count += 1
         if (mtype == "hello" and now - told >= 1.0) or not told or lost or (want_hello and now - told >= 10.0):
             dev["told_hub_at"] = now
-            self._send_announce(ip, hello=want_hello, dev_id=dev_id)
+            self._send_announce(ip, hello=want_hello, dev_id=dev_id, wake=payload.get("wake"))
         # With a PSK only authenticated packets get this far.
         dev["class"] = msg.get("class") or dev.get("class")
         dev["boot"] = msg.get("boot") or dev.get("boot")
@@ -490,6 +491,18 @@ class EtCoreHub:
             # The whole hello (minus the challenge) for the platforms: switch
             # lists, fan presets, sensor metadata, model, ...
             dev["hello"] = {k: v for k, v in payload.items() if k != "ch"}
+
+        # Sleep metadata is advisory; the authenticated lease still decides offline.
+        if mtype == "hello" or (mtype == "lease" and "sleep" in payload):
+            interval = payload.get("sleep", 0)
+            if isinstance(interval, int) and not isinstance(interval, bool) and 0 <= interval <= 0xFFFFFFFF:
+                dev["sleep_interval"] = interval
+                if not interval:
+                    dev.pop("sleep_until", None)
+        if mtype == "lease" and dev.get("sleep_interval"):
+            sleeping_for = payload.get("sleeping_for")
+            if isinstance(sleeping_for, int) and not isinstance(sleeping_for, bool) and 0 <= sleeping_for <= 0xFFFFFFFF:
+                dev["sleep_until"] = now + sleeping_for if sleeping_for else None
 
         if mtype == "ack":
             msg["_ack_ms"] = self._handle_ack(dev_id, payload)
@@ -553,7 +566,7 @@ class EtCoreHub:
         return ip
 
     def _send_announce(self, target: str, *, hello: bool, dev_id: str | None = None,
-                       ds: str | None = None, ch: str | None = None) -> None:
+                       ds: str | None = None, ch: str | None = None, wake: Any = None) -> None:
         """Multicast (dev_id None, site key) or unicast to one device (its key).
 
         With a PSK the payload is encrypted and carries the hub's own address, so
@@ -567,6 +580,8 @@ class EtCoreHub:
         to = dev_id or "hub"
         try:
             payload: dict[str, Any] = {"hello": hello, "hub": self._source_ip(target)}
+            if dev_id and isinstance(wake, str) and len(wake) == 16 and all(c in "0123456789abcdef" for c in wake):
+                payload["wake"] = wake
             key = self._key_for(dev_id) if dev_id else self._site_key
             if key and ChaCha20Poly1305 is not None:
                 if dev_id:
@@ -658,6 +673,15 @@ class EtCoreHub:
             item = dict(dev)
             item["age"] = round(now - float(dev.get("last_seen") or now), 3)
             item["expires_in"] = round(float(dev.get("lease_expires") or now) - now, 3)
+            item["sleep_interval"] = int(dev.get("sleep_interval") or 0)
+            sleep_until = dev.get("sleep_until")
+            item["next_report_in"] = round(float(sleep_until) - now, 3) if sleep_until else None
+            if not dev.get("online"):
+                item["sleep_state"] = "offline"
+            elif sleep_until:
+                item["sleep_state"] = "sleeping" if now < float(sleep_until) else "awaiting_report"
+            else:
+                item["sleep_state"] = "awake"
             stats = dict(dev.get("stats") or _new_stats())
             stats["ack_ms_avg"] = round(stats["ack_ms_sum"] / stats["acked"], 1) if stats["acked"] else None
             item["stats"] = stats
@@ -667,6 +691,7 @@ class EtCoreHub:
         devices.sort(key=lambda d: str(d.get("id") or ""))
         return {
             "ok": True,
+            "sleep_protocol": 2,  # per-wake token echo and explicit sleep intent
             "encrypted": bool(self._psk),
             "rx_count": self._rx_count,
             "decrypt_failures": self._decrypt_fail_count,

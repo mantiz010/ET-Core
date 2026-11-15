@@ -119,6 +119,9 @@ void ETCore::begin(const char* device_id, const char* device_class, const char* 
   if (_cryptoEnabled) _deriveKey();
   _resumed = false;
   _hubConfirmed = false;
+  _sleepingFor = 0;
+  if (_sleepSec) snprintf(_wakeToken, sizeof(_wakeToken), "%08lx%08lx",
+                          (unsigned long)esp_random(), (unsigned long)esp_random());
   _challenged = false;
   if (_sleepSec) {
     // A wake from deep sleep carries on the saved session: the hub sees the same
@@ -200,6 +203,9 @@ bool ETCore::waitForHub(uint32_t timeout_ms) {
 void ETCore::sleepFor(uint32_t seconds, uint32_t timeout_ms) {
   if (!seconds) seconds = _sleepSec ? _sleepSec : 60;
   const bool heard = waitForHub(timeout_ms);
+  _sleepingFor = seconds;
+  sendLease();  // publish sleep intent before saving the final transmit sequence
+  delay(20);    // allow queued WiFi traffic to leave before powering down
   ETCoreSleepState st;
   memset(&st, 0, sizeof(st));
   st.magic = ETCORE_SLEEP_MAGIC;
@@ -269,8 +275,7 @@ void ETCore::_learnHub(IPAddress ip) {
   _hubIp = ip;
   _hubKnown = true;
   _lastHubRxMs = millis();
-  _hubConfirmed = true;
-  _askHub = false;
+  if (!_sleepSec) { _hubConfirmed = true; _askHub = false; }
 }
 
 void ETCore::loop() {
@@ -499,6 +504,13 @@ void ETCore::_handleAnnounce(JsonDocument& doc, uint32_t now) {
       if (strcmp(payload["_ds"] | "", ds) != 0) return;
     }
   }
+  // Only a unicast echo of this wake's token confirms the wake. Neither a
+  // multicast announce nor a recording from an earlier wake can do so.
+  if (_sleepSec && unicast && _wakeToken[0] &&
+      strcmp(payload["wake"] | "", _wakeToken) == 0) {
+    _hubConfirmed = true;
+    _askHub = false;
+  }
   _learnHub(_rxFrom);
   // A new challenge is fresh by construction, so its hello request is never held
   // back; anything else (incl. a replayed announce) at most once per 10 s.
@@ -655,7 +667,7 @@ void ETCore::sendHello() {
   p["lib"] = ETCORE_LIBRARY_VERSION;
   p["lease_interval_ms"] = _leaseIntervalMs;
   p["ttl"] = _leaseTtlSec;
-  if (_sleepSec) p["sleep"] = _sleepSec;
+  if (_sleepSec) { p["sleep"] = _sleepSec; p["wake"] = _wakeToken; }
   if (_hubCh[0]) p["ch"] = _hubCh;
   JsonArray features = p.createNestedArray("features");
   features.add("lease");
@@ -680,7 +692,10 @@ void ETCore::sendLease() {
   // nohub: the hub answers with an announce. A device that lost the hub sends it
   // by multicast; a battery device sends it on every wake to learn it was heard.
   if (!_hubKnown || _askHub) p["nohub"] = true;
-  if (_sleepSec) p["sleep"] = _sleepSec;
+  if (_sleepSec) {
+    p["sleep"] = _sleepSec; p["wake"] = _wakeToken;
+    p["sleeping_for"] = _sleepingFor;
+  }
   _sendEnvelope("lease", p, true);
 }
 

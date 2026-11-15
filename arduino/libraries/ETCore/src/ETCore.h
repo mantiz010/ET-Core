@@ -6,7 +6,7 @@
 #include <WiFiUdp.h>
 #include <ETChaCha20Poly1305.h>
 
-#define ETCORE_LIBRARY_VERSION "0.4.8-beta.1"
+#define ETCORE_LIBRARY_VERSION "0.4.8-beta.2"
 #ifndef ETCORE_DEFAULT_PORT
 #define ETCORE_DEFAULT_PORT 5560
 #endif
@@ -171,6 +171,8 @@ private:
   bool _curAcked = false;
   bool _curOk = true;
   uint32_t _sleepSec = 0;       // > 0: battery device
+  char _wakeToken[17] = {0};  // fresh per wake, never restored from RTC
+  uint32_t _sleepingFor = 0;  // explicit sleep intent in the final lease
   bool _resumed = false;        // this wake carried on a saved session
   bool _askHub = false;         // lease asks the hub to answer (wake confirmation)
   bool _hubConfirmed = false;   // an authenticated hub packet arrived this wake
