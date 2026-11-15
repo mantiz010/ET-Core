@@ -1,6 +1,6 @@
 <p align="center">
 
-> **Battery development branch:** SDK **0.4.8-beta.1**, unchanged HA integration **0.4.7**. Experimental, not hardware-validated. Read [battery preview limits and next steps](BATTERY-PREVIEW.md) before using it.
+> **Battery development branch:** SDK **0.4.8-beta.1**, unchanged HA integration **0.4.7**. Experimental; C3 timer-wake tested, broader hardware validation pending. Read [battery preview limits and next steps](BATTERY-PREVIEW.md) before using it.
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/img/electronicstech-logo-dark.png">
     <img src="docs/img/electronicstech-logo.png" alt="ElectronicsTech" width="420">

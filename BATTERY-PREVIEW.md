@@ -14,7 +14,8 @@ containing newer hub features with the integration folder from this branch.
 
 ## Limits before hardware rollout
 
-- Physical RTC retention, GPIO wake, current draw and battery life remain untested.
+- ESP32-C3 timer wake and RTC session retention passed the hardware test below.
+  GPIO wake, other chip families, current draw and battery life remain untested.
 - The soil example defaults to GPIO34 on classic ESP32. Compilation on another
   family does not validate that pin. Select a real ADC-capable pin for the board.
 - Door-contact wake wiring must be checked against the exact board; GPIO4 is
@@ -44,8 +45,8 @@ It uses only the ESP32 core libraries; enter WiFi and OTA credentials in the ske
 ## Next
 
 1. Add replay-resistant wake confirmation and regression coverage.
-2. On a designated test board: cold boot, ten timed wakes, hub restart between
-   wakes, power loss, WiFi outage and GPIO wake. Measure actual awake time/current.
+2. Extend the C3 timer-wake test to physical power loss, WiFi access-point outage
+   and GPIO wake. Measure actual awake time/current without the debug window.
 3. Only after those checks, promote the SDK into the firmware build environment.
    Installing this Git branch does not update already-flashed devices.
 
@@ -63,3 +64,24 @@ Run the isolated host suite with `sh sim/run-tests.sh`. No live hub is needed.
 - The simulator emitted subprocess-stream ResourceWarnings; assertions passed.
 - No physical devices flashed, no installed build libraries replaced, and no
   live Home Assistant changes made by this review.
+
+## C3 hardware test — 15 November 2026
+
+- Dedicated ESP32-C3, actual flash size 4 MB; SDK 0.4.8-beta.1, Arduino core 3.3.11.
+- Encrypted test traffic used a separate key and isolated UDP port 15561.
+  Production Home Assistant, its entities and installed firmware libraries were
+  not modified.
+- Ten timer-based deep-sleep wakes passed (wake counters 1–10), with RTC session
+  restoration on each wake and the same device session throughout the test.
+- Isolated hub restart recovered; a 19-second hub outage also recovered.
+  An outage can lose individual readings; this is recovery, not guaranteed delivery.
+- Supervised run took about 158 seconds with deliberate eight-second awake/OTA
+  windows and five-second sleeps. This is not a battery-current measurement.
+- Board automatically stopped sleeping at wake 10. A second OTA upload then
+  succeeded without a password. Software reboot started a new session and left
+  it awake with OTA available.
+- Physical power removal, GPIO wake, WiFi AP outage, current consumption and
+  battery lifetime were not tested. The known announce-replay limitation remains.
+- [C3SleepTest source and operation](arduino/libraries/ETCore/examples/C3SleepTest).
+  A known OTA starter rollback image and private test evidence were retained
+  locally; credentials and device addresses are excluded from this repository.

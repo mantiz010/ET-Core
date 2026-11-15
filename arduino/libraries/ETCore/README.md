@@ -1,7 +1,7 @@
 # ETCore library
 
 > Battery support is experimental in SDK 0.4.8-beta.1. See
-> [preview limits](../../../BATTERY-PREVIEW.md); hardware validation is pending.
+> [preview limits](../../../BATTERY-PREVIEW.md); C3 timer-wake tested; broader hardware validation is pending.
 
 ET-Core connects ESP32 devices to Home Assistant over your local network:
 encrypted (ChaCha20-Poly1305), fast (a few ms per command) and with no cloud or
