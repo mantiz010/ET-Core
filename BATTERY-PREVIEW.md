@@ -115,3 +115,7 @@ and unique IDs were preserved, and all eight previously-online devices returned
 after the Home Assistant restart. The already-offline scanner was not changed.
 Existing live log labels and the migration dialog passed regression checks at
 phone and tablet widths. No real device credentials are included in this branch.
+
+### Physical power-loss verification — 15 November 2026
+
+The user disconnected and restored USB power on the spare C3. Verification confirmed a power-on reset, cleared RTC wake state, a new encrypted session, fresh test readings received by the isolated hub, and OTA still enabled while held awake. This completes the physical cold-start check; electrical current consumption remains unmeasured.
