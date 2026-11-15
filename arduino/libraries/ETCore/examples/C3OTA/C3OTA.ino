@@ -1,8 +1,8 @@
 // USB-flash this first on a spare ESP32-C3, then use ArduinoOTA over WiFi.
-// Edit these three values here. Never commit your real credentials to Git.
+// Edit these two WiFi values. OTA needs no password. Keep credentials out of Git.
 const char* WIFI_SSID = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
-const char* OTA_PASSWORD = "CHOOSE_YOUR_OTA_PASSWORD";
+// OTA is enabled without authentication for this local test board.
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -16,7 +16,6 @@ const char* OTA_HOSTNAME = "etcore-c3-test";
 constexpr uint32_t WIFI_RETRY_MS = 15000;
 constexpr uint32_t STATUS_MS = 5000;
 bool configured = false;
-bool otaConfigured = false;
 bool otaReady = false;
 uint32_t lastWifiAttempt = 0;
 uint32_t lastStatus = 0;
@@ -26,8 +25,6 @@ void printStatus() {
     Serial.println("[SETUP] WIFI_SSID is missing: edit line 3, save, then upload over USB.");
   if (!WIFI_PASSWORD[0] || strcmp(WIFI_PASSWORD, "YOUR_WIFI_PASSWORD") == 0)
     Serial.println("[SETUP] WIFI_PASSWORD is missing: edit line 4, save, then upload over USB.");
-  if (!otaConfigured)
-    Serial.println("[OTA DISABLED] OTA_PASSWORD is missing: edit line 5 for future OTA uploads. WiFi can still connect.");
   if (!configured) return;
   if (WiFi.status() != WL_CONNECTED) {
     Serial.printf("[WAITING] SSID=%s WiFi status=%d NO IP YET\n", WIFI_SSID, (int)WiFi.status());
@@ -35,18 +32,17 @@ void printStatus() {
   }
   Serial.printf("[READY] IP=%s MAC=%s RSSI=%d OTA=%s.local:3232 (%s) uptime=%lu s\n",
                 WiFi.localIP().toString().c_str(), WiFi.macAddress().c_str(),
-                (int)WiFi.RSSI(), OTA_HOSTNAME, otaReady ? "password protected" : (otaConfigured ? "starting" : "DISABLED: password not set"),
+                (int)WiFi.RSSI(), OTA_HOSTNAME, otaReady ? "NO PASSWORD" : "starting",
                 (unsigned long)(millis() / 1000));
 }
 
 void setup() {
   Serial.begin(115200);
   delay(1000);  // bounded USB enumeration grace period; never wait for a monitor
-  Serial.println("\nET-Core C3 OTA starter 1.1 — stays awake; no sensor or hub connection");
+  Serial.println("\nET-Core C3 OTA starter 1.2 — stays awake; no sensor or hub connection");
   configured = WIFI_SSID[0] && WIFI_PASSWORD[0] &&
                strcmp(WIFI_SSID, "YOUR_WIFI_SSID") != 0 &&
                strcmp(WIFI_PASSWORD, "YOUR_WIFI_PASSWORD") != 0;
-  otaConfigured = OTA_PASSWORD[0] && strcmp(OTA_PASSWORD, "CHOOSE_YOUR_OTA_PASSWORD") != 0;
   if (!configured) {
     printStatus();
     return;
@@ -54,7 +50,6 @@ void setup() {
 
   ArduinoOTA.setHostname(OTA_HOSTNAME);
   ArduinoOTA.setPort(3232);
-  ArduinoOTA.setPassword(OTA_PASSWORD);
   ArduinoOTA.onStart([]() { Serial.println("[OTA] Update started; keep power connected"); });
   ArduinoOTA.onEnd([]() { Serial.println("\n[OTA] Update complete; rebooting"); });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
@@ -89,7 +84,7 @@ void loop() {
   const uint32_t now = millis();
   if (configured) {
     if (WiFi.status() == WL_CONNECTED) {
-      if (otaConfigured && !otaReady) {
+      if (!otaReady) {
         ArduinoOTA.begin();
         otaReady = true;
         printStatus();
