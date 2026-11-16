@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,8 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from .const import DOMAIN, MULTICAST_GROUP
+from .health_profiles import PROFILES, describe_device
+from homeassistant.helpers.storage import Store
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -90,6 +93,29 @@ def _ha_device(hass: HomeAssistant, dev_id: str, entry_id: str | None = None) ->
     return None
 
 
+def _profile_state(hass: HomeAssistant) -> dict:
+    key = f"{DOMAIN}_health_profiles"
+    if key not in hass.data:
+        hass.data[key] = {"data": {}, "ready": False, "lock": asyncio.Lock(),
+                          "store": Store(hass, 1, key)}
+    return hass.data[key]
+
+
+async def _load_profiles(hass: HomeAssistant) -> None:
+    state = _profile_state(hass)
+    async with state["lock"]:
+        if state["ready"]:
+            return
+        saved = await state["store"].async_load() or {}
+        state["data"] = {
+            entry: {dev: profile for dev, profile in devices.items()
+                    if isinstance(dev, str) and isinstance(profile, str) and profile in PROFILES}
+            for entry, devices in saved.items()
+            if isinstance(entry, str) and isinstance(devices, dict)
+        } if isinstance(saved, dict) else {}
+        state["ready"] = True
+
+
 def _diag(hass: HomeAssistant, since: int | None) -> dict[str, Any]:
     ent_reg = er.async_get(hass)
     hubs = []
@@ -104,6 +130,8 @@ def _diag(hass: HomeAssistant, since: int | None) -> dict[str, Any]:
         # Which HA entities belong to each device, so the page can show and
         # control them through the normal HA services.
         for dev in snap["devices"]:
+            override = _profile_state(hass)["data"].get(entry_id, {}).get(dev["id"], "auto")
+            dev["health_profile"] = describe_device(dev, override)
             device = _ha_device(hass, dev.get("id"), entry_id)
             dev["ha_device_id"] = device.id if device else None
             dev["ha_name"] = device.name_by_user if device else None
@@ -182,11 +210,44 @@ def _ws_setup_info(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
     })
 
 
+@websocket_api.websocket_command({
+    vol.Required("type"): "etcore/set_health_profile",
+    vol.Required("entry_id"): str,
+    vol.Required("dev_id"): str,
+    vol.Required("profile"): vol.In(PROFILES),
+})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def _ws_set_health_profile(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    hub = _hubs(hass).get(msg["entry_id"])
+    if hub is None or msg["dev_id"] not in hub.devices:
+        connection.send_error(msg["id"], "not_found", "Unknown device in this ET-Core connection")
+        return
+    await _load_profiles(hass)
+    state = _profile_state(hass)
+    async with state["lock"]:
+        updated = {entry: dict(devices) for entry, devices in state["data"].items()}
+        devices = updated.setdefault(msg["entry_id"], {})
+        if msg["profile"] == "auto":
+            devices.pop(msg["dev_id"], None)
+        else:
+            devices[msg["dev_id"]] = msg["profile"]
+        try:
+            await state["store"].async_save(updated)
+        except Exception:
+            _LOGGER.exception("Could not save ET-Core health profile")
+            connection.send_error(msg["id"], "save_failed", "Profile was not saved; try again")
+            return
+        state["data"] = updated
+    connection.send_result(msg["id"], {"profile": msg["profile"]})
+
+
 async def async_setup_panel(hass: HomeAssistant) -> None:
+    await _load_profiles(hass)
     if not hass.data.get(f"{DOMAIN}_panel_loaded"):
         hass.http.register_view(EtCoreHtmlView)
         hass.http.register_view(EtCoreDiagApiView)
-        for cmd in (_ws_diag, _ws_rename, _ws_remove, _ws_setup_info):
+        for cmd in (_ws_diag, _ws_rename, _ws_remove, _ws_setup_info, _ws_set_health_profile):
             websocket_api.async_register_command(hass, cmd)
         hass.data[f"{DOMAIN}_panel_loaded"] = True
 

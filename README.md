@@ -200,3 +200,25 @@ WROVER OTA while retaining HTTP/HTTPS audio streaming. See the
 [media-player contract and acceptance gates](docs/media-player.md) and the
 [staged MQTT replacement roadmap](docs/mqtt-replacement-roadmap.md). A successful
 compile or simulator run is not a completed hardware migration.
+
+### Device-aware health profiles (development branch)
+
+Open a device in the ET-Core panel and choose **Device type** to review its health
+profile. Administrators can choose Automatic, Wired service, Wired device, Wi-Fi
+device, Sleep-capable sensor, or Unknown connection. Settings persist in Home
+Assistant and are scoped to the selected ET-Core connection and device ID.
+
+Automatic classification uses a reported sleep schedule, explicit device metadata,
+or a valid negative RSSI reading (labelled as an inference). Zero, missing and
+invalid RSSI values are not treated as excellent Wi-Fi or proof of Ethernet.
+Unidentified devices stay unknown. A manual profile can correct incomplete legacy
+metadata without reflashing a device.
+
+Profiles tailor diagnostic guidance and connection displays; they do **not** change
+entity IDs, controls, heartbeat deadlines, encryption or availability. Sleep is
+shown only when the device actually reports sleep intent. Selecting a sleep-capable
+profile alone does not hide an offline device or invent a wake schedule.
+
+Future devices may advertise `transport: "wifi"` or `transport: "ethernet"` and
+`device_kind: "service"` in their authenticated hello payload. The panel shows
+whether a profile was configured, reported, inferred from signal, or is unknown.

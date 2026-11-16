@@ -601,10 +601,21 @@
   function signal(rssi) {
     if (rssi == null || rssi === "") return { t: "—", level: 0, c: "", w: "" };
     const r = Number(rssi);
+    if (!Number.isFinite(r) || r >= 0 || r < -127) return { t: "Not reported", level: 0, c: "", w: "" };
     const level = r >= -60 ? 4 : r >= -70 ? 3 : r >= -78 ? 2 : 1;
     return { t: `${r} dBm`, level, c: level >= 3 ? "good" : level === 2 ? "warn" : "bad", w: ["", "very weak", "weak", "good", "excellent"][level] };
   }
-  const bars = (s) => `<span class="bars ${s.c}" title="${esc(s.w)}">${[1, 2, 3, 4].map(i => `<i class="${i <= s.level ? "f" : ""}"></i>`).join("")}</span>`;
+  function deviceHealth(d) {
+    return d.health_profile || { kind: "unknown", label: "Unknown connection", source: "unknown", configured: "auto", transport: "unknown", signal_applicable: false, check: "Confirm the device type, then check restarts and missed heartbeats.", unavailable_label: "Heartbeat missing" };
+  }
+  function deviceSignal(d) {
+    const h = deviceHealth(d);
+    if (h.transport === "ethernet") return { t: "Ethernet", level: 0, c: "", w: "Wired connection; Wi-Fi signal does not apply" };
+    if (!h.signal_applicable) return { t: "Not reported", level: 0, c: "", w: "Connection type not established" };
+    if (!h.signal_valid) return { t: "Not reported", level: 0, c: "", w: "No valid signal measurement" };
+    return signal(d.rssi);
+  }
+  const bars = (s) => !s.level ? "" : `<span class="bars ${s.c}" title="${esc(s.w)}">${[1, 2, 3, 4].map(i => `<i class="${i <= s.level ? "f" : ""}"></i>`).join("")}</span>`;
   const tm = (ts) => new Date(ts * 1000).toLocaleTimeString([], { hour12: false });
   const ms = (v) => v == null ? "—" : `${Number(v).toFixed(v < 10 ? 1 : 0)} ms`;
   const devName = (d) => d ? (d.ha_name || d.name || d.id) : "";
@@ -740,14 +751,14 @@
     if (!hub.encrypted) out.push({ sev: "bad", ic: "key", t: "Encryption is off", d: "Anyone on your network could read or fake ET-Core messages.", fix: "<b>Fix:</b> Settings → Devices &amp; services → ET-Core → Configure, and set a 64-character network key. Put the same key in every device sketch." });
     const newest = S.devices.reduce((m, d) => cmpLib((d.hello || {}).lib, m) > 0 ? (d.hello || {}).lib : m, "0.0.0");
     for (const d of S.devices) {
-      const n = esc(devName(d)), s = signal(d.rssi), st = d.stats || {};
+      const n = esc(devName(d)), s = deviceSignal(d), st = d.stats || {};
       if (!d.online) {
-        out.push({ sev: "bad", ic: "off", dev: d.id, t: `${n} is offline`, d: `Last heard ${dur(d.age)} ago${d.last_addr ? " from " + esc(d.last_addr) : ""}.`,
-          fix: "<b>Check:</b> its power, then WiFi (is it in range?). If it's gone for good, remove it.", acts: ["open", "remove"] });
+        out.push({ sev: "bad", ic: "off", dev: d.id, t: `${n}: ${esc(deviceHealth(d).unavailable_label)}`, d: `Last heard ${dur(d.age)} ago${d.last_addr ? " from " + esc(d.last_addr) : ""}.`,
+          fix: esc(deviceHealth(d).check), acts: ["open", "remove"] });
         continue;
       }
-      if ((d.changes_10min || 0) >= 4) out.push({ sev: "warn", dev: d.id, t: `${n}: recent availability changes`, d: `${d.changes_10min} online/offline changes in the last 10 minutes. Restarts and maintenance can also cause these transitions.`, fix: "<b>Check:</b> recent service or device restarts, updates and missed heartbeats. These changes alone do not identify a network or power fault.", acts: ["open"] });
-      if (s.level === 1) out.push({ sev: "warn", dev: d.id, t: `${n} has a very weak signal`, d: `${s.t}. Commands may be slow or lost.`, fix: "<b>Fix:</b> move it or the access point closer, or add an access point nearby.", acts: ["open"] });
+      if ((d.changes_10min || 0) >= 4) out.push({ sev: "warn", dev: d.id, t: `${n}: recent availability changes`, d: `${d.changes_10min} online/offline changes in the last 10 minutes. Restarts and maintenance can also cause these transitions.`, fix: esc(deviceHealth(d).check), acts: ["open"] });
+      if (deviceHealth(d).signal_valid && s.level === 1) out.push({ sev: "warn", dev: d.id, t: `${n} has a very weak signal`, d: `${s.t}. Commands may be slow or lost.`, fix: "<b>Fix:</b> move it or the access point closer, or add an access point nearby.", acts: ["open"] });
       if (st.failed) out.push({ sev: "warn", dev: d.id, t: `${n}: ${st.failed} command${st.failed === 1 ? " was" : "s were"} not acknowledged`, d: `Out of ${st.cmds} sent since Home Assistant started.`, fix: "<b>Likely:</b> the device was busy, rebooting or briefly out of range. If it keeps happening check its signal.", acts: ["open", "log"] });
       if (d.last_error && now - d.last_error.ts < 3600) out.push({ sev: "warn", dev: d.id, t: `${n} reports: ${esc(d.last_error.code)}`, d: esc(d.last_error.message || ""), fix: `Sent by the device's own sketch at ${tm(d.last_error.ts)}.`, acts: ["open"] });
       const lib = (d.hello || {}).lib;
@@ -1009,7 +1020,7 @@
     }
     const now = Date.now() / 1000;
     for (const d of devs) {
-      const s = signal(d.rssi);
+      const s = deviceSignal(d);
       const l = map.querySelector(`[data-l="${CSS.escape(d.id)}"]`);
       if (l) l.setAttribute("class", "link " + (d.online ? (s.c || "good") : "off"));
       const g = map.querySelector(`[data-n="${CSS.escape(d.id)}"]`);
@@ -1157,10 +1168,11 @@
         <span class="pill" data-f="pill"></span>
       </div>
       <div class="facts">
-        <div class="fact"><div class="k">Signal</div><div class="v" data-f="rssi"></div></div>
+        <div class="fact"><div class="k">Connection</div><div class="v" data-f="rssi"></div></div>
         <div class="fact"><div class="k">Uptime</div><div class="v" data-f="up"></div></div>
         <div class="fact"><div class="k">Response</div><div class="v" data-f="ack"></div></div>
       </div>
+      <div class="sub" data-f="profile" style="margin:0 14px 8px;white-space:normal"></div>
       <div class="sub" data-f="sleep" style="margin:0 14px 8px;white-space:normal" hidden></div>
       <div class="lease" title="Time left before the hub would mark it offline"><div data-f="lease"></div></div>
       <div class="controls">${controlsHtml(d)}</div>`;
@@ -1232,9 +1244,10 @@
     f("sub").title = `${d.id} · ${d.class || "?"} · ${d.last_addr || "no IP"}${d.fw ? " · fw " + d.fw : ""}`;
     f("pill").className = "pill " + (d.online ? "online" : "offline");
     f("pill").textContent = sleepLabel(d);
+    f("profile").textContent = deviceHealth(d).label;
     f("sleep").textContent = sleepReport(d);
     f("sleep").hidden = !sleepReport(d);
-    const s = signal(d.rssi);
+    const s = deviceSignal(d);
     f("rssi").innerHTML = d.online ? `${bars(s)}<span>${esc(s.t)}</span>` : "—";
     f("up").textContent = d.online ? dur(uptimeSec(d.uptime)) : `${dur(d.age)} ago`;
     f("ack").textContent = d.stats && d.stats.ack_ms_avg != null ? ms(d.stats.ack_ms_avg) : "—";
@@ -1349,11 +1362,11 @@
     const c = COLS.find(x => x[0] === col) || COLS[0];
     list.sort((a, b) => dir * c[2](a, b) || nameKey(a).localeCompare(nameKey(b)));
     $("thead").innerHTML = COLS.map(([k, label, f, cls]) => `<th class="${f ? "sortable" : ""} ${cls || ""}" data-sort="${f ? k : ""}">${label}${k === col ? `<span class="arrow">${dir > 0 ? "▲" : "▼"}</span>` : ""}</th>`).join("");
-    const sig = list.map(d => [d.id, d.online, devName(d), d.rssi, Math.round((uptimeSec(d.uptime) || 0) / 10), (d.stats || {}).ack_ms_avg, d.last_addr, cardKey(d)].join(",")).join("|");
+    const sig = list.map(d => [d.id, d.online, devName(d), d.rssi, deviceHealth(d).kind, deviceHealth(d).source, Math.round((uptimeSec(d.uptime) || 0) / 10), (d.stats || {}).ack_ms_avg, d.last_addr, cardKey(d)].join(",")).join("|");
     if (sig !== renderTable.sig) {
       renderTable.sig = sig;
       $("tbody").innerHTML = list.map(d => {
-        const s = signal(d.rssi);
+        const s = deviceSignal(d);
         const ctl = entitiesOf(d).filter(e => ["switch", "light", "fan"].includes(e.entity_id.split(".")[0]));
         const sensor = !ctl.length && entitiesOf(d).find(e => /^(binary_)?sensor\./.test(e.entity_id));
         return `<tr class="clickable ${d.online ? "" : "off"}" data-id="${esc(d.id)}">
@@ -1380,6 +1393,16 @@
   });
 
   // ---- Device management --------------------------------------------------------------
+  async function editHealthProfile(id) {
+    const d = S.byId[id]; if (!d || !isAdmin()) return;
+    const entryId = S.hub.entry_id;
+    const choices = {auto:"Automatic",wired_service:"Wired service",wired_device:"Wired device",wifi_device:"Wi-Fi device",sleeping_sensor:"Sleep-capable sensor",unknown:"Unknown connection"};
+    const selected = deviceHealth(d).configured || "auto";
+    const value = await modal(`<div class="mh">Device type</div><div class="mb"><label for="hp">Health profile for ${esc(devName(d))}</label><select class="field" id="hp" data-value>${Object.entries(choices).map(([k,v])=>`<option value="${k}" ${k===selected?"selected":""}>${v}</option>`).join("")}</select><div class="muted" style="margin-top:10px">Changes diagnostic guidance only. Device controls, check-in deadlines and entity IDs stay unchanged. Sleep is recognised only when the device reports a schedule.</div></div><div class="mf"><button class="btn" data-m="cancel">Cancel</button><button class="btn primary" data-m="ok">Save</button></div>`);
+    if (value == null) return;
+    try { await ws({type:"etcore/set_health_profile",entry_id:entryId,dev_id:id,profile:String(value)}); toast("Device type saved"); await poll(); }
+    catch(e) { toast(`Could not save device type: ${errText(e)}`,true); }
+  }
   async function renameDevice(id) {
     const d = S.byId[id];
     if (!d) return;
@@ -1533,7 +1556,7 @@ etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
     if (e.type === "cmd_failed") return `command ${e.cmd_id} got no ack after ${e.tries} tries`;
     if (e.type === "command") return JSON.stringify(p);
     if (e.type === "ack") return `cmd ${p.cmd_id ?? "?"} ${p.ok === false ? "REFUSED " + (p.err || "") : "ok"}`;
-    if (e.type === "lease") return `rssi ${p.rssi ?? "?"} · uptime ${dur(uptimeSec(p.uptime))}${p.nohub ? " · searching for hub" : ""}`;
+    if (e.type === "lease") { const d = S.byId[e.id]; const connection = d ? deviceSignal({...d,rssi:p.rssi}).t : signal(p.rssi).t; return `Device uptime: ${dur(uptimeSec(p.uptime))} · Connection: ${connection}${p.nohub ? " · searching for hub" : ""}`; }
     if (e.type === "hello") return `${p.name || ""} · fw ${p.fw || "?"} · lib ${p.lib || "?"}`;
     if (e.type === "error") return `${p.code || ""}: ${p.message || ""}`;
     const s = JSON.stringify(p);
@@ -1632,7 +1655,7 @@ etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
     $("badbox").classList.toggle("hidden", !bad.length);
     $("badrows").innerHTML = bad.map(b => `<tr><td class="mono">${esc(b.ip)}</td><td class="mono">${esc(b.id || "—")}</td><td style="color:var(--bad)">${esc(why[b.why] || b.why)}</td><td class="num">${b.count}</td><td>${tm(b.last)}</td></tr>`).join("");
     $("devrows").innerHTML = S.devices.slice().sort((a, b) => nameKey(a).localeCompare(nameKey(b))).map(d => {
-      const s = d.stats || {}, sg = signal(d.rssi);
+      const s = d.stats || {}, sg = deviceSignal(d);
       const err = d.last_error ? `${d.last_error.code}: ${d.last_error.message} (${tm(d.last_error.ts)})` : "";
       return `<tr>
         <td><a href="#" data-open="${esc(d.id)}">${esc(devName(d))}</a> <span class="muted mono">${esc(d.id)}</span></td>
@@ -1680,10 +1703,13 @@ etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
     $("d-icon").innerHTML = icon(d.class);
     $("d-name").textContent = devName(d);
     $("d-id").textContent = `${d.id} · ${d.class || ""}`;
-    const s = d.stats || {}, sg = signal(d.rssi);
+    const s = d.stats || {}, sg = deviceSignal(d);
     const recent = S.log.filter(e => e.id === d.id && e.type !== "lease").slice(-12).reverse();
     const admin = isAdmin();
     const info = [
+      ["Device type", deviceHealth(d).label],
+      ["Profile source", ({configured:"Configured in Home Assistant",device_metadata:"Reported by device",sleep_schedule:"Reported sleep schedule",reported_signal:"Inferred from reported signal",unknown:"Not established"})[deviceHealth(d).source] || "Not established"],
+      ["Health checks", deviceHealth(d).check],
       ["Status", d.online ? sleepLabel(d) : `Offline (last heard ${dur(d.age)} ago)`],
       ...(Number(d.sleep_interval) > 0 ? [["Sleep schedule", sleepReport(d)]] : []),
       ["IP address", d.last_addr || "—"],
@@ -1709,7 +1735,7 @@ etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
     const ctlHtml = `<div class="panel" id="d-controls"><div class="panel-h"><h2>Controls</h2></div><div class="controls" style="border:0;margin:0">${controlsHtml(d)}</div></div>`;
     $("d-body").innerHTML = `
       <div class="actions">
-        ${admin ? `<button class="btn" data-dact="rename">Rename</button>` : ""}
+        ${admin ? `<button class="btn" data-dact="rename">Rename</button><button class="btn" data-dact="profile">Device type</button>` : ""}
         ${d.ha_device_id ? `<button class="btn" data-dact="ha">Open in Home Assistant</button>` : ""}
         <button class="btn" data-dact="log">Show in live log</button>
         <button class="btn" data-dact="copy">Copy JSON</button>
@@ -1732,6 +1758,7 @@ etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
     const d = S.byId[S.drawer];
     if (!d) return;
     const a = b.dataset.dact;
+    if (a === "profile") editHealthProfile(d.id);
     if (a === "rename") renameDevice(d.id);
     if (a === "remove") removeDevice(d.id);
     if (a === "ha") haNavigate(`/config/devices/device/${d.ha_device_id}`);

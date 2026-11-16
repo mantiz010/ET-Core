@@ -15,4 +15,4 @@ PY
 export ETCORE_SIM_PORT
 printf 'Isolated simulator UDP port: %s\n' "$ETCORE_SIM_PORT"
 sh sim/build.sh
-PYTHONPATH="$(pwd)/sim${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest -v sim/test_etcore.py sim/test_sleepy.py sim/test_payload_diagnostics.py
+PYTHONPATH="$(pwd)/sim${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest -v sim/test_etcore.py sim/test_sleepy.py sim/test_payload_diagnostics.py sim/test_health_profiles.py
