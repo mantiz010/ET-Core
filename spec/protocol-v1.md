@@ -335,3 +335,16 @@ Encrypted mode:
   1-7 of its own packets, 14 lowercase hex chars). Devices drop commands whose `_ds`
   is not their own session, so commands recorded before a device reboot are dead.
   The hub learns the session from the device's first encrypted packet after boot.
+
+### Legacy string compatibility and rejection diagnostics
+
+Receivers may accept raw C0 control characters *inside JSON strings* from legacy
+ArduinoJson senders, but only after successful AEAD authentication. Preserve the
+string value and escape it normally when serializing again. This compatibility
+rule does not accept invalid UTF-8, malformed JSON structure, non-object payloads,
+unauthenticated packets or replays.
+
+Diagnostics distinguish invalid envelope format, failed authentication and invalid
+message data. An authentication failure alone does not establish that a configured
+key is wrong: the packet's claimed sender has not been authenticated. Peer library
+versions are inventory information, not evidence of an available or required update.

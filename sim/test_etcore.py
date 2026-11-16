@@ -156,7 +156,7 @@ class EtCoreSim(unittest.IsolatedAsyncioTestCase):
         self.device("wrongKey", psk=os.urandom(32).hex())
         self.assertTrue(await wait_for(lambda: hub.get_diag_snapshot()["bad_sources"], 5), "no bad source recorded")
         src = hub.get_diag_snapshot()["bad_sources"][0]
-        self.assertEqual((src["id"], src["why"]), ("wrongKey", "wrong_key"))
+        self.assertEqual((src["id"], src["why"]), ("wrongKey", "authentication_failed"))
         self.assertTrue(src["ip"].startswith("127.0.0."))
 
     async def test_bye_marks_device_offline_at_once(self):

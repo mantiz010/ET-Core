@@ -751,13 +751,13 @@
       if (st.failed) out.push({ sev: "warn", dev: d.id, t: `${n}: ${st.failed} command${st.failed === 1 ? " was" : "s were"} not acknowledged`, d: `Out of ${st.cmds} sent since Home Assistant started.`, fix: "<b>Likely:</b> the device was busy, rebooting or briefly out of range. If it keeps happening check its signal.", acts: ["open", "log"] });
       if (d.last_error && now - d.last_error.ts < 3600) out.push({ sev: "warn", dev: d.id, t: `${n} reports: ${esc(d.last_error.code)}`, d: esc(d.last_error.message || ""), fix: `Sent by the device's own sketch at ${tm(d.last_error.ts)}.`, acts: ["open"] });
       const lib = (d.hello || {}).lib;
-      if (lib && cmpLib(lib, newest) < 0) out.push({ sev: "info", dev: d.id, t: `${n} runs an older library (${esc(lib)})`, d: `Other devices run ${esc(newest)}.`, fix: "<b>Fix:</b> rebuild its sketch with the current ETCore library and upload it.", acts: ["open"] });
     }
     for (const b of hub.bad_sources || []) {
       if (now - b.last > 3600) continue;
       const who = b.id ? `"${esc(b.id)}" at ${esc(b.ip)}` : esc(b.ip);
       const pk = `${b.count} packet${b.count === 1 ? "" : "s"}`;
-      if (b.why === "wrong_key") out.push({ sev: "bad", ic: "key", t: `Device ${who} has the wrong network key`, d: `${pk} rejected, last at ${tm(b.last)}.`, fix: "<b>Fix:</b> put the key from <i>Add device</i> into its sketch and upload it again. If you don't know this device, someone may be probing your network." });
+      if (["wrong_key", "authentication_failed"].includes(b.why)) out.push({ sev: "bad", ic: "key", t: `Packets claiming to be ${who} failed authentication`, d: `${pk} rejected, last at ${tm(b.last)}. This does not prove the device has the wrong key.`, fix: "<b>Check:</b> compare the configured keys and firmware diagnostics. A mismatched key, damaged packet or forged sender identity can cause this." });
+      else if (["invalid_payload", "invalid_envelope"].includes(b.why)) out.push({ sev: "warn", ic: "key", t: `Invalid ${b.why === "invalid_payload" ? "message data" : "packet format"} from ${who}`, d: `${pk} rejected, last at ${tm(b.last)}.`, fix: "<b>Check:</b> device serialization and firmware logs. This is not a network-key diagnosis." });
       else if (b.why === "no_encryption") out.push({ sev: "bad", ic: "key", t: `Device ${who} sends without encryption`, d: `${pk} ignored, last at ${tm(b.last)}.`, fix: "<b>Fix:</b> set the network key in its sketch (<code>enableEncryptionHex</code>) and upload it again." });
     }
     const order = { bad: 0, warn: 1, info: 2 };
@@ -1623,11 +1623,11 @@ etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
     ]);
     $("seckv").innerHTML = kvRows([
       ["Encryption", h.encrypted ? "On" : "OFF", h.encrypted ? "Every packet is ChaCha20-Poly1305 with a per-device key; plain packets are dropped." : "Set a 64-character network key in the integration options.", h.encrypted ? "good" : "bad"],
-      ["Failed to decrypt", h.decrypt_failures || 0, "Wrong key, a device from another network, or someone forging packets. The senders are listed below.", h.decrypt_failures ? "bad" : "good"],
+      ["Packets rejected", h.decrypt_failures || 0, "Rejected packets: authentication or message-format failures. See the reasons below before changing keys.", h.decrypt_failures ? "bad" : "good"],
       ["Replays dropped", h.replays_dropped || 0, "Copies of old packets (a replay attack, or a WiFi duplicate)."],
       ["Unproven sessions dropped", h.unproven_dropped || 0, "Packets from a device's new session before it answered the hub's challenge. A few after a reboot or reload are normal."],
     ]);
-    const why = { wrong_key: "Wrong network key", no_encryption: "Not encrypted", hub_has_no_key: "Hub has no key" };
+    const why = { wrong_key: "Authentication failed (legacy classification)", authentication_failed: "Authentication failed", invalid_payload: "Invalid message data", invalid_envelope: "Invalid packet format", no_encryption: "Not encrypted", hub_has_no_key: "Hub has no key" };
     const bad = h.bad_sources || [];
     $("badbox").classList.toggle("hidden", !bad.length);
     $("badrows").innerHTML = bad.map(b => `<tr><td class="mono">${esc(b.ip)}</td><td class="mono">${esc(b.id || "—")}</td><td style="color:var(--bad)">${esc(why[b.why] || b.why)}</td><td class="num">${b.count}</td><td>${tm(b.last)}</td></tr>`).join("");

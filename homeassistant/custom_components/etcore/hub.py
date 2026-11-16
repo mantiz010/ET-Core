@@ -316,6 +316,7 @@ class EtCoreHub:
             self._decrypt_fail_count += 1
             self._note_bad_source(msg, "hub_has_no_key")
             return False
+        stage = "envelope"
         try:
             nonce = base64.b64decode(str(payload.get("n") or ""), validate=True)
             ct = base64.b64decode(str(payload.get("ct") or ""), validate=True)
@@ -323,8 +324,14 @@ class EtCoreHub:
             if len(nonce) != 12 or len(tag) != 16 or nonce[0] != 1:
                 raise ValueError("bad nonce or tag")
             aad = self._aad(str(msg.get("type") or ""), dev_id, msg.get("seq"))
+            stage = "authentication"
             plain = cipher.decrypt(nonce, ct + tag, aad)
-            payload = json.loads(plain.decode("utf-8"))
+            stage = "payload"
+            # Legacy ArduinoJson sends some C0 characters literally inside strings.
+            # Only tolerate these AFTER AEAD authentication; structural JSON errors,
+            # invalid UTF-8 and non-object payloads still fail. Re-serialization by
+            # Python escapes the characters correctly without discarding SMS content.
+            payload = json.loads(plain.decode("utf-8"), strict=False)
             if not isinstance(payload, dict):
                 raise ValueError("payload is not an object")
             # Replay check: nonce bytes 1-7 are the device's per-boot session and
@@ -345,8 +352,9 @@ class EtCoreHub:
             return True
         except Exception as exc:
             self._decrypt_fail_count += 1
-            self._note_bad_source(msg, "wrong_key")
-            self._warn_limited(f"dec:{dev_id}", "ET-Core decrypt failed for %s (wrong key?): %s", dev_id, exc.__class__.__name__)
+            why = {"envelope": "invalid_envelope", "authentication": "authentication_failed", "payload": "invalid_payload"}[stage]
+            self._note_bad_source(msg, why)
+            self._warn_limited(f"dec:{dev_id}", "ET-Core rejected packet for %s (%s): %s", dev_id, why, exc.__class__.__name__)
             return False
 
     def _note_bad_source(self, msg: dict[str, Any], why: str) -> None:
