@@ -746,7 +746,7 @@
           fix: "<b>Check:</b> its power, then WiFi (is it in range?). If it's gone for good, remove it.", acts: ["open", "remove"] });
         continue;
       }
-      if ((d.changes_10min || 0) >= 4) out.push({ sev: "warn", dev: d.id, t: `${n} keeps dropping out`, d: `${d.changes_10min} online/offline changes in the last 10 minutes.`, fix: "<b>Likely:</b> weak WiFi or an unstable power supply. Move it closer to the access point or try another power supply.", acts: ["open"] });
+      if ((d.changes_10min || 0) >= 4) out.push({ sev: "warn", dev: d.id, t: `${n}: recent availability changes`, d: `${d.changes_10min} online/offline changes in the last 10 minutes. Restarts and maintenance can also cause these transitions.`, fix: "<b>Check:</b> recent service or device restarts, updates and missed heartbeats. These changes alone do not identify a network or power fault.", acts: ["open"] });
       if (s.level === 1) out.push({ sev: "warn", dev: d.id, t: `${n} has a very weak signal`, d: `${s.t}. Commands may be slow or lost.`, fix: "<b>Fix:</b> move it or the access point closer, or add an access point nearby.", acts: ["open"] });
       if (st.failed) out.push({ sev: "warn", dev: d.id, t: `${n}: ${st.failed} command${st.failed === 1 ? " was" : "s were"} not acknowledged`, d: `Out of ${st.cmds} sent since Home Assistant started.`, fix: "<b>Likely:</b> the device was busy, rebooting or briefly out of range. If it keeps happening check its signal.", acts: ["open", "log"] });
       if (d.last_error && now - d.last_error.ts < 3600) out.push({ sev: "warn", dev: d.id, t: `${n} reports: ${esc(d.last_error.code)}`, d: esc(d.last_error.message || ""), fix: `Sent by the device's own sketch at ${tm(d.last_error.ts)}.`, acts: ["open"] });
