@@ -140,3 +140,13 @@ entity IDs and unique IDs were preserved. The board finished awake with OTA
 enabled, and Home Assistant remained RUNNING. No firmware or production
 configuration changes were needed for this check. This does not measure battery
 current or guarantee recovery under every network fault.
+
+### Combined regression check — 16 November 2026
+
+After the live C3 health check, `sh sim/run-tests.sh` passed all 74 tests in
+204.136 seconds against the candidate SDK and hub. Coverage includes command
+acknowledgements and retries, recovery after hub restart, replay/forgery rejection,
+media commands, sleep/wake recovery, payload diagnostics and persistent health
+profiles. Tests used a dynamically selected isolated UDP port; no live service
+was restarted. The test runner still emits subprocess-file ResourceWarnings;
+all assertions pass. This is simulator coverage, not C5 hardware verification.
