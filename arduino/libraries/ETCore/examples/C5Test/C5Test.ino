@@ -30,11 +30,16 @@ bool otaReady = false;
 ETCore core;
 WebServer web(80);
 bool coreReady = false;
+bool wifiPaused=false;
+uint32_t wifiPausedAt=0, recoveryCount=0, commandCount=0;
+int testValue=0;
 uint32_t testCounter = 0, lastReading = 0;
 const char* TEST_KEY = "YOUR_SEPARATE_64_HEX_TEST_KEY";
 void publishTest() {
   JsonDocument d;
   d["test_only"] = true;
+  d["test_value"] = testValue;
+  d["commands_received"] = commandCount;
   d["value"] = testCounter;
   d["wifi_rssi"] = WiFi.RSSI();
   d["channel"] = WiFi.channel();
@@ -43,7 +48,7 @@ void publishTest() {
 }
 void statusReply() {
   JsonDocument d;
-  d["firmware"] = "c5-connectivity-test-1.0";
+  d["firmware"] = "c5-connectivity-test-1.1";
   d["ip"] = WiFi.localIP().toString();
   d["mac"] = WiFi.macAddress();
   d["channel"] = WiFi.channel();
@@ -52,6 +57,9 @@ void statusReply() {
   d["psram_bytes"] = ESP.getPsramSize();
   d["uptime_seconds"] = millis()/1000;
   d["counter"] = testCounter;
+  d["commands_received"] = commandCount;
+  d["test_value"] = testValue;
+  d["wifi_recovery_count"] = recoveryCount;
   d["ota"] = otaReady;
   String body; serializeJson(d,body);web.send(200,"application/json",body);
 }
@@ -126,6 +134,10 @@ void setup() {
 
 void loop() {
   const uint32_t now = millis();
+  if (wifiPaused && now-wifiPausedAt>=35000) {
+    wifiPaused=false;++recoveryCount;WiFi.setAutoReconnect(true);
+    WiFi.begin(WIFI_SSID,WIFI_PASSWORD);lastWifiAttempt=now;
+  }
   if (configured) {
     if (WiFi.status() == WL_CONNECTED) {
       if (!otaReady) {
@@ -137,11 +149,22 @@ void loop() {
       if (!coreReady) {
         core.setPort(15561);
         core.onSync(publishTest);
+        core.onCommand([](const char* cls, JsonObject p) {
+          if (strcmp(cls,"sensor.test")!=0 || !p["test_value"].is<int>()) {
+            core.sendAck(p["cmd_id"] | "",false);return;
+          }
+          testValue=p["test_value"].as<int>();++commandCount;
+          core.sendAck(p["cmd_id"] | "",true);publishTest();
+        });
         if (core.enableEncryptionHex(TEST_KEY)) {
-          core.begin("c5-connectivity-test", "sensor.test", "C5 Connectivity TEST ONLY", "c5-connectivity-test-1.0");
+          core.begin("c5-connectivity-test", "sensor.test", "C5 Connectivity TEST ONLY", "c5-connectivity-test-1.1");
           coreReady = true;
           web.on("/status", HTTP_GET, statusReply);
           web.on("/", HTTP_GET, statusReply);
+          web.on("/wifi-off",HTTP_POST,[]() {
+            statusReply();wifiPaused=true;wifiPausedAt=millis();
+            WiFi.setAutoReconnect(false);WiFi.disconnect(false,false);
+          });
           web.begin();
           publishTest();
         }
@@ -156,7 +179,7 @@ void loop() {
         otaReady = false;
         LOGLN("[WiFi] Connection lost; reconnecting");
       }
-      if (now - lastWifiAttempt >= WIFI_RETRY_MS) {
+      if (!wifiPaused && now - lastWifiAttempt >= WIFI_RETRY_MS) {
         lastWifiAttempt = now;
         WiFi.reconnect();
       }
