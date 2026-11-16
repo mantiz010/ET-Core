@@ -123,3 +123,20 @@ The user disconnected and restored USB power on the spare C3. Verification confi
 ### Home Assistant deep-sleep verification — 15 November 2026
 
 With the spare C3 connected to a separate encrypted test entry in live Home Assistant, all ten deep-sleep wakes produced fresh dummy counter readings (1–10). The panel reported Sleeping between wakes. After cycle 10 the board held awake with OTA enabled, the HA counter read 10, and Home Assistant reported RUNNING. No production-device firmware was changed.
+
+### Device-aware health verification — 16 November 2026
+
+Repeated the live test on the isolated C3 Home Assistant connection with SDK
+0.4.8-beta.2 and test firmware 1.1. All ten timer wakes delivered their dummy
+counter readings. Diagnostic samples remained online throughout normal sleep
+and the subsequent report-due grace period. The live phone-width panel showed
+Sleeping and the Sleep-capable sensor profile without an offline warning.
+
+A controlled 35-second WiFi disconnection of only the spare C3 produced an
+offline state after its 25-second lease expired (observed at 26.14 seconds).
+The panel described this as Sensor check-in overdue, with sleep-aware guidance.
+Encrypted reporting resumed at 36.48 seconds without a reboot. Existing ET-Core
+entity IDs and unique IDs were preserved. The board finished awake with OTA
+enabled, and Home Assistant remained RUNNING. No firmware or production
+configuration changes were needed for this check. This does not measure battery
+current or guarantee recovery under every network fault.

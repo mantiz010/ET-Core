@@ -34,15 +34,16 @@ Arduino-ESP32 3.3.11. Check the real board's flash size before flashing.
 
 This deliberately long awake window is for debugging and OTA access. It is not
 an example of optimised battery consumption, and no battery-life estimate can
-be derived from it. The documented SDK wake-confirmation replay limitation still
-applies; see [battery preview](../../../../../BATTERY-PREVIEW.md).
+be derived from it. SDK beta.2 adds authenticated per-wake confirmation; see the scope and test
+results in [battery preview](../../../../../BATTERY-PREVIEW.md).
 
 ## Hardware result
 
 Ten timer-based wakes, isolated hub restart, a 19-second hub outage and OTA after
 sleep all passed on a 4 MB ESP32-C3. Software reset started a fresh session.
 See the [hardware report](../../../../../BATTERY-PREVIEW.md#c3-hardware-test--15-november-2026).
-GPIO wake, power-cut and battery-current tests remain outstanding.
+Physical power-loss recovery was subsequently verified. GPIO wake and
+battery-current tests remain outstanding.
 
 Firmware 1.1 also passed the controlled 35-second WiFi-disconnection test;
 encrypted leases and OTA recovered without rebooting.
