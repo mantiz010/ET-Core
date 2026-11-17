@@ -102,6 +102,10 @@ class EtCoreHub:
         self._hub_session = os.urandom(7)
         self._ch_secret = os.urandom(32)  # per hub run: old runs' challenges are void
         self._transport: asyncio.DatagramTransport | None = None
+        # Experimental, opt-in IPv6 unicast. Thread discovery is a separate layer.
+        self._transport6: asyncio.DatagramTransport | None = None
+        self._enable_ipv6 = bool((config or {}).get("enable_ipv6", False))
+        self._ipv6_bind = str((config or {}).get("ipv6_bind", "::"))
         self._tasks: list[asyncio.Task] = []
         self._devices: dict[str, dict[str, Any]] = {}
         self._message_listeners: list[Callable[[dict[str, Any]], None]] = []
@@ -181,6 +185,19 @@ class EtCoreHub:
         self._transport, _ = await loop.create_datagram_endpoint(
             lambda: _HubProtocol(self), sock=self._build_socket()
         )
+        if self._enable_ipv6:
+            sock6 = None
+            try:
+                sock6 = self._build_ipv6_socket()
+                self._transport6, _ = await loop.create_datagram_endpoint(
+                    lambda: _HubProtocol(self), sock=sock6
+                )
+            except Exception:
+                if sock6 is not None:
+                    sock6.close()
+                self._transport.close()
+                self._transport = None
+                raise
         self._tasks.append(self.hass.loop.create_task(self._lease_sweeper()))
         self._tasks.append(self.hass.loop.create_task(self._announcer()))
 
@@ -195,6 +212,22 @@ class EtCoreHub:
         if self._transport:
             self._transport.close()
             self._transport = None
+
+        if self._transport6:
+            self._transport6.close()
+            self._transport6 = None
+
+    def _build_ipv6_socket(self) -> socket.socket:
+        sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        try:
+            # Separate families avoid IPv4-mapped source addresses and key ambiguity.
+            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+            sock.bind((self._ipv6_bind, self._port))
+            sock.setblocking(False)
+            return sock
+        except Exception:
+            sock.close()
+            raise
 
     def _build_socket(self) -> socket.socket:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -211,8 +244,9 @@ class EtCoreHub:
         return sock
 
     def _send_raw(self, data: bytes, addr: tuple) -> None:
-        if self._transport:
-            self._transport.sendto(data, addr)
+        transport = self._transport6 if ":" in addr[0] else self._transport
+        if transport:
+            transport.sendto(data, addr)
 
     def _handle_datagram(self, data: bytes, addr: tuple) -> None:
         try:
@@ -564,7 +598,8 @@ class EtCoreHub:
         hit = self._src_ip_cache.get(target)
         if hit and now - hit[1] < 60:
             return hit[0]
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        family = socket.AF_INET6 if ":" in target else socket.AF_INET
+        s = socket.socket(family, socket.SOCK_DGRAM)
         try:
             s.connect((target, self._port))  # no packet is sent; the kernel picks the route
             ip = s.getsockname()[0]

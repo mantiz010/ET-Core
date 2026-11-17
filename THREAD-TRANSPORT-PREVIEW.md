@@ -1,0 +1,80 @@
+# ET-Core Thread transport development preview
+
+Status: isolated development branch; not installed in Home Assistant or flashed.
+This is native ET-Core networking work, not a Matter implementation.
+
+## Implemented foundation
+
+The hub can opt into a separate IPv6-only UDP socket while keeping the existing
+IPv4 socket and discovery. Outbound packets select the matching family; source
+address selection follows the kernel IPv4/IPv6 route. Encryption, challenges,
+command IDs, acknowledgements and replay validation remain in the shared hub.
+A failed IPv6 startup closes the IPv4 transport; shutdown closes both families.
+
+Internal developer configuration: `enable_ipv6: true`, optional `ipv6_bind`
+(default `::`). These are not yet options exposed in the integration UI.
+IPv6 discovery is not implemented: a test peer must know the reachable hub address
+and listen on the configured ET-Core port. This does not forward IPv4 multicast
+onto Thread. Scoped link-local addresses and interface selection are not yet a
+supported commissioning path; plan on routable unicast endpoints.
+
+Nine tests use actual IPv6 loopback datagrams: authenticated state, wrong-key
+rejection, replay rejection, outbound socket/source routing, encrypted command
+and acknowledgement, concurrent IPv4 traffic, socket shutdown, IPv6 default-off
+and startup failure cleanup. The two loopback peers share one IP, so the command
+round-trip fixture redirects its destination port to the peer's ephemeral port.
+Real devices must listen on the configured ET-Core port. No Thread radio is
+involved in these tests.
+
+## Next engineering milestones
+
+1. **SDK transport boundary.** Separate envelope encryption/session/replay logic
+   from socket ownership. Existing WiFi/IPv4 remains the default adapter. Supply
+   an OpenThread IPv6 UDP adapter with bounded queues, explicit truncation and
+   send errors. Generalise retained hub-address storage with a version/migration
+   check; never interpret old four-byte RTC data as an IPv6 address.
+2. **Thread commissioning and reachability.** Securely provision the operational
+   dataset. Verify attachment, routable IPv6 addresses and bidirectional UDP
+   through an existing border router. Start with a configured unicast endpoint;
+   define authenticated discovery/service registration separately. An installed
+   Thread integration is not proof the joining credentials are present.
+3. **Payload and sleep policy.** Measure real encrypted datagram sizes and radio
+   fragmentation before selecting a Thread payload budget. Tune report, poll,
+   retry and lease timing for sleepy endpoints. A sleeping node does not route
+   mesh traffic. Do not carry WiFi two-second heartbeat assumptions into a
+   battery profile or promise current consumption from a compile.
+4. **Transport-aware diagnostics.** Report Thread attachment role, parent/link
+   metrics, queue drops and last exchange. Do not substitute WiFi RSSI for
+   Thread link quality or label normal sleep as a weak WiFi fault.
+5. **Physical C6 validation.** One endpoint using an existing border router is
+   enough for first interoperability, subject to securely obtaining its dataset.
+   A separate RCP+Linux OTBR test is an alternative, not automatically required.
+   Later add a powered router and sleeping endpoint for reparenting tests.
+6. **Firmware updates.** Existing ArduinoOTA code uses WiFi; it is not a proven
+   Thread update channel. Define bounded transfer/resume, image verification,
+   rollback and sleepy-device update windows before claiming Thread OTA support.
+
+Keep the application-layer encryption, IDs and replay protection end-to-end.
+The border router should route packets; it should not need ET-Core device keys
+or rewrite identity. Network security and application security serve different
+boundaries. No claim of Matter interoperability or Thread certification is made.
+
+## Authority
+
+- https://docs.espressif.com/projects/esp-idf/en/stable/esp32c6/api-guides/openthread.html
+- https://github.com/espressif/esp-idf/blob/v5.5.1/examples/openthread/ot_br/README.md
+- https://openthread.io/guides/border-router
+- https://openthread.io/guides/thread-primer/node-roles-and-types
+- https://www.home-assistant.io/integrations/thread/
+
+Local network observations and private datasets/keys are intentionally excluded
+from this public design document. Research evidence is retained separately.
+
+## Verification — 17 November 2026
+
+The combined simulator suite passed 82 tests in 204.650 seconds. The final
+IPv6 suite separately passed nine tests, including the subsequently added
+command/acknowledgement round trip. Existing subprocess-file ResourceWarnings
+were emitted by the simulator; assertions passed. These results establish host
+transport compatibility only, not Thread commissioning, radio operation, packet
+fragmentation, sleepy-node behavior or firmware-update delivery over Thread.
