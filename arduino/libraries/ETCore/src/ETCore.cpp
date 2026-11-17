@@ -148,7 +148,7 @@ void ETCore::begin(const char* device_id, const char* device_class, const char* 
   }
 
 #if defined(ARDUINO_ARCH_ESP32)
-  WiFi.setSleep(false);
+  if (!_externalTransport) WiFi.setSleep(false);
 #endif
 
   _netBegin();
@@ -159,6 +159,7 @@ void ETCore::begin(const char* device_id, const char* device_class, const char* 
 }
 
 void ETCore::setSleepInterval(uint32_t seconds) {
+  if (_externalTransport && seconds) return; // IPv6 RTC restoration is not implemented.
   _sleepSec = seconds;
   if (!seconds) return;
   const uint32_t ttl = seconds > 21841 ? 65535 : seconds * 3 + 10;
@@ -201,6 +202,7 @@ bool ETCore::waitForHub(uint32_t timeout_ms) {
 }
 
 void ETCore::sleepFor(uint32_t seconds, uint32_t timeout_ms) {
+  if (_externalTransport) return; // Do not truncate adapter addresses into IPv4 RTC storage.
   if (!seconds) seconds = _sleepSec ? _sleepSec : 60;
   const bool heard = waitForHub(timeout_ms);
   _sleepingFor = seconds;
@@ -252,6 +254,13 @@ void ETCore::disableEncryption() {
 
 bool ETCore::encryptionEnabled() const {
   return _cryptoEnabled;
+}
+
+bool ETCore::setTransport(ETCoreTransport* transport) {
+  if (_id || _sleepSec || !transport || !_cryptoEnabled) return false;
+  _externalTransport = transport;
+  _mcast = transport->bootstrapAddress();
+  return true;
 }
 
 void ETCore::setPort(uint16_t port) {
@@ -598,6 +607,8 @@ bool ETCore::_sendEncryptedFast(const char* type, JsonObject payload, IPAddress 
 // ---- network ------------------------------------------------------------------
 #if defined(ESP_PLATFORM)
 void ETCore::_netBegin() {
+  if (_externalTransport) { _transportReady = _externalTransport->begin(_port); return; }
+  _transportReady = true;
   if (_sock >= 0) close(_sock);
   _sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
   if (_sock < 0) {
@@ -621,6 +632,7 @@ void ETCore::_netBegin() {
 }
 
 int ETCore::_netRecv(char* buf, size_t max) {
+  if (_externalTransport) return _transportReady ? _externalTransport->receive(buf, max, _rxFrom) : 0;
   if (_sock < 0) return 0;
   struct sockaddr_in from;
   socklen_t fl = sizeof(from);
@@ -632,6 +644,10 @@ int ETCore::_netRecv(char* buf, size_t max) {
 }
 
 void ETCore::_netSend(IPAddress ip, const char* data, size_t len) {
+  if (_externalTransport) {
+    if (!_transportReady || !_externalTransport->send(ip, _port, data, len)) ++_transportSendFailures;
+    return;
+  }
   if (_sock < 0) return;
   struct sockaddr_in to = {};
   to.sin_family = AF_INET;
@@ -640,9 +656,13 @@ void ETCore::_netSend(IPAddress ip, const char* data, size_t len) {
   sendto(_sock, data, len, 0, (struct sockaddr*)&to, sizeof(to));
 }
 #else
-void ETCore::_netBegin() { _udp.beginMulticast(_mcast, _port); }
+void ETCore::_netBegin() {
+  if (_externalTransport) { _transportReady = _externalTransport->begin(_port); return; }
+  _transportReady = _udp.beginMulticast(_mcast, _port);
+}
 
 int ETCore::_netRecv(char* buf, size_t max) {
+  if (_externalTransport) return _transportReady ? _externalTransport->receive(buf, max, _rxFrom) : 0;
   const int size = _udp.parsePacket();
   if (!size) return 0;
   if ((size_t)size > max) return 0;  // the next parsePacket() drops the rest
@@ -652,6 +672,10 @@ int ETCore::_netRecv(char* buf, size_t max) {
 }
 
 void ETCore::_netSend(IPAddress ip, const char* data, size_t len) {
+  if (_externalTransport) {
+    if (!_transportReady || !_externalTransport->send(ip, _port, data, len)) ++_transportSendFailures;
+    return;
+  }
   _udp.beginPacket(ip, _port);
   _udp.write((const uint8_t*)data, len);
   _udp.endPacket();
@@ -663,6 +687,7 @@ void ETCore::sendHello() {
   JsonDocument d(&g_arena);
   JsonObject p = d.to<JsonObject>();
   p["name"] = _name ? _name : "";
+  if (_externalTransport) p["transport"] = _externalTransport->name();
   p["fw"] = _fw ? _fw : "";
   p["lib"] = ETCORE_LIBRARY_VERSION;
   p["lease_interval_ms"] = _leaseIntervalMs;
@@ -687,7 +712,8 @@ void ETCore::sendLease() {
   JsonObject p = d.to<JsonObject>();
   p["ttl"] = _leaseTtlSec;
   p["uptime"] = (uint32_t)(millis() / 1000);
-  p["rssi"] = WiFi.RSSI();
+  if (!_externalTransport) p["rssi"] = WiFi.RSSI();
+  else p["transport"] = _externalTransport->name();
   if (_hubCh[0]) p["ch"] = _hubCh;
   // nohub: the hub answers with an announce. A device that lost the hub sends it
   // by multicast; a battery device sends it on every wake to learn it was heard.

@@ -1,0 +1,52 @@
+# C6 Thread transport preview — not ready for a blind upload
+
+This is an always-awake, encrypted ET-Core counter test over OpenThread IPv6 UDP.
+No WiFi association, sensors, actuator GPIO or automatic new Thread network.
+The operational dataset joins an existing network. A reachable hub IPv6 address
+and matching isolated test key are required. Thread is not Matter.
+
+## Before uploading
+
+The hub must be the matching experimental IPv6-enabled build, bound to test UDP
+15562. The live production hub is not automatically modified by this package.
+Obtain the operational dataset securely; never publish it. Set the three values
+at the top of C6Thread.ino: THREAD_DATASET_HEX, HUB_IPV6, ETCORE_TEST_KEY.
+With placeholders, the sketch only prints setup instructions. It cannot test
+attachment or Home Assistant integration without these prerequisites.
+
+This example requires the matching ETCore/ETChaCha20Poly1305 libraries in the
+preview package and ArduinoJson 7. Arduino-ESP32 3.3.11's installed OpenThread
+API was used for verification; older core packages may not provide OThreadUDP.
+
+Target: ESP32C6 Dev Module; USB CDC On Boot enabled; 4MB flash; Default partition;
+Zigbee disabled. FQBN esp32:esp32:esp32c6:CDCOnBoot=cdc,FlashSize=4M,PartitionScheme=default.
+The C6 target has no PSRAM menu. This is a generic target, not confirmation of a
+particular third-party Mini board's flash capacity, USB wiring or oscillator.
+No external pins are claimed. Leave build_opt.h in the sketch folder: it sets
+the OpenThread UDP queue datagram capacity to 1024 bytes for the whole build.
+
+Serial 115200: setup/attachment status, Thread role, IPv6 addresses, adapter
+readiness, send-failure counter and uptime every five seconds. Initial test
+messages are explicitly test_only. No Thread OTA feature is implemented.
+Current sleep APIs cannot retain IPv6 endpoints, so adapters reject combining
+this preview with the deep-sleep interface. Battery support remains future work.
+
+## SDK change
+
+setTransport() introduces an application-owned datagram adapter before begin().
+It requires encryption to have been configured and forbids an existing sleep
+profile. Default WiFi/IPv4 behavior remains the default. The adapter replaces
+socket ownership and bootstrap destination, while ETCore retains encrypted
+messages, session challenges, acknowledgements and replay checks. Thread hello
+and lease packets report transport=thread and omit WiFi RSSI. The current
+Home Assistant health-profile implementation does not yet infer a Thread role.
+
+The 1024-byte cap bounds outgoing datagrams and the receive queue (depth 4).
+It is not a promise of one radio frame: 6LoWPAN can fragment it. The installed
+OThreadUDP truncates oversize received datagrams at its queue capacity; the
+shared JSON/AEAD checks reject incomplete envelopes, but there is not yet an
+original-length/drop counter from that library. Large-payload radio behavior
+requires hardware measurement before production use.
+
+Compilation is not hardware validation. Do not replace installed build libraries,
+change the live hub, or flash a real sensor just to open this example.

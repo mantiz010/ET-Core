@@ -9,6 +9,16 @@
 WiFiStub WiFi;
 char g_sim_local_ip[16] = "127.0.0.2";
 
+class SimTransport : public ETCoreTransport {
+ WiFiUDP udp;
+public:
+ bool begin(uint16_t port) override {return !getenv("ETCORE_SIM_ADAPTER_FAIL") && udp.beginMulticast(IPAddress(239,10,0,2),port);}
+ int receive(char* data,size_t max,IPAddress& from) override {int n=udp.parsePacket();if(n<=0||(size_t)n>max)return 0;from=udp.remoteIP();return udp.read((uint8_t*)data,max);}
+ bool send(IPAddress to,uint16_t port,const char* data,size_t len) override {if(!udp.beginPacket(to,port))return false;udp.write((const uint8_t*)data,len);return udp.endPacket()==1;}
+ IPAddress bootstrapAddress() const override {return IPAddress(127,0,0,1);}
+ const char* name() const override {return "test-adapter";}
+};
+static SimTransport simTransport;
 static ETCore core;
 static const char* g_class = "";
 static bool g_on = false;
@@ -148,7 +158,11 @@ int main(int argc, char** argv) {
   const char* sleepy = getenv("ETCORE_SIM_SLEEP");
   if (sleepy) core.setSleepInterval((uint32_t)atoi(sleepy));
   if (getenv("ETCORE_SIM_VALUE")) g_value = (float)atof(getenv("ETCORE_SIM_VALUE"));
+  if (getenv("ETCORE_SIM_ADAPTER")) {
+    if (!core.setTransport(&simTransport)) {printf("ADAPTER_REJECTED\n");return 3;}
+  }
   core.begin(id, g_class, id, "sim-1");
+  if (getenv("ETCORE_SIM_ADAPTER")) printf("ADAPTER_READY %d FAILURES %lu\n",core.transportReady(),(unsigned long)core.transportSendFailures());
   core.onCommand(onCommand);
   if (!getenv("ETCORE_SIM_NOSYNC")) core.onSync(publish);
   g_rich = getenv("ETCORE_SIM_RICH") != nullptr;

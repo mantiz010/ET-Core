@@ -78,3 +78,24 @@ command/acknowledgement round trip. Existing subprocess-file ResourceWarnings
 were emitted by the simulator; assertions passed. These results establish host
 transport compatibility only, not Thread commissioning, radio operation, packet
 fragmentation, sleepy-node behavior or firmware-update delivery over Thread.
+
+## SDK adapter preview
+
+The opt-in `ETCoreTransport` interface now separates datagram socket ownership
+from shared envelope/security logic. `ETCoreOpenThread` uses the installed
+OpenThread UDP API and an explicitly configured unicast bootstrap. The C6Thread
+example supplies a private operational dataset; it never creates an unrelated
+Thread network. Default WiFi transport remains available unchanged by default.
+The current RTC deep-sleep format remains IPv4-only, so external adapters reject
+combining this interface with deep sleep. This avoids silently truncating IPv6
+addresses. The preview is not yet a generic third-party transport ABI release.
+
+See [C6Thread prerequisites and limits](arduino/libraries/ETCore/examples/C6Thread/README.md).
+
+SDK preview version is 0.4.9-alpha.1. C6Thread clean-compiled on the exact C6
+FQBN above with unchanged sketch sources: 1,212,596 program bytes and 87,248
+static RAM bytes. The final adapter regression suite passed 87 tests in
+206.550 seconds, including real SDK encrypted commands through an injected
+host adapter, visible adapter-start failure, encryption-required attachment
+and rejection of the unsupported sleep/adapter combination. This does not
+validate Thread radio hardware or claim a battery/OTA-over-Thread implementation.

@@ -4,9 +4,10 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
+#include "ETCoreTransport.h"
 #include <ETChaCha20Poly1305.h>
 
-#define ETCORE_LIBRARY_VERSION "0.4.8-beta.2"
+#define ETCORE_LIBRARY_VERSION "0.4.9-alpha.1"
 #ifndef ETCORE_DEFAULT_PORT
 #define ETCORE_DEFAULT_PORT 5560
 #endif
@@ -81,6 +82,11 @@ public:
 
   // UDP port (default ETCORE_DEFAULT_PORT, 5560); call before begin(). Must match
   // the port set in the Home Assistant integration.
+  // Opt-in adapter: set before begin(), with encryption already configured.
+  // Current adapters are always-awake; deep-sleep RTC state remains IPv4-only.
+  bool setTransport(ETCoreTransport* transport);
+  bool transportReady() const { return _transportReady; }
+  uint32_t transportSendFailures() const { return _transportSendFailures; }
   void setPort(uint16_t port);
   uint16_t port() const { return _port; }
 
@@ -141,6 +147,9 @@ private:
   int _netRecv(char* buf, size_t max);
   void _netSend(IPAddress ip, const char* data, size_t len);
   IPAddress _rxFrom;
+  ETCoreTransport* _externalTransport = nullptr;
+  bool _transportReady = false;
+  uint32_t _transportSendFailures = 0;
 #if defined(ESP_PLATFORM)
   int _sock = -1;
 #else
