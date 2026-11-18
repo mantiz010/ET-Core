@@ -99,3 +99,17 @@ static RAM bytes. The final adapter regression suite passed 87 tests in
 host adapter, visible adapter-start failure, encryption-required attachment
 and rejection of the unsupported sleep/adapter combination. This does not
 validate Thread radio hardware or claim a battery/OTA-over-Thread implementation.
+
+## First physical Thread run — 18 November 2026
+
+The owner USB-flashed the configured portable sketch onto a spare ESP32-C6.
+It attached as a Child to an existing Nest Thread network, with WiFi disabled.
+The separate Linux IPv6 test hub accepted the authenticated ET-Core session and
+received advancing encrypted counter readings with zero decryption failures.
+Three ICMPv6 probes to the node all replied, with observed RTTs 27–54 ms. These
+are reachability samples, not a throughput or long-term latency benchmark.
+Initial unproven-session packets were challenged before normal traffic was
+accepted; they were not counted as wrong-key failures. Production HA was not
+changed by this physical run. Actual command acknowledgement, hub outage,
+reparenting, sleepy-node behavior and Thread firmware updates remain separate
+hardware tests. The portable archive fixes dependency on older installed SDKs.
