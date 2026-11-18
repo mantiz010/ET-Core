@@ -1,4 +1,7 @@
-# Thread OTA preview — SDK 0.4.9-alpha.2
+# Accepted Thread OTA baseline — SDK 0.4.9-alpha.2
+
+This branch also contains a staged SDK 0.4.9-alpha.3 speed candidate. Its new
+windowed mode is not yet radio-benchmarked; see [the speed preview](THREAD-OTA-SPEED-PREVIEW.md).
 
 This branch adds an explicit, admin-operated application update path for the
 always-awake C6 Thread test. It does not replace ESPHome, enable automatic

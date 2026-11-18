@@ -1,4 +1,4 @@
-"""Bounded, authenticated stop-and-wait OTA; no automatic update initiation.
+"""Bounded, authenticated negotiated-window OTA; no automatic update initiation.
 
 The caller must authorize a specific image for a specific device. Chunks use
 normal encrypted commands/ACKs. A new matching boot plus an authenticated health
@@ -18,6 +18,8 @@ from typing import Any
 PROTOCOL = 'etcore-chunk-v1'
 MAX_IMAGE = 4 * 1024 * 1024
 CHUNK = 192
+FAST_CHUNK = 288
+MAX_WINDOW = 2
 TOKEN = re.compile(r'[A-Za-z0-9_.+-]{1,64}\Z')
 ACTIVE = {'preparing', 'transferring', 'verifying', 'rebooting', 'checking_health'}
 
@@ -30,7 +32,9 @@ def validate_image(image: bytes, *, board: str, version: str, capability: dict, 
     # First reviewed target. Never infer safety for a different board from chip alone.
     if board != 'esp32c6-dev-4m' or capability.get('board') != board:
         raise ValueError('Firmware board does not match the receiver')
-    if capability.get('max_chunk') != CHUNK:raise ValueError('Unsupported OTA chunk size')
+    maximum=capability.get('max_chunk');window=capability.get('max_window',1)
+    if type(maximum) is not int or maximum not in (CHUNK,FAST_CHUNK):raise ValueError('Unsupported OTA chunk size')
+    if type(window) is not int or not 1<=window<=MAX_WINDOW:raise ValueError('Unsupported OTA window')
     limit = capability.get('max_image_size')
     if type(limit) is not int or not 32 <= len(image) <= min(limit, MAX_IMAGE):
         raise ValueError('Application image does not fit the inactive OTA partition')
@@ -40,7 +44,7 @@ def validate_image(image: bytes, *, board: str, version: str, capability: dict, 
     if (version.encode()+b'\0' not in image or board.encode()+b'\0' not in image
             or PROTOCOL.encode()+b'\0' not in image):
         raise ValueError('Image must contain the reviewed version, board and OTA receiver')
-    return {'board':board,'version':version,'size':len(image),'sha256':hashlib.sha256(image).hexdigest()}
+    return {'board':board,'version':version,'size':len(image),'sha256':hashlib.sha256(image).hexdigest(),'chunk_size':maximum,'window':window}
 
 
 class ThreadOTA:
@@ -130,7 +134,10 @@ class ThreadOTA:
         self.waiters[cmd]=(dev_id,future)
         try:
             if not await asyncio.wait_for(future,8): raise RuntimeError('Receiver rejected the update command')
-        finally:self.waiters.pop(cmd,None)
+        finally:
+            self.waiters.pop(cmd,None)
+            pending=getattr(self.hub,'_pending',{}).pop(cmd,None)
+            if pending and pending.get('timer'):pending['timer'].cancel()
 
     async def _run(self, dev_id: str, image: bytes, job: dict) -> None:
         transfer=job['transfer']
@@ -152,15 +159,21 @@ class ThreadOTA:
 
     async def _transfer(self,dev_id,image,job):
         transfer=job['transfer']
-        await self.command(dev_id,{'op':'begin','transfer':transfer,'size':job['size'],'sha256':job['sha256'],'board':job['board']})
+        await self.command(dev_id,{'op':'begin','transfer':transfer,'size':job['size'],'sha256':job['sha256'],'board':job['board'],'chunk_size':job['chunk_size'],'window':job['window']})
         job['phase']='transferring';await self.save()
         saved_progress=-10
-        for offset in range(0,len(image),CHUNK):
+        chunk_size=job['chunk_size'];window=job['window']
+        for offset in range(0,len(image),chunk_size*window):
             dev=self.hub.devices.get(dev_id) or {}
             if dev.get('rx_session')!=job['original_session']: raise RuntimeError('Receiver restarted during transfer')
-            chunk=image[offset:offset+CHUNK]
-            await self.command(dev_id,{'op':'chunk','transfer':transfer,'offset':offset,'data':base64.b64encode(chunk).decode()})
-            job['bytes']=offset+len(chunk);job['progress']=min(99,job['bytes']*100//len(image))
+            batch=[(position,image[position:position+chunk_size]) for position in range(offset,min(offset+chunk_size*window,len(image)),chunk_size)]
+            results=await asyncio.gather(*(self.command(dev_id,{'op':'chunk','transfer':transfer,'offset':position,'data':base64.b64encode(chunk).decode()}) for position,chunk in batch),return_exceptions=True)
+            # Settle the entire window before advancing or aborting; no earlier
+            # negative ACK is hidden by a later positive one.
+            for result in results:
+                if isinstance(result,BaseException):raise result
+            job['bytes']=offset+sum(len(chunk) for _,chunk in batch)
+            job['progress']=min(99,job['bytes']*100//len(image))
             if job['progress']-saved_progress>=10:
                 await self.save();saved_progress=job['progress']
         job['phase']='verifying';await self.save()

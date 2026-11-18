@@ -7,7 +7,7 @@
 #include "ETCoreTransport.h"
 #include <ETChaCha20Poly1305.h>
 
-#define ETCORE_LIBRARY_VERSION "0.4.9-alpha.2"
+#define ETCORE_LIBRARY_VERSION "0.4.9-alpha.3"
 #ifndef ETCORE_DEFAULT_PORT
 #define ETCORE_DEFAULT_PORT 5560
 #endif

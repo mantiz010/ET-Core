@@ -4,9 +4,9 @@ R=Path(__file__).resolve().parents[1]/'homeassistant/custom_components/etcore'
 pkg=types.ModuleType('thread_ota_tests');pkg.__path__=[str(R)];sys.modules[pkg.__name__]=pkg
 m=importlib.import_module(pkg.__name__+'.thread_ota')
 BOARD='esp32c6-dev-4m';VERSION='thread-preview-0.4'
-def image():
+def image(payload_bytes=256):
  header=bytearray(24);header[0]=0xE9;header[1]=1;header[3]=0x20;header[12]=13;header[23]=1
- data=bytearray(256);struct.pack_into('<I',data,0,0xABCD5432)
+ data=bytearray(payload_bytes);struct.pack_into('<I',data,0,0xABCD5432)
  for pos,text in [(16,'3.3.11'),(48,'C6ThreadOTA'),(128,VERSION),(160,BOARD),(192,m.PROTOCOL)]:data[pos:pos+len(text)+1]=text.encode()+b'\0'
  out=header+struct.pack('<II',0x42000000,len(data))+data;checksum=0xEF
  for b in data:checksum^=b
@@ -76,4 +76,39 @@ class Transfer(unittest.IsolatedAsyncioTestCase):
   f=self.hub.hass.loop.create_future();self.manager.waiters['pending']=('bench',f)
   self.manager.receive({'_encrypted':True,'type':'ack','id':'bench','payload':{'cmd_id':'pending','ok':False,'err':'stale'}})
   self.assertFalse(f.done())
+class LatencyHub(Hub):
+ def __init__(self,fast):
+  super().__init__();self.inflight=0;self.maximum=0
+  if fast:self.devices['bench']['hello']['ota'].update(max_chunk=288,max_window=2)
+ def send_command(self,dev,cls,payload):
+  self.sent.append(copy.deepcopy(payload));cmd=str(len(self.sent));self.inflight+=1;self.maximum=max(self.maximum,self.inflight)
+  def deliver():
+   self.inflight-=1
+   if payload['op']=='commit':self.devices['bench'].update(rx_session='newboot',fw=VERSION)
+   self.listener({'_encrypted':True,'type':'ack','id':dev,'payload':{'cmd_id':cmd,'ok':payload['op']!=self.reject}})
+  # Vary ACK order as well as introducing a measurable round-trip cost.
+  delay=.012 if payload['op']!='chunk' or payload.get('offset',0)%576 else .016
+  self.hass.loop.call_later(delay,deliver);return cmd
+class WindowTests(unittest.IsolatedAsyncioTestCase):
+ async def run_transfer(self,fast,reject=None):
+  hub=LatencyHub(fast);hub.reject=reject;manager=m.ThreadOTA(hub)
+  try:
+   plan=manager.prepare('bench',image(16384),BOARD,VERSION,'admin')
+   start=asyncio.get_running_loop().time();manager.install('bench',plan['plan_id'],plan['sha256'],'admin');await manager.tasks['bench'];elapsed=asyncio.get_running_loop().time()-start
+   return hub,manager.jobs['bench'],elapsed
+  finally:await manager.close()
+ async def test_legacy_stays_serial_and_fast_window_is_bounded(self):
+  old,oldjob,slow=await self.run_transfer(False);new,newjob,fast=await self.run_transfer(True)
+  self.assertEqual(old.maximum,1);self.assertEqual(oldjob['chunk_size'],192);self.assertEqual(oldjob['window'],1)
+  self.assertEqual(new.maximum,2);self.assertEqual(newjob['chunk_size'],288);self.assertEqual(newjob['window'],2)
+  self.assertEqual(newjob['phase'],'succeeded');self.assertLess(fast,slow*.7)
+  self.assertTrue(all(len(base64.b64decode(p['data']))<=288 for p in new.sent if p['op']=='chunk'))
+  print(f'Injected-latency bench only: serial={slow:.3f}s window2={fast:.3f}s ratio={slow/fast:.2f}x; NOT a Thread radio benchmark')
+ async def test_negative_ack_settles_window_before_abort(self):
+  hub,job,_=await self.run_transfer(True,'chunk');self.assertEqual(job['phase'],'failed');self.assertNotIn('commit',[p['op'] for p in hub.sent]);self.assertEqual(hub.inflight,0);self.assertEqual(hub.sent[-1]['op'],'abort')
+class WindowValidation(unittest.TestCase):
+ def test_invalid_advertised_window_or_chunk_rejected(self):
+  for fields in [{'max_chunk':True},{'max_chunk':512},{'max_window':0},{'max_window':3},{'max_window':True}]:
+   cap=dict(device()['hello']['ota'],**fields)
+   with self.assertRaises(ValueError):m.validate_image(image(),board=BOARD,version=VERSION,capability=cap,current='old')
 if __name__=='__main__':unittest.main()

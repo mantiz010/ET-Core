@@ -1,6 +1,6 @@
 <p align="center">
 
-> **Thread OTA development preview:** SDK **0.4.9-alpha.2**, based on the battery/Thread development branch; not a tagged release. Native Thread readings and keepalive have hardware evidence. The first C6 Thread OTA transfer, new firmware boot and health acknowledgement are hardware-verified; physical power-interruption and rollback tests remain pending. See [Thread OTA safeguards and evidence](THREAD-OTA-PREVIEW.md), [Thread transport](THREAD-TRANSPORT-PREVIEW.md) and [battery limits](BATTERY-PREVIEW.md).
+> **OTA speed development preview:** SDK **0.4.9-alpha.3**. The accepted serial Thread OTA baseline has hardware evidence. The new bounded-window mode is compiled and host-tested; its real radio speed is not yet measured. See [speed candidate and physical test plan](THREAD-OTA-SPEED-PREVIEW.md), [accepted OTA evidence](THREAD-OTA-PREVIEW.md) and [Thread transport](THREAD-TRANSPORT-PREVIEW.md).
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/img/electronicstech-logo-dark.png">
     <img src="docs/img/electronicstech-logo.png" alt="ElectronicsTech" width="420">

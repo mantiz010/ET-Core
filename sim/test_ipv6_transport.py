@@ -73,7 +73,12 @@ class IPv6Transport(unittest.IsolatedAsyncioTestCase):
  async def test_firmware_chunk_fits_thread_datagram_cap(self):
   self.seed();self.hub._devices['v6test']['last_addr']='::1';sent=[]
   self.hub._send_raw=lambda data,addr:sent.append(data)
-  self.hub.send_command('v6test','firmware.ota',{'op':'chunk','transfer':'ab'*16,'offset':1200000,'data':base64.b64encode(b'x'*192).decode()})
+  self.hub.send_command('v6test','firmware.ota',{'op':'chunk','transfer':'ab'*16,'offset':1200000,'data':base64.b64encode(b'x'*288).decode()})
+  self.assertEqual(len(sent),1);self.assertLessEqual(len(sent[0]),1024)
+ async def test_largest_supported_id_and_chunk_fit_cap(self):
+  dev_id='x'*64;self.hub._devices[dev_id]={'id':dev_id,'last_addr':'::1','rx_session':self.session.hex()};self.hub._seq=4294967000;sent=[]
+  self.hub._send_raw=lambda data,addr:sent.append(data)
+  self.hub.send_command(dev_id,'firmware.ota',{'op':'chunk','transfer':'ab'*16,'offset':4294967295,'data':base64.b64encode(b'x'*288).decode()})
   self.assertEqual(len(sent),1);self.assertLessEqual(len(sent[0]),1024)
  async def test_shutdown_closes_both_sockets(self):
   v4=self.hub._transport;v6=self.hub._transport6;await self.hub.async_stop();self.assertTrue(v4.is_closing());self.assertTrue(v6.is_closing());self.assertIsNone(self.hub._transport6)

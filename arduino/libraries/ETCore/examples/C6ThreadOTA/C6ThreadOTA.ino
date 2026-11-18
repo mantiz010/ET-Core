@@ -44,7 +44,7 @@ void setup(){
 #if ARDUINO_USB_CDC_ON_BOOT
  Serial0.begin(115200);
 #endif
- delay(500);LOGLN("ET-Core C6 Thread OTA receiver preview 0.3; WiFi disabled; encrypted update commands");
+ delay(500);LOGLN("ET-Core C6 Thread OTA receiver preview 0.5; WiFi disabled; encrypted update commands");
  LOGF("[HUB] Direct HA endpoint=[%s]:15562; configure HA IPv6, not a relay\n", HUB_IPV6);
  IPAddress hub;
  otOperationalDatasetTlvs dataset={};size_t used=0;
@@ -68,7 +68,7 @@ void setup(){
 void loop(){uint32_t now=millis();ota.loop();
  if(configured){
   bool attached=OThread.otGetDeviceRole()>=OT_ROLE_CHILD;
-  if(attached&&!started){core.begin("c6-thread-test","sensor.test","C6 Thread TEST ONLY","thread-preview-0.3");started=core.transportReady();if(started){LOGF("[OTA] Encrypted Thread receiver ready; inactive capacity=%lu bytes\n",(unsigned long)otaStorage.capacity());report();}}
+  if(attached&&!started){core.begin("c6-thread-test","sensor.test","C6 Thread TEST ONLY","thread-preview-0.5");started=core.transportReady();if(started){LOGF("[OTA] Encrypted Thread receiver ready; inactive capacity=%lu bytes\n",(unsigned long)otaStorage.capacity());report();}}
   if(attached&&started){core.loop();if(now-lastReport>=10000){lastReport=now;++reading;report();LOGF("[TEST] counter=%lu transport=Thread\n",(unsigned long)reading);}}
   if(now-lastStatus>=5000){lastStatus=now;LOGF("[THREAD] role=%s attached=%d adapter=%d send_failures=%lu uptime=%lu s\n",OThread.otGetStringDeviceRole(),attached,started,(unsigned long)core.transportSendFailures(),(unsigned long)(now/1000));LOGF("[EUI64] %s\n",OThread.getEui64().c_str());for(auto ip:OThread.getAllUnicastAddresses())LOGF("[IPV6] %s\n",ip.toString().c_str());}
  }else if(now-lastStatus>=5000){lastStatus=now;LOGLN("[SETUP] Not configured; no sensor readings invented. See settings at top of C6Thread.ino.");}

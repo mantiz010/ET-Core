@@ -23,3 +23,11 @@ See [Thread OTA design, safeguards and evidence](../../../../../THREAD-OTA-PREVI
 This prototype is compiled and host-tested. The first real C6 transfer from
 receiver 0.3 to 0.4 succeeded, including new boot and health acknowledgement.
 Deliberate power-interruption and physical rollback tests remain pending.
+
+## Speed candidate 0.5
+
+This branch's receiver advertises max_chunk 288 and max_window 2. Use its matching
+HA sender, which negotiates this mode and keeps old receivers serial. Missing
+begin negotiation fields retain the 192/window 1 default. The faster mode is
+host-tested and exact-target compiled; physical speed measurement is pending.
+Existing 0.4 can acquire 0.5 over OTA before the separate 0.6 speed benchmark.
