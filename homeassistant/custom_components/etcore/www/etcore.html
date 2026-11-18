@@ -609,6 +609,7 @@
     return d.health_profile || { kind: "unknown", label: "Unknown connection", source: "unknown", configured: "auto", transport: "unknown", signal_applicable: false, check: "Confirm the device type, then check restarts and missed heartbeats.", unavailable_label: "Heartbeat missing" };
   }
   function deviceSignal(d) {
+    if (deviceHealth(d).transport === "thread") return {t:"Thread",level:0};
     const h = deviceHealth(d);
     if (h.transport === "ethernet") return { t: "Ethernet", level: 0, c: "", w: "Wired connection; Wi-Fi signal does not apply" };
     if (!h.signal_applicable) return { t: "Not reported", level: 0, c: "", w: "Connection type not established" };
@@ -1396,7 +1397,7 @@
   async function editHealthProfile(id) {
     const d = S.byId[id]; if (!d || !isAdmin()) return;
     const entryId = S.hub.entry_id;
-    const choices = {auto:"Automatic",wired_service:"Wired service",wired_device:"Wired device",wifi_device:"Wi-Fi device",sleeping_sensor:"Sleep-capable sensor",unknown:"Unknown connection"};
+    const choices = {auto:"Automatic",wired_service:"Wired service",wired_device:"Wired device",wifi_device:"Wi-Fi device",thread_device:"Thread device",sleeping_sensor:"Sleep-capable sensor",unknown:"Unknown connection"};
     const selected = deviceHealth(d).configured || "auto";
     const value = await modal(`<div class="mh">Device type</div><div class="mb"><label for="hp">Health profile for ${esc(devName(d))}</label><select class="field" id="hp" data-value>${Object.entries(choices).map(([k,v])=>`<option value="${k}" ${k===selected?"selected":""}>${v}</option>`).join("")}</select><div class="muted" style="margin-top:10px">Changes diagnostic guidance only. Device controls, check-in deadlines and entity IDs stay unchanged. Sleep is recognised only when the device reports a schedule.</div></div><div class="mf"><button class="btn" data-m="cancel">Cancel</button><button class="btn primary" data-m="ok">Save</button></div>`);
     if (value == null) return;

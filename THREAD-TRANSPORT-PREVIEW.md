@@ -113,3 +113,27 @@ accepted; they were not counted as wrong-key failures. Production HA was not
 changed by this physical run. Actual command acknowledgement, hub outage,
 reparenting, sleepy-node behavior and Thread firmware updates remain separate
 hardware tests. The portable archive fixes dependency on older installed SDKs.
+
+## Native Home Assistant test — 18 November 2026
+
+An additional encrypted ET-Core config entry now accepts the real C6 counter
+over IPv6 through the existing Thread border router. Existing IPv4 entries
+remain unchanged; IPv6 is opt-in and requires a key in the config flow.
+The device appears as a native HA sensor and is labelled Thread rather than
+being given WiFi signal advice. An advancing counter and zero decryption
+failures were observed after adoption. This is a test connection, not a claim
+of completed Thread OTA, sleepy operation, or hardware command testing.
+
+The already-flashed test node still knows its original bootstrap endpoint. A
+private authenticated discovery helper asks HA's admin-only
+`etcore/thread_bootstrap` websocket command to issue a normal encrypted peer
+challenge from HA's own IPv6 address. The helper does not forward sensor state
+or bypass session proof. It is currently required for bootstrap after node resets and for periodic
+HA-origin keepalive announcements, because the preview hub multicast announcer
+is IPv4-only. Native IPv6 peer announcements, permanent discovery and direct
+HA provisioning remain future work. The command is
+rate-limited and rejects non-unicast or link-local targets. Never weaken the
+device's check that the advertised hub address matches the packet source.
+
+Live dashboard checks passed at phone and tablet widths. Local credentials,
+operational datasets and the private helper configuration are not published.

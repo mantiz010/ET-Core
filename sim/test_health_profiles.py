@@ -4,6 +4,14 @@ ROOT=Path(__file__).resolve().parents[1]/'homeassistant/custom_components/etcore
 spec=importlib.util.spec_from_file_location('health_profiles',ROOT/'health_profiles.py');model=importlib.util.module_from_spec(spec);spec.loader.exec_module(model)
 
 class Profiles(unittest.TestCase):
+    def test_thread_metadata_suppresses_wifi_signal(self):
+        p=model.describe_device({'hello':{'transport':'thread'},'rssi':-90})
+        self.assertEqual(p['kind'],'thread_device');self.assertEqual(p['transport'],'thread')
+        self.assertFalse(p['signal_valid']);self.assertFalse(p['signal_applicable']);self.assertIn('border router',p['check'])
+    def test_sleeping_thread_keeps_sleep_schedule(self):
+        p=model.describe_device({'hello':{'transport':'thread'},'sleep_interval':60})
+        self.assertEqual(p['kind'],'sleeping_sensor');self.assertTrue(p['sleep_schedule_known'])
+
     def test_zero_signal_does_not_mean_wifi_or_ethernet(self):
         p=model.describe_device({'rssi':0});self.assertEqual(p['kind'],'unknown');self.assertFalse(p['signal_valid'])
     def test_negative_signal_is_inferred_and_labelled(self):

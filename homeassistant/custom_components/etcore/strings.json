@@ -5,11 +5,16 @@
         "title": "ET-Core",
         "data": {
           "psk_hex": "Network key (64 hex characters, same as the devices)",
-          "port": "UDP port (default 5560, same as the devices)"
+          "port": "UDP port (default 5560, same as the devices)",
+          "enable_ipv6": "Enable IPv6 / Thread unicast (requires encryption key)"
         }
       }
     },
-    "error": { "invalid_psk": "The key must be exactly 64 hex characters (or empty for no encryption)." }
+    "error": {
+      "invalid_psk": "The key must be exactly 64 hex characters (or empty for no encryption).",
+      "invalid_ipv6": "Choose enabled or disabled.",
+      "ipv6_requires_key": "IPv6 requires a network encryption key."
+    }
   },
   "options": {
     "step": {
@@ -17,19 +22,30 @@
         "title": "ET-Core settings",
         "data": {
           "psk_hex": "Network key (64 hex characters, same as the devices)",
-          "port": "UDP port (default 5560, same as the devices)"
+          "port": "UDP port (default 5560, same as the devices)",
+          "enable_ipv6": "Enable IPv6 / Thread unicast (requires encryption key)"
         }
       }
     },
-    "error": { "invalid_psk": "The key must be exactly 64 hex characters (or empty for no encryption)." }
+    "error": {
+      "invalid_psk": "The key must be exactly 64 hex characters (or empty for no encryption).",
+      "invalid_ipv6": "Choose enabled or disabled.",
+      "ipv6_requires_key": "IPv6 requires a network encryption key."
+    }
   },
   "services": {
     "send_command": {
       "name": "Send command",
       "description": "Send a command payload to an ET-Core device (encrypted, acknowledged, retried).",
       "fields": {
-        "device_id": { "name": "Device id", "description": "The device's ET-Core id, e.g. relay4." },
-        "payload": { "name": "Payload", "description": "Command fields, e.g. {\"on\": true}." }
+        "device_id": {
+          "name": "Device id",
+          "description": "The device's ET-Core id, e.g. relay4."
+        },
+        "payload": {
+          "name": "Payload",
+          "description": "Command fields, e.g. {\"on\": true}."
+        }
       }
     }
   }

@@ -242,12 +242,57 @@ async def _ws_set_health_profile(hass: HomeAssistant, connection: websocket_api.
     connection.send_result(msg["id"], {"profile": msg["profile"]})
 
 
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "etcore/thread_bootstrap",
+    vol.Required("entry_id"): str,
+    vol.Required("dev_id"): vol.All(str, vol.Length(min=1, max=64)),
+    vol.Required("session"): vol.All(str, vol.Match(r"^[0-9a-f]{14}$")),
+    vol.Required("address"): str,
+})
+@websocket_api.require_admin
+@callback
+def _ws_thread_bootstrap(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Challenge a provisioned Thread peer from this hub's own IPv6 address.
+
+    Does not admit a device or import state. The peer must prove its key and
+    session using the ordinary encrypted handshake before it creates entities.
+    """
+    import ipaddress
+    import time
+    hub = (hass.data.get(DOMAIN) or {}).get(msg["entry_id"])
+    if hub is None or not hub._psk or not hub._enable_ipv6:
+        connection.send_error(msg["id"], "invalid_hub", "An encrypted IPv6 hub is required")
+        return
+    try:
+        address = ipaddress.IPv6Address(msg["address"])
+        if address.is_multicast or address.is_unspecified or address.is_link_local or address.is_loopback:
+            raise ValueError
+    except ValueError:
+        connection.send_error(msg["id"], "invalid_address", "Use a routable unicast Thread IPv6 address")
+        return
+    limits = hass.data.setdefault("etcore_thread_bootstrap_limits", {})
+    key = (msg["entry_id"], msg["dev_id"])
+    now = time.monotonic()
+    if key in limits and now - limits[key] < 10:
+        connection.send_error(msg["id"], "rate_limited", "Wait ten seconds before another challenge")
+        return
+    limits[key] = now
+    try:
+        hub._send_announce(str(address), hello=True, dev_id=msg["dev_id"],
+                           ds=msg["session"], ch=hub._make_challenge(msg["dev_id"], msg["session"], int(now)))
+    except OSError:
+        connection.send_error(msg["id"], "send_failed", "IPv6 challenge could not be sent")
+        return
+    connection.send_result(msg["id"], {"challenge_sent": True})
+
+
 async def async_setup_panel(hass: HomeAssistant) -> None:
     await _load_profiles(hass)
     if not hass.data.get(f"{DOMAIN}_panel_loaded"):
         hass.http.register_view(EtCoreHtmlView)
         hass.http.register_view(EtCoreDiagApiView)
-        for cmd in (_ws_diag, _ws_rename, _ws_remove, _ws_setup_info, _ws_set_health_profile):
+        for cmd in (_ws_diag, _ws_rename, _ws_remove, _ws_setup_info, _ws_set_health_profile, _ws_thread_bootstrap):
             websocket_api.async_register_command(hass, cmd)
         hass.data[f"{DOMAIN}_panel_loaded"] = True
 

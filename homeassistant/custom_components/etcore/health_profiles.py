@@ -7,6 +7,7 @@ PROFILES = {
     "wired_service": "Wired service",
     "wired_device": "Wired device",
     "wifi_device": "Wi-Fi device",
+    "thread_device": "Thread device",
     "sleeping_sensor": "Sleep-capable sensor",
     "unknown": "Unknown connection",
 }
@@ -20,7 +21,7 @@ def valid_signal(value: object) -> bool:
 def describe_device(device: dict, override: str = "auto") -> dict:
     hello = device.get("hello") if isinstance(device.get("hello"), dict) else {}
     transport = hello.get("transport")
-    transport = transport if transport in ("wifi", "ethernet") else "unknown"
+    transport = transport if transport in ("wifi", "ethernet", "thread") else "unknown"
     interval = device.get("sleep_interval")
     sleeps = (isinstance(interval, (int, float)) and not isinstance(interval, bool)
               and 0 < interval <= 0xFFFFFFFF and math.isfinite(interval))
@@ -32,6 +33,8 @@ def describe_device(device: dict, override: str = "auto") -> dict:
         kind, source = "sleeping_sensor", "sleep_schedule"
     elif hello.get("device_kind") == "service" or str(device.get("class", "")).startswith("service."):
         kind, source = ("wired_service" if transport == "ethernet" else "service"), "device_metadata"
+    elif transport == "thread":
+        kind, source = "thread_device", "device_metadata"
     elif transport in ("wifi", "ethernet"):
         kind, source = ("wifi_device" if transport == "wifi" else "wired_device"), "device_metadata"
     elif signal:
@@ -44,6 +47,8 @@ def describe_device(device: dict, override: str = "auto") -> dict:
         transport = "ethernet"
     elif kind == "wifi_device":
         transport = "wifi"
+    elif kind == "thread_device":
+        transport = "thread"
     elif kind == "sleeping_sensor" and signal and transport == "unknown":
         transport = "wifi"
     signal_applicable = transport == "wifi" and kind not in ("wired_service", "wired_device")
@@ -56,6 +61,9 @@ def describe_device(device: dict, override: str = "auto") -> dict:
     elif kind == "wired_device":
         check = "Check device restarts, Ethernet link and missed heartbeats. No Wi-Fi signal diagnosis applies."
         unavailable = "Device heartbeat missing"
+    elif kind == "thread_device":
+        check = "Check Thread attachment, the parent and border router, IPv6 reachability and missed heartbeats. Wi-Fi RSSI does not describe this Thread link."
+        unavailable = "Thread heartbeat missing"
     elif kind == "wifi_device":
         check = "Check restarts and missed heartbeats, then Wi-Fi association and the reported signal. Missing heartbeats alone do not prove a Wi-Fi or power fault."
         unavailable = "Device heartbeat missing"

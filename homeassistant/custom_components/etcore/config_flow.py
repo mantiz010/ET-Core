@@ -14,9 +14,10 @@ def _clean_psk(value: str | None) -> str:
     return re.sub(r"[^0-9a-fA-F]", "", str(value or "")).lower()
 
 
-def _schema(psk: str, port: int) -> vol.Schema:
+def _schema(psk: str, port: int, ipv6: bool = False) -> vol.Schema:
     return vol.Schema({
         vol.Optional(CONF_PSK_HEX, default=psk): str,
+        vol.Optional("enable_ipv6", default=ipv6): bool,
         vol.Required(CONF_PORT, default=port): vol.All(vol.Coerce(int), vol.Range(min=1024, max=65535)),
     })
 
@@ -25,7 +26,12 @@ def _validate(user_input: dict) -> tuple[dict, dict[str, str]]:
     psk = _clean_psk(user_input.get(CONF_PSK_HEX))
     if psk and len(psk) != 64:
         return {}, {CONF_PSK_HEX: "invalid_psk"}
-    return {CONF_PSK_HEX: psk, CONF_PORT: int(user_input.get(CONF_PORT) or PORT)}, {}
+    ipv6 = user_input.get("enable_ipv6", False)
+    if not isinstance(ipv6, bool):
+        return {}, {"enable_ipv6": "invalid_ipv6"}
+    if ipv6 and not psk:
+        return {}, {CONF_PSK_HEX: "ipv6_requires_key"}
+    return {CONF_PSK_HEX: psk, CONF_PORT: int(user_input.get(CONF_PORT) or PORT), "enable_ipv6": ipv6}, {}
 
 
 class EtCoreConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -57,6 +63,6 @@ class EtCoreOptionsFlow(config_entries.OptionsFlow):
                 return self.async_create_entry(title="", data=data)
         return self.async_show_form(
             step_id="init",
-            data_schema=_schema(str(current.get(CONF_PSK_HEX) or ""), int(current.get(CONF_PORT) or PORT)),
+            data_schema=_schema(str(current.get(CONF_PSK_HEX) or ""), int(current.get(CONF_PORT) or PORT), bool(current.get("enable_ipv6", False))),
             errors=errors,
         )
