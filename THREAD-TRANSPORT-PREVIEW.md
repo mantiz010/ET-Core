@@ -137,3 +137,28 @@ device's check that the advertised hub address matches the packet source.
 
 Live dashboard checks passed at phone and tablet widths. Local credentials,
 operational datasets and the private helper configuration are not published.
+
+## Direct HA candidate — preview 0.2
+
+The hub now sends encrypted session-bound unicast keepalives to known online,
+awake IPv6 peers on the configured announce cadence. IPv4 multicast behavior
+is unchanged. The C6 example prints its configured HA endpoint and test counter.
+Provision HUB_IPV6 to HA directly to remove the external bootstrap helper after
+a USB firmware upload; this is an explicit endpoint, not automatic DNS/SRP
+discovery. Offline, unproven, IPv4 and sleeping peers are skipped by the new
+periodic unicast sweep.34 focused host regressions passed, including actual
+encrypted IPv6 announce contents and periodic sweep invocation. The exact
+extended live HA candidate separately passed all 12 IPv6 tests.
+
+Physical keepalive check: the existing C6 remained online for 130 seconds with
+the Linux bootstrap helper stopped. Its counter advanced from 273 to 286 and
+all sampled decryption-failure counts were zero. This exceeds the SDK's
+100-second hub-silence deadline. That proves native keepalive on the tested
+path; the installed 0.1 firmware still needs the original helper after a C6
+power cycle until the direct-HA 0.2 firmware is USB-uploaded.
+
+With the helper still stopped, reloading only the HA Thread test entry
+re-established authenticated readings and advancing counters in 15.06 seconds
+with zero decryption failures. No main entry or production device was reloaded
+for this recovery check. This is a hub-instance restart test, not a radio
+reparenting or C6 power-cycle test.

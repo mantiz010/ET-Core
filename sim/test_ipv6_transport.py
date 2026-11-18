@@ -40,6 +40,36 @@ class IPv6Transport(unittest.IsolatedAsyncioTestCase):
   seq=2;nonce=b'\x01'+self.session+seq.to_bytes(4,'little');ack=json.dumps({'cmd_id':plain['cmd_id'],'ok':True}).encode();out=ChaCha20Poly1305(key).encrypt(nonce,ack,b'v1|ack|v6test|2');enc=lambda b:base64.b64encode(b).decode()
   msg={'v':1,'type':'ack','id':'v6test','class':'sensor.temperature','seq':seq,'payload':{'_enc':1,'n':enc(nonce),'ct':enc(out[:-16]),'tag':enc(out[-16:])}}
   await self.send(json.dumps(msg).encode());self.assertEqual(self.hub.devices['v6test']['stats']['acked'],1);self.assertEqual(self.hub._pending,{})
+ async def test_ipv6_keepalive_is_encrypted_and_session_bound(self):
+  self.seed();await self.send(self.packet());self.hub.devices['v6test']['online']=True
+  original=self.hub._send_raw
+  self.hub._send_raw=lambda data,addr:original(data,self.client.getsockname())
+  self.hub._announce_ipv6_peers()
+  raw=await asyncio.wait_for(asyncio.get_running_loop().sock_recv(self.client,4096),1)
+  msg=json.loads(raw);p=msg['payload'];decode=lambda s:base64.b64decode(s)
+  key=hashlib.sha256(self.key+b'v6test').digest()
+  plain=json.loads(ChaCha20Poly1305(key).decrypt(decode(p['n']),decode(p['ct'])+decode(p['tag']),f"v1|announce|v6test|{msg['seq']}".encode()))
+  self.assertEqual(plain['hub'],'::1');self.assertEqual(plain['_ds'],self.session.hex());self.assertFalse(plain['hello'])
+ async def test_ipv6_keepalive_skips_ipv4_sleeping_offline_unproven(self):
+  base={'online':True,'last_addr':'::1','rx_session':self.session.hex()}
+  self.hub._devices={'v4':dict(base,last_addr='127.0.0.1'),'sleep':dict(base,sleep_interval=60),'offline':dict(base,online=False),'unproven':dict(base,rx_session=None)}
+  sent=[];self.hub._send_announce=lambda *a,**k:sent.append((a,k))
+  self.hub._announce_ipv6_peers();self.assertEqual(sent,[])
+ async def test_keepalive_runs_on_periodic_announce(self):
+  # The already-running announcer task must invoke the IPv6 peer sweep too.
+  from unittest.mock import patch
+  await self.hub.async_stop()
+  calls=[]
+  self.hub._send_announce=lambda *a,**k:calls.append(('v4',k))
+  self.hub._announce_ipv6_peers=lambda:calls.append(('v6',{}))
+  count=0
+  async def step(_):
+   nonlocal count
+   count+=1
+   if count>1:raise asyncio.CancelledError
+  with patch('asyncio.sleep',step):
+   with self.assertRaises(asyncio.CancelledError):await self.hub._announcer()
+  self.assertEqual([k for k,v in calls],['v4','v4','v6'])
  async def test_shutdown_closes_both_sockets(self):
   v4=self.hub._transport;v6=self.hub._transport6;await self.hub.async_stop();self.assertTrue(v4.is_closing());self.assertTrue(v6.is_closing());self.assertIsNone(self.hub._transport6)
  async def test_ipv4_still_receives_state_with_ipv6_enabled(self):

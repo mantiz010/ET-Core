@@ -3,7 +3,8 @@
 This is an always-awake, encrypted ET-Core counter test over OpenThread IPv6 UDP.
 No WiFi association, sensors, actuator GPIO or automatic new Thread network.
 The operational dataset joins an existing network. A reachable hub IPv6 address
-and matching isolated test key are required. Thread is not Matter.
+and matching isolated test key are required. Set HUB_IPV6 directly to the HA
+host reachable from Thread, rather than a temporary Linux test receiver. Thread is not Matter.
 
 ## Before uploading
 
@@ -38,8 +39,8 @@ It requires encryption to have been configured and forbids an existing sleep
 profile. Default WiFi/IPv4 behavior remains the default. The adapter replaces
 socket ownership and bootstrap destination, while ETCore retains encrypted
 messages, session challenges, acknowledgements and replay checks. Thread hello
-and lease packets report transport=thread and omit WiFi RSSI. The current
-Home Assistant health-profile implementation does not yet infer a Thread role.
+and lease packets report transport=thread and omit WiFi RSSI. The preview Home Assistant health profile labels this transport Thread; it does
+not infer the Thread parent/router role or invent a WiFi RSSI.
 
 The 1024-byte cap bounds outgoing datagrams and the receive queue (depth 4).
 It is not a promise of one radio frame: 6LoWPAN can fragment it. The installed
@@ -58,3 +59,18 @@ matching SDK/crypto source inside the sketch src folder. It uses relative
 includes and does not require replacing an older installed ETCore library.
 Extract to a new folder and retain src and build_opt.h. ArduinoJson 7 and the
 ESP32 board package are still external prerequisites. Public ZIP has placeholders.
+
+## Direct HA bootstrap — preview 0.2
+
+Use the HA host IPv6 address as HUB_IPV6 with the matching encrypted test entry.
+The hub sends per-device encrypted announcements every 30 seconds to known awake
+IPv6 peers, so they do not depend on IPv4 multicast keepalives. Offline,
+unproven and sleeping peers are excluded. After a restart, the node sends its
+initial encrypted packets directly to HA and completes ordinary session proof.
+The bootstrap address is explicitly configured, not dynamically discovered.
+If HA's IPv6 address changes, update that setting. This is not Thread OTA.
+
+The configured private direct-HA sketch clean-compiled for the same exact C6
+FQBN with unchanged source: 1,212,970 program bytes and 87,248 static RAM bytes.
+A USB upload and direct-boot hardware test remain required before claiming that
+firmware version deployed. Existing HA entity/device identifiers are unchanged.

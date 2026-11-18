@@ -591,6 +591,23 @@ class EtCoreHub:
         while True:
             await asyncio.sleep(ANNOUNCE_INTERVAL)
             self._send_announce(MULTICAST_GROUP, hello=False)
+            self._announce_ipv6_peers()
+
+    def _announce_ipv6_peers(self) -> None:
+        """Refresh known awake IPv6 peers without relying on IPv4 multicast.
+
+        Only already-proven, online peers receive a per-device encrypted
+        announcement. Sleeping peers are contacted at their normal wake.
+        """
+        if not self._enable_ipv6 or not self._transport6 or not self._psk:
+            return
+        for dev_id, dev in tuple(self._devices.items()):
+            target = dev.get("last_addr")
+            if (not dev.get("online") or not dev.get("rx_session")
+                    or dev.get("sleep_interval") or not isinstance(target, str)
+                    or ":" not in target):
+                continue
+            self._send_announce(target, hello=False, dev_id=dev_id)
 
     def _source_ip(self, target: str) -> str:
         """The address our packets to target leave from (what the device sees)."""
