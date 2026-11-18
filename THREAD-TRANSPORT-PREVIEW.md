@@ -162,3 +162,12 @@ re-established authenticated readings and advancing counters in 15.06 seconds
 with zero decryption failures. No main entry or production device was reloaded
 for this recovery check. This is a hub-instance restart test, not a radio
 reparenting or C6 power-cycle test.
+
+## Preview 0.2 upload confirmed — 18 November 2026
+
+The owner uploaded the configured direct-HA 0.2 sketch over USB. HA observed the
+new firmware version and fresh authenticated session. With the Linux helper
+stopped and disabled, a 130-second observation stayed online throughout, the
+counter advanced 10->23, and decryption failures remained zero. All existing
+ET-Core entity IDs were preserved. A separate post-disable power-cycle test
+was requested but not observed yet; it is not included in these results.
