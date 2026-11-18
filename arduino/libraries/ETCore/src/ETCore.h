@@ -7,7 +7,7 @@
 #include "ETCoreTransport.h"
 #include <ETChaCha20Poly1305.h>
 
-#define ETCORE_LIBRARY_VERSION "0.4.9-alpha.1"
+#define ETCORE_LIBRARY_VERSION "0.4.9-alpha.2"
 #ifndef ETCORE_DEFAULT_PORT
 #define ETCORE_DEFAULT_PORT 5560
 #endif
@@ -58,6 +58,7 @@ public:
   bool enableEncryptionHex(const char* psk_hex);
   void disableEncryption();
   bool encryptionEnabled() const;
+  bool hubConfirmed() const { return _hubConfirmed; }
 
   void sendHello();
   void sendLease();

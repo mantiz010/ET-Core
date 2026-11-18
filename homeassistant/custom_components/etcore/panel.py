@@ -292,6 +292,8 @@ async def async_setup_panel(hass: HomeAssistant) -> None:
     if not hass.data.get(f"{DOMAIN}_panel_loaded"):
         hass.http.register_view(EtCoreHtmlView)
         hass.http.register_view(EtCoreDiagApiView)
+        from .thread_ota_view import ThreadOTAView
+        hass.http.register_view(ThreadOTAView)
         for cmd in (_ws_diag, _ws_rename, _ws_remove, _ws_setup_info, _ws_set_health_profile, _ws_thread_bootstrap):
             websocket_api.async_register_command(hass, cmd)
         hass.data[f"{DOMAIN}_panel_loaded"] = True

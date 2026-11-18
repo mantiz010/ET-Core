@@ -34,6 +34,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Options (changed later in the UI) override what was entered at setup.
     hub = EtCoreHub(hass, {**entry.data, **entry.options}, counter_store=_CmdSeqStore(hass, entry.entry_id))
     await hub.async_start()
+    # Keep this preview isolated to opt-in IPv6 entries. A broken update-history
+    # file disables uploading; it must never stop ordinary device traffic.
+    if hub._enable_ipv6:
+        try:
+            from .thread_ota import ThreadOTA
+            ota_store=Store(hass,1,f"etcore_thread_ota_{entry.entry_id}")
+            saved_ota=await ota_store.async_load() or {}
+            hub.thread_ota=ThreadOTA(hub,persist=ota_store.async_save)
+            hub.thread_ota.restore(saved_ota)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("Thread OTA history unavailable; uploads disabled")
+            hub.thread_ota=None
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = hub

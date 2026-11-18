@@ -81,6 +81,9 @@ def _event_payload(dev_class: str, payload: dict[str, Any]) -> Any:
         for key in ("url", "text"):
             if key in payload:
                 payload[key] = "<redacted>"
+    if dev_class == "firmware.ota" and "data" in payload:
+        payload = dict(payload)
+        payload["data"] = "<firmware chunk omitted>"
     return _small(payload)
 
 
@@ -202,6 +205,8 @@ class EtCoreHub:
         self._tasks.append(self.hass.loop.create_task(self._announcer()))
 
     async def async_stop(self) -> None:
+        if getattr(self, "thread_ota", None):
+            await self.thread_ota.close()
         for task in self._tasks:
             task.cancel()
         self._tasks.clear()
@@ -780,7 +785,7 @@ class EtCoreHub:
             self.hass.loop.create_task(self._counter_store.async_save(self._seq_reserved))
         return self._seq
 
-    def send_command(self, dev_id: str, dev_class: str, payload: dict[str, Any]) -> None:
+    def send_command(self, dev_id: str, dev_class: str, payload: dict[str, Any]) -> str | None:
         """Send a command and keep resending until the device acks it.
 
         The hub assigns cmd_id. A resend uses a new seq (devices drop old ones) but
@@ -803,6 +808,7 @@ class EtCoreHub:
         self._add_event({"dir": "tx", "type": "command", "id": dev_id, "class": dev_class,
                          "cmd_id": cmd_id, "payload": _event_payload(dev_class, payload)})
         self._transmit(cmd_id, first=True)
+        return cmd_id
 
     def _transmit(self, cmd_id: str, first: bool = False) -> None:
         pend = self._pending.get(cmd_id)
@@ -838,7 +844,7 @@ class EtCoreHub:
                          "cmd_id": cmd_id, "tries": pend["tries"]})
         self.hass.bus.async_fire("etcore_command_failed", {
             "id": pend["dev_id"], "class": pend["class"], "cmd_id": cmd_id,
-            "payload": {k: v for k, v in pend["payload"].items() if k != "cmd_id"},
+            "payload": _event_payload(pend["class"], {k: v for k, v in pend["payload"].items() if k != "cmd_id"}),
         })
         self._warn_limited(f"cmdfail:{pend['dev_id']}",
                            "ET-Core command to %s not acknowledged after %d tries",

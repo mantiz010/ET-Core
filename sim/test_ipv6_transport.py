@@ -70,6 +70,11 @@ class IPv6Transport(unittest.IsolatedAsyncioTestCase):
   with patch('asyncio.sleep',step):
    with self.assertRaises(asyncio.CancelledError):await self.hub._announcer()
   self.assertEqual([k for k,v in calls],['v4','v4','v6'])
+ async def test_firmware_chunk_fits_thread_datagram_cap(self):
+  self.seed();self.hub._devices['v6test']['last_addr']='::1';sent=[]
+  self.hub._send_raw=lambda data,addr:sent.append(data)
+  self.hub.send_command('v6test','firmware.ota',{'op':'chunk','transfer':'ab'*16,'offset':1200000,'data':base64.b64encode(b'x'*192).decode()})
+  self.assertEqual(len(sent),1);self.assertLessEqual(len(sent[0]),1024)
  async def test_shutdown_closes_both_sockets(self):
   v4=self.hub._transport;v6=self.hub._transport6;await self.hub.async_stop();self.assertTrue(v4.is_closing());self.assertTrue(v6.is_closing());self.assertIsNone(self.hub._transport6)
  async def test_ipv4_still_receives_state_with_ipv6_enabled(self):

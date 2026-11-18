@@ -1394,6 +1394,27 @@
   });
 
   // ---- Device management --------------------------------------------------------------
+  async function updateFirmware(id) {
+    if (!isAdmin()) return;
+    const d=S.byId[id], cap=d?.hello?.ota;
+    if (!d?.online || cap?.protocol!=="etcore-chunk-v1" || !cap.ready) return toast("This device needs the OTA receiver first",true);
+    try {
+      const accepted=await modal(`<div class="mh">Firmware update</div><div class="mb"><p>Select a reviewed application BIN for <strong>${esc(devName(d))}</strong>.</p><p>Board: <strong>${esc(cap.board)}</strong> · installed ${esc(d.fw)}</p><label for="ota-image">Application BIN</label><input class="field" id="ota-image" type="file" accept=".bin"><label for="ota-version">Target firmware version</label><input class="field" id="ota-version" maxlength="64" placeholder="Version from the firmware build"><p class="muted">Use the application BIN, never a merged image or bootloader. The device verifies the complete image before activating it. Keep power connected.</p></div><div class="mf"><button class="btn" data-m="cancel">Cancel</button><button class="btn primary" data-m="ok">Review image</button></div>`);
+      if (!accepted) return;
+      const file=$("ota-image").files[0],version=$("ota-version").value.trim();
+      if (!file || !version) return toast("Select a BIN and enter its target version",true);
+      if (file.size>Math.min(Number(cap.max_image_size)||0,4*1024*1024)) return toast("Image is too large for this device",true);
+      const endpoint=`/etcore/api/thread_ota/${encodeURIComponent(S.hub.entry_id)}/${encodeURIComponent(id)}/`;
+      const response=await hass().fetchWithAuth(endpoint+`prepare?board=${encodeURIComponent(cap.board)}&version=${encodeURIComponent(version)}`,{method:"POST",headers:{"Content-Type":"application/octet-stream"},body:file});
+      const review=await response.json();if(!response.ok)throw new Error(review.error||"Image review failed");
+      const confirm=await modal(`<div class="mh">Install reviewed firmware?</div><div class="mb"><p><strong>${esc(devName(d))}</strong></p><div class="kv">${kvRows([["Board",review.board],["Version",`${review.original_version} → ${review.version}`],["Image bytes",review.size],["SHA256",review.sha256]])}</div><p>The transfer uses encrypted Thread commands. Installation restarts this C6. Success requires the expected new version and a health acknowledgement.</p></div><div class="mf"><button class="btn" data-m="cancel">Cancel</button><button class="btn primary" data-m="ok">Install firmware</button></div>`);
+      if(!confirm)return;
+      const install=await hass().fetchWithAuth(endpoint+"install",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({plan_id:review.plan_id,sha256:review.sha256,confirm:true})});
+      const result=await install.json();if(!install.ok)throw new Error(result.error||"Installation could not start");
+      toast("Firmware transfer started. Keep the C6 powered.");await poll();
+    }catch(e){toast(e.message||"Firmware update failed",true);}
+  }
+
   async function editHealthProfile(id) {
     const d = S.byId[id]; if (!d || !isAdmin()) return;
     const entryId = S.hub.entry_id;
@@ -1717,6 +1738,7 @@ etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
       ["Signal", sg.w ? `${sg.t} (${sg.w})` : sg.t],
       ["Uptime", d.online ? dur(uptimeSec(d.uptime)) : "—"],
       ["Firmware", d.fw || "—"],
+      ...(d.ota_job ? [["Firmware update", `${d.ota_job.phase} · ${d.ota_job.progress}%${d.ota_job.error ? " · "+d.ota_job.error : ""}`]] : []),
       ["Library", (d.hello || {}).lib || "—"],
       ["Name the device reports", d.name || "—"],
       ["Lease", `${d.lease_ttl || "?"} s${d.online ? `, ${Math.max(0, d.expires_in || 0).toFixed(1)} s left` : ""}`],
@@ -1737,6 +1759,7 @@ etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
     $("d-body").innerHTML = `
       <div class="actions">
         ${admin ? `<button class="btn" data-dact="rename">Rename</button><button class="btn" data-dact="profile">Device type</button>` : ""}
+        ${admin && d.hello?.ota?.ready && d.hello?.ota?.protocol==="etcore-chunk-v1" ? `<button class="btn" data-dact="firmware" ${!d.online || ["preparing","transferring","verifying","rebooting","checking_health"].includes(d.ota_job?.phase) ? "disabled" : ""}>Firmware update</button>` : ""}
         ${d.ha_device_id ? `<button class="btn" data-dact="ha">Open in Home Assistant</button>` : ""}
         <button class="btn" data-dact="log">Show in live log</button>
         <button class="btn" data-dact="copy">Copy JSON</button>
@@ -1759,6 +1782,7 @@ etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
     const d = S.byId[S.drawer];
     if (!d) return;
     const a = b.dataset.dact;
+    if (a === "firmware") updateFirmware(d.id);
     if (a === "profile") editHealthProfile(d.id);
     if (a === "rename") renameDevice(d.id);
     if (a === "remove") removeDevice(d.id);

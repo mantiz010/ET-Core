@@ -1,6 +1,6 @@
 <p align="center">
 
-> **Battery development branch:** SDK **0.4.8-beta.2**, hub sleep protocol **2** (based on 0.4.7; not a tagged release). Experimental; C3 timer-wake tested, broader hardware validation pending. Read [battery preview limits and next steps](BATTERY-PREVIEW.md) before using it.
+> **Thread OTA development preview:** SDK **0.4.9-alpha.2**, based on the battery/Thread development branch; not a tagged release. Native Thread readings and keepalive have hardware evidence. Thread OTA is compiled and host-tested; a real firmware transfer and physical rollback remain pending. See [Thread OTA safeguards and evidence](THREAD-OTA-PREVIEW.md), [Thread transport](THREAD-TRANSPORT-PREVIEW.md) and [battery limits](BATTERY-PREVIEW.md).
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/img/electronicstech-logo-dark.png">
     <img src="docs/img/electronicstech-logo.png" alt="ElectronicsTech" width="420">
