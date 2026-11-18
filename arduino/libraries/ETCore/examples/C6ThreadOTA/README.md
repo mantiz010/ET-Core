@@ -20,4 +20,6 @@ merged image or bootloader in the HA Firmware update dialog: it accepts only a
 reviewed application BIN for this receiver. Install actions restart the C6.
 
 See [Thread OTA design, safeguards and evidence](../../../../../THREAD-OTA-PREVIEW.md).
-This prototype is compiled and host-tested; physical OTA/rollback remain pending.
+This prototype is compiled and host-tested. The first real C6 transfer from
+receiver 0.3 to 0.4 succeeded, including new boot and health acknowledgement.
+Deliberate power-interruption and physical rollback tests remain pending.

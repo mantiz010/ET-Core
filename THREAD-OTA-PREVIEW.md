@@ -91,6 +91,26 @@ entities and their IDs are unchanged by this feature.
 - Phone (412px) and tablet (1280px) UI checks passed, with all installation calls
   intercepted. Review alone did not install; nonadmin controls were hidden.
 
-A real Thread firmware transfer, power interruption and hardware rollback are
-NOT yet verified. No production firmware or installed global library is changed
+The first real Thread firmware transfer is verified below. Power interruption
+and hardware rollback are NOT yet verified. No production firmware or installed global library is changed
 by opening this branch or installing its HA server code.
+
+## First physical Thread OTA — 18 November 2026
+
+The owner installed receiver 0.3 over USB, then explicitly authorised the OTA
+test to 0.4. The real C6 accepted all 1,222,944 application bytes through the
+encrypted stop-and-wait protocol, verified the full image before activation,
+rebooted into 0.4 in a new authenticated session, and returned the post-boot
+health ACK. The updater reported succeeded at 100 percent.
+
+Measured wall time from accepted job to verified health was 862.347 seconds,
+about 14.4 minutes, averaging 1418.2 application bytes/s. This conservative
+first implementation prioritises ordered writes and per-chunk acknowledgement;
+it is not a performance comparison with ESPHome and is not a WiFi-speed claim.
+The device kept publishing during the transfer. Failed commands and decryption
+failures were zero; this does not imply there were no packet retries.
+
+The application transfer and successful boot/health path now have physical
+evidence. No deliberate power cut, corrupted-image flash or physical rollback
+test was performed. Configured firmware, device credentials, addresses, image
+bytes and raw diagnostic snapshots remain private.
