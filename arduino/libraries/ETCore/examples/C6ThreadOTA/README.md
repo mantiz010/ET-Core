@@ -31,3 +31,7 @@ HA sender, which negotiates this mode and keeps old receivers serial. Missing
 begin negotiation fields retain the 192/window 1 default. The faster mode is
 host-tested and exact-target compiled; physical speed measurement is pending.
 Existing 0.4 can acquire 0.5 over OTA before the separate 0.6 speed benchmark.
+
+The physical 288/window2 experiment failed before activation. The Git sender now
+defaults to 192/window1; the receiver remains compatible with that profile. See
+[measured results](../../../../../THREAD-OTA-SPEED-PREVIEW.md). No speed gain is claimed.

@@ -20,6 +20,9 @@ MAX_IMAGE = 4 * 1024 * 1024
 CHUNK = 192
 FAST_CHUNK = 288
 MAX_WINDOW = 2
+# Physical 288/window2 test failed; keep automatic installs on the proven profile.
+# This switch is for controlled regression testing, not a user-facing speed claim.
+ENABLE_WINDOWED_PREVIEW = False
 TOKEN = re.compile(r'[A-Za-z0-9_.+-]{1,64}\Z')
 ACTIVE = {'preparing', 'transferring', 'verifying', 'rebooting', 'checking_health'}
 
@@ -44,7 +47,7 @@ def validate_image(image: bytes, *, board: str, version: str, capability: dict, 
     if (version.encode()+b'\0' not in image or board.encode()+b'\0' not in image
             or PROTOCOL.encode()+b'\0' not in image):
         raise ValueError('Image must contain the reviewed version, board and OTA receiver')
-    return {'board':board,'version':version,'size':len(image),'sha256':hashlib.sha256(image).hexdigest(),'chunk_size':maximum,'window':window}
+    return {'board':board,'version':version,'size':len(image),'sha256':hashlib.sha256(image).hexdigest(),'chunk_size':maximum if ENABLE_WINDOWED_PREVIEW else CHUNK,'window':window if ENABLE_WINDOWED_PREVIEW else 1}
 
 
 class ThreadOTA:
@@ -148,7 +151,7 @@ class ThreadOTA:
             job.update(phase='interrupted',error='Update interrupted; receiver timeout or boot verification required')
             raise
         except Exception as exc:
-            job.update(phase='unconfirmed' if job.get('commit_sent') else 'failed',error=str(exc))
+            job.update(phase='unconfirmed' if job.get('commit_sent') else 'failed',error=str(exc) or type(exc).__name__)
             if not job.get('commit_sent'):
                 try:await self.command(dev_id,{'op':'abort','transfer':transfer})
                 except Exception:pass

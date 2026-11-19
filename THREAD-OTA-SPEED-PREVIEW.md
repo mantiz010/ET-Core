@@ -2,14 +2,16 @@
 
 The accepted baseline transferred a 1,222,944-byte C6 application in 862.347s,
 about 1,418 application bytes/s. Command round trips averaged about 133ms. That
-baseline is physical evidence; the new speed candidate below is not yet a
-Thread radio benchmark.
+baseline is physical evidence. A subsequent physical test of the new profile
+failed before activation; it is not a successful speed improvement.
 
 ## Changes
 
 - New receivers advertise a maximum 288-byte chunk and a two-chunk window.
-- The HA sender negotiates the supported profile. Existing 192-byte receivers
-  without a window advertisement keep the original serial behavior.
+- After the physical failure below, the Git sender defaults to 192-byte chunks /
+  window 1 even when a receiver advertises 288 / 2. Windowed selection is disabled
+  by default; its implementation remains available only for controlled tests.
+  Existing 192-byte receivers keep the original serial behavior.
 - A new receiver still accepts an unextended begin as 192 bytes/window 1. For
   explicit negotiation, only reviewed chunk sizes 192/288 and windows 1/2 are
   accepted. An old HA sender with an exact 192-byte capability check must be
@@ -50,27 +52,47 @@ host-test results only; actual Thread fragmentation, radio scheduling and flash
 latency can change or eliminate that gain. Largest supported 64-character IDs
 and 288-byte encrypted command packets passed the 1024-byte datagram limit test.
 
-## Proposed physical test
+## Physical tests — 19 November 2026
 
-The live C6 remains on verified 0.4; no live firmware or server code was changed
-while preparing this candidate. The staged receiver is 0.5, followed by an exact
-separate 0.6 application image for measuring the new transfer profile.
+Both tests were explicitly authorised and used the same ESP32-C6, direct encrypted
+Thread link, board target and 1,224,448-byte application size. Only the HA OTA
+coordinator was upgraded, after a configuration backup and HA configuration check.
 
-1. Back up and install the compatible HA sender, retaining the existing entry,
-   keys and entity IDs. Current 0.4 still uses 192/window 1.
-2. Explicitly authorised OTA 0.4→0.5 installs the new receiver using that existing
-   serial profile. This first pass is not the speed benchmark.
-3. Verify 0.5, its new session, health ACK, chunk/window advertisement and normal
-   readings. Then an explicitly authorised OTA 0.5→0.6 can measure the new mode.
-4. Compare application bytes per second, verification/boot time, command failures
-   and reading continuity with the accepted baseline. Do not claim a gain from
-   host timings, or claim hardware rollback/power-cut tests have been performed.
+| Transfer | Profile | Result | Measured duration |
+| --- | --- | --- | --- |
+| 0.4 → 0.5 | 192 bytes / window 1 | Succeeded, new authenticated boot and health ACK | 893.908s (14m 54s), 1,369.8 application bytes/s |
+| 0.5 → 0.6 | 288 bytes / window 2 | Failed at 694,080 acknowledged bytes (56%); no activation | 778.679s until failure; not a completed-image speed result |
 
-Both updates can use the existing OTA path; no USB reflash is needed for this
-plan. Configured source, images, keys, addresses and raw snapshots stay private.
+The serial pass recorded zero failed commands. The windowed pass accumulated 147
+hub command failures, while decryption failures stayed at zero. Captured events
+show positive ACKs arriving after the hub's three-attempt, approximately 0.9-second
+retry horizon. Retransmissions and late replies are an observed problem; this
+capture alone does not isolate every underlying radio or scheduling cause.
+Ultimately a command exceeded the OTA coordinator's eight-second wait. Its empty
+exception string produced a blank UI error; the Git candidate now reports the
+exception type when no message is present, with a regression test.
 
-Verification for this candidate: 125 broad regressions passed in 207.128s.
-The final focused IPv6 packet-budget suite passed 14 tests, including the added
-maximum-ID case. The full-run injected-latency comparison was 1.315s serial
-versus 0.558s windowed (2.36x), again a host-model result. No live C6 or HA
-server update has been performed while preparing these files.
+The failed transfer sent abort and never sent commit. The device remained online
+on 0.5 in the same authenticated session, with its test counter advancing after
+failure. Home Assistant was RUNNING, all eight production devices were online,
+and all 232 existing ET-Core entity IDs were unchanged. No third update was
+attempted. A successful 0.6 boot, physical power-cut and rollback fault tests have
+**not** been demonstrated.
+
+The 288/window2 mode is therefore **not recommended** as a speed improvement.
+The Git sender now selects the proven serial profile by default. This safety
+change is tested in source; the live sender used for the measurement has not been
+reloaded with it, and no further live OTA is running. Timing and congestion policy
+need further work before another explicitly authorised hardware test.
+
+Configured source, firmware images, keys, addresses and raw snapshots stay private.
+Only this generic measured summary is published.
+
+## Verification
+
+Before the physical tests, 125 broad regressions passed in 207.128s, and the final
+focused IPv6 packet-budget suite passed 14 tests. Following the failure, all 21
+OTA coordinator tests passed, including serial fallback on a fast-capable receiver
+and a visible timeout error without activation. The injected-latency host model
+still shows about 2.37x; the physical failure demonstrates why that is **not** a
+radio performance claim.

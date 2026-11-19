@@ -1,5 +1,6 @@
 import asyncio,base64,copy,hashlib,importlib,json,struct,sys,types,unittest
 from pathlib import Path
+from unittest.mock import patch
 R=Path(__file__).resolve().parents[1]/'homeassistant/custom_components/etcore'
 pkg=types.ModuleType('thread_ota_tests');pkg.__path__=[str(R)];sys.modules[pkg.__name__]=pkg
 m=importlib.import_module(pkg.__name__+'.thread_ota')
@@ -69,6 +70,12 @@ class Transfer(unittest.IsolatedAsyncioTestCase):
   async def fail(_):raise OSError('disk failure')
   self.manager.persist=fail;self.install(self.prepare());await self.manager.tasks['bench']
   self.assertNotIn('begin',[p['op'] for p in self.hub.sent]);self.assertEqual(self.manager.jobs['bench']['phase'],'failed')
+ async def test_timeout_has_visible_error_and_does_not_activate(self):
+  async def timeout(dev,payload):
+   if payload['op']!='abort':raise asyncio.TimeoutError()
+  self.manager.command=timeout
+  self.install(self.prepare());await self.manager.tasks['bench']
+  job=self.manager.jobs['bench'];self.assertEqual(job['phase'],'failed');self.assertEqual(job['error'],'TimeoutError');self.assertFalse(job.get('commit_sent',False))
  async def test_restored_active_jobs_are_interrupted(self):
   self.manager.restore({'bench':{'phase':'transferring','progress':20}})
   self.assertEqual(self.manager.jobs['bench']['phase'],'interrupted');self.assertEqual(self.hub.devices['bench']['ota_job']['phase'],'interrupted');self.assertEqual(self.hub.sent,[])
@@ -93,8 +100,9 @@ class WindowTests(unittest.IsolatedAsyncioTestCase):
  async def run_transfer(self,fast,reject=None):
   hub=LatencyHub(fast);hub.reject=reject;manager=m.ThreadOTA(hub)
   try:
-   plan=manager.prepare('bench',image(16384),BOARD,VERSION,'admin')
-   start=asyncio.get_running_loop().time();manager.install('bench',plan['plan_id'],plan['sha256'],'admin');await manager.tasks['bench'];elapsed=asyncio.get_running_loop().time()-start
+   with patch.object(m,'ENABLE_WINDOWED_PREVIEW',True):
+    plan=manager.prepare('bench',image(16384),BOARD,VERSION,'admin')
+    start=asyncio.get_running_loop().time();manager.install('bench',plan['plan_id'],plan['sha256'],'admin');await manager.tasks['bench'];elapsed=asyncio.get_running_loop().time()-start
    return hub,manager.jobs['bench'],elapsed
   finally:await manager.close()
  async def test_legacy_stays_serial_and_fast_window_is_bounded(self):
@@ -107,6 +115,10 @@ class WindowTests(unittest.IsolatedAsyncioTestCase):
  async def test_negative_ack_settles_window_before_abort(self):
   hub,job,_=await self.run_transfer(True,'chunk');self.assertEqual(job['phase'],'failed');self.assertNotIn('commit',[p['op'] for p in hub.sent]);self.assertEqual(hub.inflight,0);self.assertEqual(hub.sent[-1]['op'],'abort')
 class WindowValidation(unittest.TestCase):
+ def test_advertised_fast_receiver_defaults_to_proven_serial_profile(self):
+  cap=dict(device()['hello']['ota'],max_chunk=288,max_window=2)
+  plan=m.validate_image(image(),board=BOARD,version=VERSION,capability=cap,current='old')
+  self.assertEqual((plan['chunk_size'],plan['window']),(192,1))
  def test_invalid_advertised_window_or_chunk_rejected(self):
   for fields in [{'max_chunk':True},{'max_chunk':512},{'max_window':0},{'max_window':3},{'max_window':True}]:
    cap=dict(device()['hello']['ota'],**fields)
