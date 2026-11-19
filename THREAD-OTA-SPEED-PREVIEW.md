@@ -75,15 +75,15 @@ exception type when no message is present, with a regression test.
 The failed transfer sent abort and never sent commit. The device remained online
 on 0.5 in the same authenticated session, with its test counter advancing after
 failure. Home Assistant was RUNNING, all eight production devices were online,
-and all 232 existing ET-Core entity IDs were unchanged. No third update was
-attempted. A successful 0.6 boot, physical power-cut and rollback fault tests have
-**not** been demonstrated.
+and all 232 existing ET-Core entity IDs were unchanged. No additional update was attempted during that experiment. A successful 0.6 boot
+was not demonstrated by the windowed test; the later serial recovery is recorded
+below. Physical power-cut and rollback fault tests remain **not demonstrated**.
 
 The 288/window2 mode is therefore **not recommended** as a speed improvement.
-The Git sender now selects the proven serial profile by default. This safety
-change is tested in source; the live sender used for the measurement has not been
-reloaded with it, and no further live OTA is running. Timing and congestion policy
-need further work before another explicitly authorised hardware test.
+The Git sender now selects the proven serial profile by default. At the end of that experiment this safety change was source-tested only. The
+subsequent explicitly authorised serial recovery below deployed it together with
+the timing repair. Windowed timing and congestion policy still need further work
+before another explicitly authorised hardware test.
 
 Configured source, firmware images, keys, addresses and raw snapshots stay private.
 Only this generic measured summary is published.
@@ -109,10 +109,31 @@ firmware receiver, encryption or activation policy changes.
 Deterministic tests run the real hub retry state machine with one-second ACKs,
 a lost initial reply, complete reply loss, wrong-device ACKs and unchanged normal
 command timing. IPv6 loopback and OTA coordinator/view tests passed too (48 total).
-This repair is source-tested, **not yet deployed or tested on the Thread radio**.
-The windowed preview remains disabled by default. No further hardware flash has
-been performed.
+These were source-test results before deployment. The later live serial check is
+recorded below; the windowed preview remains disabled by default.
 
 The full isolated simulator regression passed **134 tests in 207.851s**, including
 the timing repair, encrypted command delivery, duplicate suppression, sleeping
 node recovery and IPv6. No live hardware was changed during this repair.
+
+## Deployed serial recovery — 19 November 2026
+
+After explicit approval, the live Home Assistant component and storage were backed
+up. Only the reviewed retry-timing delta was applied to the existing live hub;
+private production features were retained. The coordinator's serial fallback and
+visible timeout error were installed too. Python syntax and Home Assistant's
+configuration check passed before a single restart. All eight production devices
+and all 232 entity IDs were checked before installation.
+
+The same previously clean-compiled 1,224,448-byte 0.6 application was then installed
+on the spare C6 using **192-byte chunks / window 1**. It succeeded in **886.422s
+(14m 46s), 1,381.3 application bytes/s**, with zero failed commands and zero
+decryption failures. The device booted into a new authenticated 0.6 session,
+passed its health ACK and remained online beyond **190 seconds uptime**, with its
+test counter advancing to 19. The final check found Home Assistant RUNNING, all
+eight production devices online and all 232 prior ET-Core entity IDs unchanged.
+
+This validates a completed serial OTA under the repaired timing policy. It does
+**not** establish a windowed speed improvement, isolate the timing change from the
+serial-profile change, or prove physical power-cut/rollback fault recovery. The
+failed windowed result remains above. No production device firmware was changed.

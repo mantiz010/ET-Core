@@ -117,3 +117,7 @@ The application transfer and successful boot/health path now have physical
 evidence. No deliberate power cut, corrupted-image flash or physical rollback
 test was performed. Configured firmware, device credentials, addresses, image
 bytes and raw diagnostic snapshots remain private.
+
+The later timing repair was deployed and a complete 0.5 → 0.6 serial update
+succeeded in 886.422s with zero failed commands. Postboot checks preserved all 232
+entity IDs and found all 8 main devices online. See the [recovery evidence](THREAD-OTA-SPEED-PREVIEW.md#deployed-serial-recovery--19-november-2026).

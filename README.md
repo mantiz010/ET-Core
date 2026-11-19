@@ -1,6 +1,6 @@
 <p align="center">
 
-> **OTA development preview:** SDK **0.4.9-alpha.3**. Serial Thread OTA succeeded on hardware. The 288-byte/two-chunk experiment failed before activation; the Git sender now defaults to the proven serial profile. See [measured results and limits](THREAD-OTA-SPEED-PREVIEW.md), [accepted OTA evidence](THREAD-OTA-PREVIEW.md) and [Thread transport](THREAD-TRANSPORT-PREVIEW.md).
+> **OTA development preview:** SDK **0.4.9-alpha.3**. The deployed serial OTA timing repair passed a complete C6 update and postboot checks, preserving 232 entity IDs. The 288-byte/two-chunk experiment failed before activation; serial remains the default. See [measured results and limits](THREAD-OTA-SPEED-PREVIEW.md), [accepted OTA evidence](THREAD-OTA-PREVIEW.md) and [Thread transport](THREAD-TRANSPORT-PREVIEW.md).
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/img/electronicstech-logo-dark.png">
     <img src="docs/img/electronicstech-logo.png" alt="ElectronicsTech" width="420">
