@@ -96,3 +96,23 @@ OTA coordinator tests passed, including serial fallback on a fast-capable receiv
 and a visible timeout error without activation. The injected-latency host model
 still shows about 2.37x; the physical failure demonstrates why that is **not** a
 radio performance claim.
+
+## Timing repair after the failed test
+
+The source now uses a 1.5-second retry interval specifically for `firmware.ota`
+commands to authenticated Thread devices. Other commands retain their 300ms
+interval. The attempt limit remains three, so a missing reply exhausts retries
+in 4.5 seconds, inside the coordinator's eight-second wait. Command IDs remain
+stable across retries and each resend uses a fresh sequence. No packet format,
+firmware receiver, encryption or activation policy changes.
+
+Deterministic tests run the real hub retry state machine with one-second ACKs,
+a lost initial reply, complete reply loss, wrong-device ACKs and unchanged normal
+command timing. IPv6 loopback and OTA coordinator/view tests passed too (48 total).
+This repair is source-tested, **not yet deployed or tested on the Thread radio**.
+The windowed preview remains disabled by default. No further hardware flash has
+been performed.
+
+The full isolated simulator regression passed **134 tests in 207.851s**, including
+the timing repair, encrypted command delivery, duplicate suppression, sleeping
+node recovery and IPv6. No live hardware was changed during this repair.

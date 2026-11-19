@@ -37,6 +37,9 @@ CMD_SEQ_BLOCK = 1000
 
 # Commands are resent if no ack arrives in time (spec: 300 ms, 2 retries).
 ACK_TIMEOUT = 0.3
+# Thread fragmentation can exceed the normal command retry horizon.
+# Three attempts at 1.5s still settle before the OTA coordinator's 8s deadline.
+THREAD_OTA_ACK_TIMEOUT = 1.5
 CMD_RETRIES = 2
 
 # A misconfigured device repeats the same failure with every packet; log it once
@@ -803,6 +806,10 @@ class EtCoreHub:
             "tries": 0,
             "timer": None,
             "t0": time.monotonic(),
+            "ack_timeout": (THREAD_OTA_ACK_TIMEOUT
+                if dev_class == "firmware.ota" and
+                   (self._devices[dev_id].get("hello") or {}).get("transport") == "thread"
+                else ACK_TIMEOUT),
         }
         self._devices[dev_id].setdefault("stats", _new_stats())["cmds"] += 1
         self._add_event({"dir": "tx", "type": "command", "id": dev_id, "class": dev_class,
@@ -828,7 +835,7 @@ class EtCoreHub:
         if ip:
             self._send_raw(json.dumps(msg, separators=(",", ":")).encode("utf-8"), (ip, self._port))
         pend["tries"] += 1
-        pend["timer"] = self.hass.loop.call_later(ACK_TIMEOUT, self._ack_timeout, cmd_id)
+        pend["timer"] = self.hass.loop.call_later(pend.get("ack_timeout", ACK_TIMEOUT), self._ack_timeout, cmd_id)
 
     def _ack_timeout(self, cmd_id: str) -> None:
         pend = self._pending.get(cmd_id)
