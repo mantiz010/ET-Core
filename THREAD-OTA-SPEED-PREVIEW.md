@@ -137,3 +137,23 @@ This validates a completed serial OTA under the repaired timing policy. It does
 **not** establish a windowed speed improvement, isolate the timing change from the
 serial-profile change, or prove physical power-cut/rollback fault recovery. The
 failed windowed result remains above. No production device firmware was changed.
+
+## Interrupted-update regression coverage
+
+A subsequent read-only check found the live 0.6 C6 online after more than ten
+hours, with its test counter advancing, Home Assistant RUNNING and all eight
+production devices online. No device was flashed or restarted for these tests.
+
+The host build of the actual C++ receiver now explicitly exercises timeout and
+abort with an out-of-order chunk buffered but not yet written. Both discard that
+transfer; old chunks, finish and commit are rejected. A fresh transfer with a new
+ID then writes and verifies its own image without leftover bytes. A fully
+verified image that expires before commit also cannot select a boot slot.
+
+The HA coordinator tests cover a receiver reboot during a multi-chunk transfer,
+cancellation removing pending retry timers, interruption after commit without a
+false success or an unsafe abort claim, and restoring every active job phase
+without automatically sending commands. All **32 coordinator/view tests** passed;
+the C++ receiver and native flash-backend host suites passed too. These are
+regression tests, not physical power-cut or rollback fault tests. Firmware and
+live Home Assistant source were unchanged by this test-only work.

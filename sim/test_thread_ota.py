@@ -76,6 +76,43 @@ class Transfer(unittest.IsolatedAsyncioTestCase):
   self.manager.command=timeout
   self.install(self.prepare());await self.manager.tasks['bench']
   job=self.manager.jobs['bench'];self.assertEqual(job['phase'],'failed');self.assertEqual(job['error'],'TimeoutError');self.assertFalse(job.get('commit_sent',False))
+ async def test_device_reboot_mid_transfer_blocks_activation(self):
+  original=self.hub.send_command
+  def send(dev,cls,payload):
+   if payload['op']=='chunk':self.hub.devices[dev]['rx_session']='unexpected-reboot'
+   return original(dev,cls,payload)
+  self.hub.send_command=send
+  plan=self.manager.prepare('bench',image(16384),BOARD,VERSION,'admin');self.install(plan);await self.manager.tasks['bench']
+  self.assertEqual(self.manager.jobs['bench']['phase'],'failed');self.assertIn('restarted',self.manager.jobs['bench']['error'])
+  self.assertNotIn('commit',[p['op'] for p in self.hub.sent]);self.assertEqual(self.hub.sent[-1]['op'],'abort')
+ async def test_cancelled_command_removes_live_retry_timer(self):
+  fired=[];self.hub._pending={}
+  def send(*args):
+   timer=asyncio.get_running_loop().call_later(.05,lambda:fired.append('retry'))
+   self.hub._pending['lost']={'timer':timer};return 'lost'
+  self.hub.send_command=send
+  task=asyncio.create_task(self.manager.command('bench',{'op':'chunk'}));await asyncio.sleep(0)
+  self.assertIn('lost',self.manager.waiters);task.cancel()
+  with self.assertRaises(asyncio.CancelledError):await task
+  await asyncio.sleep(.07)
+  self.assertEqual(fired,[]);self.assertEqual(self.hub._pending,{});self.assertEqual(self.manager.waiters,{})
+ async def test_interruption_after_commit_does_not_claim_success_or_send_abort(self):
+  original=self.hub.send_command
+  def send(dev,cls,payload):
+   if payload['op']=='commit':self.hub.sent.append(copy.deepcopy(payload));return 'commit-without-reply'
+   return original(dev,cls,payload)
+  self.hub.send_command=send
+  self.install(self.prepare())
+  for _ in range(100):
+   if self.manager.jobs['bench'].get('commit_sent'):break
+   await asyncio.sleep(.001)
+  self.assertTrue(self.manager.jobs['bench'].get('commit_sent'));await self.manager.close()
+  self.assertEqual(self.manager.jobs['bench']['phase'],'interrupted');self.assertEqual(self.hub.sent[-1]['op'],'commit')
+  self.assertNotIn('abort',[p['op'] for p in self.hub.sent])
+ async def test_all_active_phases_restore_without_automatic_commands(self):
+  for phase in m.ACTIVE:
+   self.manager.restore({'bench':{'phase':phase,'progress':42,'commit_sent':phase in {'rebooting','checking_health'}}})
+   self.assertEqual(self.manager.jobs['bench']['phase'],'interrupted');self.assertEqual(self.hub.sent,[])
  async def test_restored_active_jobs_are_interrupted(self):
   self.manager.restore({'bench':{'phase':'transferring','progress':20}})
   self.assertEqual(self.manager.jobs['bench']['phase'],'interrupted');self.assertEqual(self.hub.devices['bench']['ota_job']['phase'],'interrupted');self.assertEqual(self.hub.sent,[])

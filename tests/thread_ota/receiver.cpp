@@ -96,6 +96,37 @@ int main(){
  boundedOTA.handle("firmware.ota",boundedBegin.as<JsonObject>());assert(!t2.ack()&&bounded.begins==0);boundedBegin["window"]=2;boundedOTA.handle("firmware.ota",boundedBegin.as<JsonObject>());assert(t2.ack());
  auto ahead=cmd("chunk");ahead["offset"]=576;ahead["data"]=b64(std::vector<uint8_t>(longImage.begin()+576,longImage.end()));boundedOTA.handle("firmware.ota",ahead.as<JsonObject>());assert(!t2.ack()&&bounded.writes==0);
  ahead["offset"]=288;boundedOTA.handle("firmware.ota",ahead.as<JsonObject>());assert(t2.ack()&&bounded.writes==0);auto conflict=std::vector<uint8_t>(288,4);ahead["data"]=b64(conflict);boundedOTA.handle("firmware.ota",ahead.as<JsonObject>());assert(!t2.ack()&&bounded.writes==0);
+ // A timed-out or explicitly aborted transfer must not retain buffered chunks
+ // that can contaminate a newly reviewed image. Reuse the actual receiver class.
+ for(bool explicitAbort:{false,true}){
+  Sink recovered;ETCoreOTA recovery(c2,recovered,"esp32c6-dev-4m");
+  recovery.handle("firmware.ota",begin.as<JsonObject>());assert(t2.ack());
+  recovery.handle("firmware.ota",second.as<JsonObject>());assert(t2.ack()&&recovered.writes==0);
+  if(explicitAbort){auto abort=cmd("abort");recovery.handle("firmware.ota",abort.as<JsonObject>());assert(t2.ack());}
+  else recovery.loop(millis()+60001);
+  assert(!recovery.active()&&recovered.aborts==1&&recovered.activations==0);
+  recovery.handle("firmware.ota",first.as<JsonObject>());assert(!t2.ack());
+  recovery.handle("firmware.ota",finish.as<JsonObject>());assert(!t2.ack());
+  auto commit=cmd("commit");recovery.handle("firmware.ota",commit.as<JsonObject>());assert(!t2.ack()&&recovered.activations==0);
+  auto newBegin=cmd("begin");newBegin["transfer"]="1123456789abcdef0123456789abcdef";
+  newBegin["size"]=32;newBegin["sha256"]=sha;newBegin["board"]="esp32c6-dev-4m";
+  recovery.handle("firmware.ota",newBegin.as<JsonObject>());assert(t2.ack()&&recovered.begins==2);
+  recovery.handle("firmware.ota",second.as<JsonObject>());assert(!t2.ack()&&recovered.writes==0);
+  auto newChunk=cmd("chunk");newChunk["transfer"]=newBegin["transfer"];newChunk["offset"]=0;newChunk["data"]=b64(image);
+  recovery.handle("firmware.ota",newChunk.as<JsonObject>());assert(t2.ack()&&recovered.bytes==image&&recovered.writes==1);
+  auto newFinish=cmd("finish");newFinish["transfer"]=newBegin["transfer"];
+  recovery.handle("firmware.ota",newFinish.as<JsonObject>());assert(t2.ack()&&recovered.verified&&recovered.activations==0);
+ }
+ // Even a fully verified but uncommitted image expires without boot selection.
+ {Sink ready;ETCoreOTA receiver(c2,ready,"esp32c6-dev-4m");
+  auto b=cmd("begin");b["size"]=32;b["sha256"]=sha;b["board"]="esp32c6-dev-4m";
+  receiver.handle("firmware.ota",b.as<JsonObject>());assert(t2.ack());
+  auto c=cmd("chunk");c["offset"]=0;c["data"]=b64(image);receiver.handle("firmware.ota",c.as<JsonObject>());assert(t2.ack());
+  receiver.handle("firmware.ota",finish.as<JsonObject>());assert(t2.ack()&&ready.verified);
+  receiver.loop(millis()+60001);assert(!receiver.active()&&ready.aborts==1&&ready.activations==0);
+  auto commit=cmd("commit");receiver.handle("firmware.ota",commit.as<JsonObject>());assert(!t2.ack()&&ready.activations==0);
+ }
+ puts("PASS interrupted recovery: timeout/abort discard buffered data, old transfer rejected, fresh image verified, uncommitted ready image expires");
  puts("PASS profile negotiation: legacy serial transfer, bounded reorder range, invalid window and conflicting duplicate rejection");
  for(const auto& packet:t2.packets)assert(packet.size()<=1024);
  puts("PASS window2: encrypted reordering, stale-seq resend, duplicate ACK, sequential writes, flash failure cannot activate");
