@@ -157,3 +157,23 @@ without automatically sending commands. All **32 coordinator/view tests** passed
 the C++ receiver and native flash-backend host suites passed too. These are
 regression tests, not physical power-cut or rollback fault tests. Firmware and
 live Home Assistant source were unchanged by this test-only work.
+
+## New interruption trial — 20 November 2026 (incomplete)
+
+A version-label-only 0.7 application clean-compiled for the same exact C6 target,
+with unchanged source hashes through compilation (1,224,448-byte BIN). The plan
+was to stop at 50%, verify the old boot, then retry. The actual serial transfer
+instead hit an eight-second acknowledgement timeout at **16,320 bytes (1%)**,
+before the planned interruption. The hub exhausted three attempts; decryption
+failures stayed at zero. The receiver positively acknowledged abort, and no
+commit or connection reload was issued.
+
+A subsequent check confirmed 0.6 still online in its original session with its
+counter advancing, Home Assistant RUNNING, all eight production devices online
+and all 232 prior ET-Core entity IDs preserved. This demonstrates safe abort of
+that real failed transfer, **not** a completed halfway-interruption/reboot/retry
+test. A physical reset of the spare is needed to verify the old boot because
+0.6 has no remote reset command. The retry has not yet been performed. This new
+failure also means the earlier successful serial run must not be treated as a
+guarantee of reliable delivery under every radio condition. The cause of the
+missing chunk replies is not established by this capture alone.
