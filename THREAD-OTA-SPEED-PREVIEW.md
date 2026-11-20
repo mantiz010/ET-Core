@@ -158,7 +158,7 @@ the C++ receiver and native flash-backend host suites passed too. These are
 regression tests, not physical power-cut or rollback fault tests. Firmware and
 live Home Assistant source were unchanged by this test-only work.
 
-## New interruption trial — 20 November 2026 (incomplete)
+## Early interruption trial — 20 November 2026
 
 A version-label-only 0.7 application clean-compiled for the same exact C6 target,
 with unchanged source hashes through compilation (1,224,448-byte BIN). The plan
@@ -173,7 +173,32 @@ counter advancing, Home Assistant RUNNING, all eight production devices online
 and all 232 prior ET-Core entity IDs preserved. This demonstrates safe abort of
 that real failed transfer, **not** a completed halfway-interruption/reboot/retry
 test. A physical reset of the spare is needed to verify the old boot because
-0.6 has no remote reset command. The retry has not yet been performed. This new
-failure also means the earlier successful serial run must not be treated as a
+0.6 has no remote reset command. The subsequently completed reset and retry are
+recorded below. This new failure also means the earlier successful serial run must not be treated as a
 guarantee of reliable delivery under every radio condition. The cause of the
 missing chunk replies is not established by this capture alone.
+
+## Physical reset and retry recovery — 20 November 2026
+
+After the user pressed RESET on the spare C6, a new authenticated session reported
+**0.6** at ten seconds uptime, with its test counter advancing. This verifies the
+old application still booted following the aborted, partially written update.
+Home Assistant and all eight production devices remained online.
+
+The exact same reviewed 0.7 application, with the same hash and credentials, was
+then retried using 192-byte chunks / window 1. The 1,224,448-byte transfer succeeded
+in **851.991s (14m 12s), 1,437.2 application bytes/s**. The cumulative hub failure
+count was one both before and after the retry: **zero new failed commands**.
+Decryption failures remained zero. The receiver verified the image, booted into
+a new authenticated 0.7 session and acknowledged its health check.
+
+At the final check, 0.7 had **195 seconds uptime**, its test counter had advanced
+to 19, Home Assistant was RUNNING, all eight main devices were online and all
+232 prior ET-Core entity IDs were unchanged. No production firmware was updated,
+no live source was changed and Home Assistant was not restarted for this test.
+
+This is physical evidence of **safe abort → old application reboot → successful
+same-image retry** after the real early timeout. The planned controlled halfway
+interruption, power loss during flash writes and rollback of a committed faulty
+image have **not** been tested. The missing replies that caused the initial
+failure remain unexplained; a successful retry does not establish their cause.
