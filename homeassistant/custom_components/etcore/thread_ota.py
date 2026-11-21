@@ -68,7 +68,7 @@ class ThreadOTA:
         if not isinstance(saved,dict):return
         for dev_id,job in list(saved.items())[:1000]:
             if not isinstance(dev_id,str) or not isinstance(job,dict):continue
-            if not isinstance(job.get('phase'),str) or job['phase'] not in ACTIVE|{'succeeded','failed','interrupted','unconfirmed'}:continue
+            if not isinstance(job.get('phase'),str) or job['phase'] not in ACTIVE|{'succeeded','failed','interrupted','unconfirmed','rolled_back'}:continue
             if job.get('phase') in ACTIVE:
                 job=dict(job,phase='interrupted',error='HA restarted; verify the running version before retrying')
             self.jobs[dev_id]=job
@@ -79,6 +79,16 @@ class ThreadOTA:
         dev_id=msg.get('id')
         if dev_id in self.jobs and dev_id in self.hub.devices:self.hub.devices[dev_id]['ota_job']=self.jobs[dev_id]
         p=msg.get('payload') or {}
+        job=self.jobs.get(dev_id)
+        if job and msg.get('type')=='hello' and job.get('commit_sent') and job['phase'] in {'unconfirmed','interrupted'}:
+            session=(self.hub.devices.get(dev_id) or {}).get('rx_session')
+            trial=job.get('trial_session')
+            # Older jobs only recorded this rejection after the matching trial boot's health command.
+            trial_observed=trial or (job['phase']=='unconfirmed' and job.get('error')=='Receiver rejected the update command')
+            if (trial_observed and session and job.get('original_session') and session not in (trial,job['original_session'])
+                    and job.get('original_version') and p.get('fw')==job['original_version'] and p['fw']!=job.get('version')):
+                job.update(phase='rolled_back',rollback_session=session,rollback_at=time.time())
+                self.hub.hass.async_create_task(self.save())
         if msg.get('type')=='ack':
             if p.get('err')=='stale':return  # hub repairs its command counter and resends
             pair=self.waiters.get(str(p.get('cmd_id') or ''))
@@ -191,7 +201,8 @@ class ThreadOTA:
             dev=self.hub.devices.get(dev_id) or {}
             if dev.get('online') and dev.get('rx_session')!=job['original_session']:
                 if dev.get('fw')!=job['version']: raise RuntimeError('Unexpected firmware after reboot; inspect rollback status')
-                job['phase']='checking_health'
+                job.update(phase='checking_health',trial_session=dev['rx_session'])
+                await self.save()
                 await self.command(dev_id,{'op':'health'})
                 job.update(phase='succeeded',progress=100,finished=time.time());return
             await asyncio.sleep(.5)

@@ -57,6 +57,17 @@ class Transfer(unittest.IsolatedAsyncioTestCase):
   self.hub.reboot_version='unexpected';self.install(self.prepare());await self.manager.tasks['bench'];self.assertEqual(self.manager.jobs['bench']['phase'],'unconfirmed');self.assertNotIn('health',[p['op'] for p in self.hub.sent])
  async def test_negative_health_is_not_success(self):
   self.hub.health=False;self.install(self.prepare());await self.manager.tasks['bench'];self.assertEqual(self.manager.jobs['bench']['phase'],'unconfirmed')
+ async def test_rollback_requires_authenticated_previous_version_on_another_boot(self):
+  self.hub.health=False;self.install(self.prepare());await self.manager.tasks['bench']
+  job=self.manager.jobs['bench'];dev=self.hub.devices['bench'];self.assertEqual(job['trial_session'],'newboot')
+  self.hub.hass.async_create_task=asyncio.create_task
+  msg={'id':'bench','type':'hello','_encrypted':True,'payload':{'fw':job['original_version']}}
+  self.manager.receive(msg);self.assertEqual(job['phase'],'unconfirmed')
+  dev['rx_session']='recovered'
+  for wrong in [dict(msg,_encrypted=False),dict(msg,_replay=True),dict(msg,type='lease'),dict(msg,payload={'fw':VERSION})]:
+   self.manager.receive(wrong);self.assertEqual(job['phase'],'unconfirmed')
+  self.manager.receive(msg);self.assertEqual(job['phase'],'rolled_back')
+  self.manager.restore({'bench':dict(job)});self.assertEqual(self.manager.jobs['bench']['rollback_session'],'recovered')
  async def test_unencrypted_and_wrong_device_ack_ignored(self):
   f=self.hub.hass.loop.create_future();self.manager.waiters['pending']=('bench',f)
   for encrypted,dev in [(False,'bench'),(True,'other')]:self.manager.receive({'_encrypted':encrypted,'type':'ack','id':dev,'payload':{'cmd_id':'pending','ok':True}})

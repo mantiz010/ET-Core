@@ -1805,7 +1805,7 @@ const char* ETCORE_TEST_KEY = "${key}";
       ["Signal", sg.w ? `${sg.t} (${sg.w})` : sg.t],
       ["Uptime", d.online ? dur(uptimeSec(d.uptime)) : "—"],
       ["Firmware", d.fw || "—"],
-      ...(d.ota_job ? [["Firmware update", `${d.ota_job.phase} · ${d.ota_job.progress}%${d.ota_job.error ? " · "+d.ota_job.error : ""}`]] : []),
+      ...(d.ota_job ? [["Firmware update", d.ota_job.phase==="rolled_back" ? `Rolled back to ${d.ota_job.original_version}` : `${d.ota_job.phase} · ${d.ota_job.progress}%${d.ota_job.error ? " · "+d.ota_job.error : ""}`]] : []),
       ["Library", (d.hello || {}).lib || "—"],
       ["Name the device reports", d.name || "—"],
       ["Lease", `${d.lease_ttl || "?"} s${d.online ? `, ${Math.max(0, d.expires_in || 0).toFixed(1)} s left` : ""}`],
