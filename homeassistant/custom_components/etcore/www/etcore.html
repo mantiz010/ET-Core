@@ -703,12 +703,19 @@
       location.reload(); // Reset logs/cursors before switching connections.
     };
     if (!hub) throw new Error("ET-Core is not set up in Home Assistant");
-    if (hub.event_n < S.eventN) { S.eventN = 0; return poll(); }  // hub reloaded: numbering restarted
+    if (hub.event_n < S.eventN) {
+      if (setupWatch) {
+        setupWatch = null;
+        $("ad-status").textContent = "The hub restarted. Start listening again.";
+      }
+      S.eventN = 0; return poll();
+    }  // hub reloaded: numbering restarted
     const fresh = hub.events || [];
     S.eventN = hub.event_n || S.eventN;
     S.hub = hub;
     S.devices = hub.devices || [];
     S.byId = Object.fromEntries(S.devices.map(d => [d.id, d]));
+    observeSetup(fresh);
     ingestGatewayData(S.devices, fresh);
     await refreshChildEntityIndex();
     const now = Date.now() / 1000;
@@ -1457,12 +1464,12 @@
   // ---- Add device guide -------------------------------------------------------------------
   const CLASSES = [
     ["switch.relay", "Relay / switch", "RelayOne"], ["switch.multi", "Several relays", "MultiRelay"],
-    ["light.rgb", "RGB light", "RGBLight"], ["fan.speed", "Fan", "Fan"], ["sensor.temperature", "Sensor", "AirSensor"],
+    ["light.rgb", "RGB light", "RGBLight"], ["fan.speed", "Fan", "Fan"], ["sensor.air", "Air sensor demo", "AirSensor"],
   ];
   function sketchFor(info, reveal, id, name, cls) {
     if (cls !== "switch.relay") return snippetFor(info, reveal, id, name, cls);
     const port = info.port && info.port !== 5560 ? `\n  etcore.setPort(${info.port});` : "";
-    const key = reveal ? info.key : "PASTE_THE_NETWORK_KEY_HERE";
+    const key = !info.key ? "" : reveal ? info.key : "PASTE_THE_NETWORK_KEY_HERE";
     const q = (s) => String(s).replace(/["\\]/g, "");
     return `#include <WiFi.h>
 #include <ETCore.h>
@@ -1503,7 +1510,7 @@ void loop() {
 }`;
   }
   function snippetFor(info, reveal, id, name, cls) {
-    const key = reveal ? info.key : "PASTE_THE_NETWORK_KEY_HERE";
+    const key = !info.key ? "" : reveal ? info.key : "PASTE_THE_NETWORK_KEY_HERE";
     const q = (s) => String(s).replace(/["\\]/g, "");
     const ex = (CLASSES.find(c => c[0] === cls) || CLASSES[0])[2];
     return `// In the ${ex} example, set these at the top of the sketch:
@@ -1515,17 +1522,34 @@ static const char* ETCORE_KEY = "${key}";
 etcore.enableEncryptionHex(ETCORE_KEY);${info.port && info.port !== 5560 ? `\netcore.setPort(${info.port});` : ""}
 etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
   }
+  let setupWatch = null;
+  function observeSetup(events) {
+    const watch = setupWatch;
+    if (!watch || S.hub.entry_id !== watch.entryId) return;
+    if (events.some(e => e.n > watch.after && e.id === watch.id && e.dir === "rx"
+      && e.type === "state" && (!watch.encrypted || e.encrypted))) {
+      $("ad-status").textContent = "First reading received from " + watch.id + ".";
+      setupWatch = null;
+    }
+  }
   async function addDevice() {
+    if (!S.hub || $("modal").classList.contains("open")) return;
+    const entryId = S.hub.entry_id;
     let info;
-    try { info = await ws({ type: "etcore/setup_info" }); }
+    try { info = await ws({ type: "etcore/setup_info", entry_id: entryId }); }
     catch (e) { toast(`Only an administrator can add devices (${errText(e)})`, true); return; }
+    if (S.hub?.entry_id !== entryId || $("modal").classList.contains("open")) return;
     let reveal = false;
-    const v = { id: "relay1", name: "My Relay", cls: "switch.relay" };
-    let n = 2; while (S.byId[v.id]) v.id = `relay${n++}`;
+    const v = { id: "sensor1", name: "Air Sensor Demo", cls: "sensor.air", board: "ESP32", transport: "wifi" };
+    let n = 2; while (S.byId[v.id]) v.id = `sensor${n++}`;
     const html = () => {
       const ex = (CLASSES.find(c => c[0] === v.cls) || CLASSES[0])[2];
       return `<div class="mh">Add an ET-Core device</div><div class="mb"><div class="steps">
-        <div class="step"><div><b>Open an example</b>In the Arduino IDE: <i>File → Examples → ETCore</i>. For this type start from <strong id="ad-ex">${ex}</strong>.</div></div>
+        <div class="step"><div><b>Choose your board and connection</b>
+          <div class="formrow"><div><label for="ad-board">Board family</label><select class="field" id="ad-board">${["ESP32", "ESP32-C3", "ESP32-C5", "ESP32-C6", "ESP32-S3"].map(b => `<option>${b}</option>`).join("")}</select></div>
+          <div><label for="ad-transport">Connection</label><select class="field" id="ad-transport"><option value="wifi">Wi-Fi</option><option value="thread">Thread</option></select></div></div>
+          <p id="ad-boardhint"></p><a id="ad-ex" target="_blank" rel="noopener noreferrer">${ex}</a>
+          <p>Install ETCore and its dependencies in Arduino IDE, then select your exact board and USB port.</p></div></div>
         <div class="step"><div><b>Give it an id and a name</b>
           <div class="formrow"><div><label for="ad-id">Device id (unique, no spaces)</label><input class="field" id="ad-id" value="${esc(v.id)}" maxlength="31"></div>
           <div><label for="ad-name">Name</label><input class="field" id="ad-name" value="${esc(v.name)}" maxlength="40"></div>
@@ -1534,18 +1558,43 @@ etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
         <div class="step"><div><b>Use this network key</b>Every device on this hub needs the same key. Keep it private.
           <div class="keyrow" style="margin-top:6px"><code id="ad-key"></code>
             <button class="btn" data-k="reveal" id="ad-reveal"></button><button class="btn" data-k="copykey">Copy</button></div></div></div>
-        <div class="step"><div><b>Upload the sketch</b><span id="ad-codehint"></span> Fill in your WiFi, then upload. <i>Copy</i> puts your key in for you.
+        <div class="step"><div><b>Upload the sketch</b><span id="ad-codehint"></span> Use the settings below in the Arduino sketch, then upload over USB.
           <div class="codebox" style="margin-top:6px"><pre id="ad-code"></pre><button class="btn" data-k="copycode">Copy</button></div></div></div>
-        <div class="step"><div><b>Power it on</b>It appears on the Devices tab within a few seconds, with its entities in Home Assistant.</div></div>
+        <div class="step"><div><b>Check the first reading</b><p>Start listening before uploading. ET-Core will wait for a fresh state report for this device ID on the selected connection.</p><button class="btn" data-k="listen">Start listening</button><p id="ad-status" role="status"></p></div></div>
       </div></div><div class="mf"><button class="btn primary" data-m="ok">Done</button></div>`;
     };
     const refresh = () => {
-      $("ad-key").textContent = reveal ? info.key : "•".repeat(32);
+      $("ad-key").textContent = !info.key ? "Encryption is disabled on this hub" : reveal ? info.key : "•".repeat(32);
+      $("ad-reveal").disabled = !info.key;
+      $("modalbox").querySelector('[data-k="copykey"]').disabled = !info.key;
       $("ad-reveal").textContent = reveal ? "Hide" : "Show";
-      $("ad-code").textContent = sketchFor(info, reveal, v.id, v.name, v.cls);
-      $("ad-ex").textContent = (CLASSES.find(c => c[0] === v.cls) || CLASSES[0])[2];
-      $("ad-codehint").textContent = v.cls === "switch.relay" ? "A complete relay sketch." : "The lines to change in that example.";
-      $("ad-warn").textContent = !/^[A-Za-z0-9_-]{1,31}$/.test(v.id) ? "Use letters, digits, - or _ only." : S.byId[v.id] ? `A device with id "${v.id}" already exists. Pick another id.` : "";
+      const thread = v.transport === "thread";
+      const ex = thread ? "C6Thread" : CLASSES.find(c => c[0] === v.cls)[2];
+      $("ad-cls").disabled = thread;
+      $("ad-name").disabled = thread;
+      $("ad-transport").options[1].disabled = v.board !== "ESP32-C6" || !info.ipv6 || !info.key;
+      $("ad-boardhint").textContent = thread
+        ? "Use ESP32C6 Dev Module, USB CDC enabled, 4 MB flash and the default partition scheme. This Thread example publishes test data."
+        : "Use a compatible Wi-Fi network. Check the example’s GPIO assignments against your board before uploading.";
+      $("ad-ex").textContent = "Open " + ex + " Arduino example";
+      $("ad-ex").href = "https://github.com/mantiz010/ET-Core/tree/feature/thread-ota-speed/arduino/libraries/ETCore/examples/" + ex;
+      $("ad-codehint").textContent = thread
+        ? "Use a Thread dataset and a reachable IPv6 address for the selected ET-Core hub."
+        : ex === "AirSensor" ? "AirSensor publishes simulated readings for setup testing." : "Use the matching example’s wiring.";
+      $("ad-code").textContent = settings(reveal);
+      $("ad-warn").textContent = !validId() ? "Use letters, digits, - or _ only." : "";
+
+    };
+    const validId = () => /^[A-Za-z0-9_-]{1,31}$/.test(v.id);
+    const settings = (show) => {
+      if (v.transport === "thread") {
+        const key = show ? info.key : "PASTE_THE_NETWORK_KEY_HERE";
+        return `// Edit THREAD_DATASET_HEX and HUB_IPV6 in C6Thread.ino.
+const char* ETCORE_TEST_KEY = "${key}";
+// Set core.setPort(${info.port}) and change the first argument of core.begin to "${validId() ? v.id : "my-device"}".`;
+      }
+      return sketchFor(info, show, v.id, v.name, v.cls)
+        .replaceAll("ETCORE_KEY", v.cls === "switch.relay" ? "ETCORE_KEY" : "ETCORE_PSK_HEX");
     };
     const done = modal(html(), { wide: true });
     refresh();
@@ -1554,19 +1603,37 @@ etcore.begin("${q(id)}", "${q(cls)}", "${q(name)}", "1.0.0");`;
       if (e.target.id === "ad-id") v.id = e.target.value.trim();
       if (e.target.id === "ad-name") v.name = e.target.value;
       if (e.target.id === "ad-cls") v.cls = e.target.value;
+      if (e.target.id === "ad-board") {
+        v.board = e.target.value;
+        if (v.board !== "ESP32-C6") v.transport = "wifi";
+        $("ad-transport").value = v.transport;
+      }
+      if (e.target.id === "ad-transport") v.transport = e.target.value;
+      setupWatch = null;
+      $("ad-status").textContent = "";
       refresh();
     };
     const copy = async (t, what) => { try { await navigator.clipboard.writeText(t); toast(`${what} copied`); } catch (x) { toast("Copy failed: select the text and copy it", true); } };
     const onClick = (e) => {
       const b = e.target.closest("[data-k]");
       if (!b) return;
+      if (b.dataset.k === "listen") {
+        if (!validId() || S.byId[v.id]) {
+          $("ad-status").textContent = "Choose a valid device ID that this hub does not already know.";
+          return;
+        }
+        setupWatch = { entryId, id: v.id, after: S.eventN, encrypted: Boolean(info.key) };
+        $("ad-status").textContent = "Waiting for " + v.id + "…";
+      }
       if (b.dataset.k === "reveal") { reveal = !reveal; refresh(); }
       if (b.dataset.k === "copykey") copy(info.key, "Network key");
-      if (b.dataset.k === "copycode") copy(sketchFor(info, true, v.id, v.name, v.cls), "Sketch with your key");
+      if (b.dataset.k === "copycode") copy(settings(true), "Sketch settings");
     };
     box.addEventListener("input", onInput); box.addEventListener("change", onInput); box.addEventListener("click", onClick);
     await done;
+    setupWatch = null;
     box.removeEventListener("input", onInput); box.removeEventListener("change", onInput); box.removeEventListener("click", onClick);
+    if ($("ad-key")) box.replaceChildren();
   }
   $("adddev").onclick = addDevice;
 

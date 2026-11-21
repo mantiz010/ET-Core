@@ -194,18 +194,23 @@ def _ws_remove(hass: HomeAssistant, connection: websocket_api.ActiveConnection, 
     connection.send_error(msg["id"], "not_found", "Unknown ET-Core device")
 
 
-@websocket_api.websocket_command({vol.Required("type"): "etcore/setup_info"})
+@websocket_api.websocket_command({
+    vol.Required("type"): "etcore/setup_info",
+    vol.Optional("entry_id"): str,
+})
 @websocket_api.require_admin
 @callback
 def _ws_setup_info(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     """What a new device needs (the add-device guide). Admins only: it has the key."""
-    hub = next(iter(_hubs(hass).values()), None)
+    hubs = _hubs(hass)
+    hub = hubs.get(msg["entry_id"]) if "entry_id" in msg else next(iter(hubs.values()), None)
     if hub is None:
         connection.send_error(msg["id"], "not_set_up", "ET-Core is not set up")
         return
     connection.send_result(msg["id"], {
         "port": hub.port,
         "group": MULTICAST_GROUP,
+        "ipv6": bool(getattr(hub, "_enable_ipv6", False)),
         "key": hub.psk_hex,
     })
 
