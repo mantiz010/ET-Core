@@ -37,6 +37,14 @@ class Transfer(unittest.IsolatedAsyncioTestCase):
  async def asyncSetUp(self):self.hub=Hub();self.manager=m.ThreadOTA(self.hub);self.addAsyncCleanup(self.manager.close)
  def prepare(self):return self.manager.prepare('bench',image(),BOARD,VERSION,'admin')
  def install(self,p):return self.manager.install('bench',p['plan_id'],p['sha256'],'admin')
+ async def test_history_survives_restore_and_stays_bounded(self):
+  previous={'transfer':'prior','phase':'interrupted','progress':50,'started':100,'original_version':'v1','version':'v2'}
+  self.manager.restore({'bench':dict(previous,history=[dict(previous,transfer=str(i)) for i in range(19)])})
+  job=self.install(self.prepare());await self.manager.tasks['bench']
+  history=job['history'];self.assertEqual(len(history),19);self.assertEqual(history[0],previous)
+  self.assertNotIn('history',history[0]);self.assertEqual(history[-1]['transfer'],'17')
+  restored=m.ThreadOTA(self.hub);restored.restore(copy.deepcopy(self.manager.jobs))
+  self.assertEqual(restored.jobs['bench']['history'],history);await restored.close()
  async def test_review_does_not_send_commands(self):self.prepare();self.assertEqual(self.hub.sent,[])
  async def test_explicit_confirm_exact_owner_hash_and_boot(self):
   p=self.prepare()

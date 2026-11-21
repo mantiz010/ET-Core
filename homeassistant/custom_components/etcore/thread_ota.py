@@ -136,6 +136,11 @@ class ThreadOTA:
         manifest=validate_image(image,board=board,version=version,capability=hello.get('ota') or {},current=dev.get('fw'))
         job={'transfer':secrets.token_hex(16),'phase':'preparing','progress':0,'bytes':0,
              'started':time.time(),'original_session':dev['rx_session'],'original_version':dev.get('fw'),**manifest}
+        previous=self.jobs.get(dev_id)
+        if previous and previous.get('transfer'):
+            fields=('transfer','phase','progress','started','finished','original_version','version','error','rollback_at')
+            summary={key:previous[key] for key in fields if key in previous}
+            job['history']=[summary,*previous.get('history',[])[:18]]
         self.jobs[dev_id]=job;dev['ota_job']=job
         self.tasks[dev_id]=self.hub.hass.loop.create_task(self._run(dev_id,image,job))
         return dict(job)

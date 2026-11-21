@@ -1782,6 +1782,30 @@ const char* ETCORE_TEST_KEY = "${key}";
   $("scrim").onclick = () => { if ($("modal").classList.contains("open")) closeModal(null); else closeDrawer(); };
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") { if ($("modal").classList.contains("open")) closeModal(null); else closeDrawer(); } });
 
+  function updateHistory(device) {
+    const latest = device.ota_job;
+    if (!latest && !device.hello?.ota?.ready) return "";
+    const attempts = latest ? [latest, ...(latest.history || [])] : [];
+    const open = new Set(Array.from(document.querySelectorAll("#d-body details[data-attempt][open]"), row => row.dataset.attempt));
+    const rows = attempts.map(job => {
+      const result = ({
+        interrupted: `Interrupted at ${job.progress ?? 0}%`,
+        succeeded: `Updated to ${job.version}`,
+        rolled_back: `Rolled back to ${job.original_version}`,
+        failed: "Update failed", unconfirmed: "Boot unconfirmed", checking_health: "Checking boot health",
+        rebooting: "Restarting", verifying: "Verifying image", preparing: "Preparing update",
+        transferring: `Transferring · ${job.progress ?? 0}%`
+      })[job.phase] || job.phase;
+      const date = job.started ? new Date(job.started * 1000).toLocaleString() : "Time unavailable";
+      return `<details data-attempt="${esc(job.transfer)}" ${open.has(job.transfer) ? "open" : ""} style="padding:8px 0">
+        <summary><strong>${esc(result)}</strong> · ${esc(date)}</summary>
+        <div>${esc(job.original_version || "Unknown")} → ${esc(job.version || "Unknown")}</div>
+        ${job.error ? `<div>${esc(job.error)}</div>` : ""}
+      </details>`;
+    });
+    return `<div class="panel"><div class="panel-h"><h2>Update history</h2></div><div class="kv">${rows.join("") || "No recorded Thread updates yet."}</div></div>`;
+  }
+
   function renderDrawer(force) {
     if (childSelection) { renderChildDrawer(force); return; }
     const d = S.byId[S.drawer];
@@ -1834,6 +1858,7 @@ const char* ETCORE_TEST_KEY = "${key}";
       </div>
       ${d.last_error ? `<div class="panel"><div class="panel-h"><h2 style="color:var(--bad)">Last error from the device</h2></div><div class="kv">${kvRows([[d.last_error.code, tm(d.last_error.ts), d.last_error.message]])}</div></div>` : ""}
       ${gatewayProfile(d) ? gatewayChildrenSection(d) : ""}
+      ${updateHistory(d)}
       <div id="d-ctl-slot"></div>
       <div class="panel"><div class="panel-h"><h2>Details</h2></div><div class="kv">${kvRows(info)}</div></div>
       <div><h3>Last state</h3><pre>${esc(JSON.stringify(d.state || {}, null, 2))}</pre></div>
