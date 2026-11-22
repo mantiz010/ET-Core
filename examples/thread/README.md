@@ -1,6 +1,6 @@
 # ET-Core hardware projects over Thread
 
-[Browse all 120 projects](index.md). Each folder contains a complete Arduino sketch, its build options, wiring and a bench check. Start with [BME280 weather](BME280Weather/README.md) for reporting or [low-voltage relay](LowVoltageRelay/README.md) for control. The collection includes I²C chips, passive contacts, resistive sensors, 4–20 mA transmitter profiles and driven outputs. Choose a profile by the device's electrical interface and nameplate range.
+[Browse all 121 projects](index.md). Each folder contains a complete Arduino sketch, its build options, wiring and a bench check. Start with [BME280 weather](BME280Weather/README.md) for reporting or [low-voltage relay](LowVoltageRelay/README.md) for control. The collection includes I²C chips, passive contacts, resistive sensors, 4–20 mA transmitter profiles and driven outputs. Choose a profile by the device's electrical interface and nameplate range.
 
 ## Target and setup
 
