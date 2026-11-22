@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'">
+<title>ET-Core encryption key generator</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b1220;color:#e7efff;font:17px/1.6 system-ui;padding:24px}main{width:min(700px,100%);padding:32px;background:#142238;border:1px solid #2c4262;border-radius:18px}h1{line-height:1.2;font-size:28px}p{color:#b6c8e1}textarea{display:block;width:100%;min-height:105px;resize:vertical;background:#091421;color:#b8f5d5;border:1px solid #436080;border-radius:8px;padding:14px;font:17px/1.7 monospace;overflow-wrap:anywhere}button{margin:18px 12px 0 0;border:0;border-radius:8px;padding:12px 18px;background:#3896ef;color:#06152a;font:600 16px system-ui;cursor:pointer}button:disabled{opacity:.5;cursor:default}#status{min-height:1.6em;color:#b8f5d5}.note{font-size:14px}
+</style>
+<main>
+<h1>ET-Core encryption key</h1>
+<p>Generate a fresh 256-bit network key. Use the same key in your ET-Core Home Assistant integration and devices on that network.</p>
+<label for="key">Your key · 64 hexadecimal characters</label>
+<textarea id="key" readonly spellcheck="false" autocomplete="off" aria-label="Generated ET-Core encryption key"></textarea>
+<button id="generate" type="button">Generate key</button><button id="copy" type="button" disabled>Copy key</button>
+<p id="status" role="status" aria-live="polite"></p>
+<p class="note">Works offline after download. Uses your browser’s cryptographic random generator. No network requests, analytics or saved keys. Keep the key private. Replacing an existing network key requires updating its devices too.</p>
+</main>
+<script>
+'use strict';
+const key = document.getElementById('key'), status = document.getElementById('status');
+document.getElementById('generate').addEventListener('click', () => {
+  if (!globalThis.crypto?.getRandomValues) { status.textContent = 'Secure random generation is unavailable in this browser.'; return; }
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  key.value = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  bytes.fill(0);
+  document.getElementById('copy').disabled = false;
+  status.textContent = 'New key generated locally.';
+});
+document.getElementById('copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(key.value); status.textContent = 'Key copied.'; }
+  catch { key.focus(); key.select(); status.textContent = 'Key selected. Use Copy or press Ctrl+C.'; }
+});
+</script>
+</html>

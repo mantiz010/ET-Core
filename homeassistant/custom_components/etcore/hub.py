@@ -74,6 +74,16 @@ def _small(payload: dict[str, Any]) -> Any:
     return payload if len(text) <= 800 else {"_truncated": text[:800]}
 
 
+def _event_payload(dev_class: str, payload: dict[str, Any]) -> Any:
+    # Signed stream URLs and spoken text are needed by the device, not event logs.
+    if dev_class == "media_player.audio":
+        payload = dict(payload)
+        for key in ("url", "text"):
+            if key in payload:
+                payload[key] = "<redacted>"
+    return _small(payload)
+
+
 class EtCoreHub:
     def __init__(
         self,
@@ -92,6 +102,10 @@ class EtCoreHub:
         self._hub_session = os.urandom(7)
         self._ch_secret = os.urandom(32)  # per hub run: old runs' challenges are void
         self._transport: asyncio.DatagramTransport | None = None
+        # Experimental, opt-in IPv6 unicast. Thread discovery is a separate layer.
+        self._transport6: asyncio.DatagramTransport | None = None
+        self._enable_ipv6 = bool((config or {}).get("enable_ipv6", False))
+        self._ipv6_bind = str((config or {}).get("ipv6_bind", "::"))
         self._tasks: list[asyncio.Task] = []
         self._devices: dict[str, dict[str, Any]] = {}
         self._message_listeners: list[Callable[[dict[str, Any]], None]] = []
@@ -171,6 +185,19 @@ class EtCoreHub:
         self._transport, _ = await loop.create_datagram_endpoint(
             lambda: _HubProtocol(self), sock=self._build_socket()
         )
+        if self._enable_ipv6:
+            sock6 = None
+            try:
+                sock6 = self._build_ipv6_socket()
+                self._transport6, _ = await loop.create_datagram_endpoint(
+                    lambda: _HubProtocol(self), sock=sock6
+                )
+            except Exception:
+                if sock6 is not None:
+                    sock6.close()
+                self._transport.close()
+                self._transport = None
+                raise
         self._tasks.append(self.hass.loop.create_task(self._lease_sweeper()))
         self._tasks.append(self.hass.loop.create_task(self._announcer()))
 
@@ -185,6 +212,22 @@ class EtCoreHub:
         if self._transport:
             self._transport.close()
             self._transport = None
+
+        if self._transport6:
+            self._transport6.close()
+            self._transport6 = None
+
+    def _build_ipv6_socket(self) -> socket.socket:
+        sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        try:
+            # Separate families avoid IPv4-mapped source addresses and key ambiguity.
+            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+            sock.bind((self._ipv6_bind, self._port))
+            sock.setblocking(False)
+            return sock
+        except Exception:
+            sock.close()
+            raise
 
     def _build_socket(self) -> socket.socket:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -201,8 +244,9 @@ class EtCoreHub:
         return sock
 
     def _send_raw(self, data: bytes, addr: tuple) -> None:
-        if self._transport:
-            self._transport.sendto(data, addr)
+        transport = self._transport6 if ":" in addr[0] else self._transport
+        if transport:
+            transport.sendto(data, addr)
 
     def _handle_datagram(self, data: bytes, addr: tuple) -> None:
         try:
@@ -306,6 +350,7 @@ class EtCoreHub:
             self._decrypt_fail_count += 1
             self._note_bad_source(msg, "hub_has_no_key")
             return False
+        stage = "envelope"
         try:
             nonce = base64.b64decode(str(payload.get("n") or ""), validate=True)
             ct = base64.b64decode(str(payload.get("ct") or ""), validate=True)
@@ -313,8 +358,14 @@ class EtCoreHub:
             if len(nonce) != 12 or len(tag) != 16 or nonce[0] != 1:
                 raise ValueError("bad nonce or tag")
             aad = self._aad(str(msg.get("type") or ""), dev_id, msg.get("seq"))
+            stage = "authentication"
             plain = cipher.decrypt(nonce, ct + tag, aad)
-            payload = json.loads(plain.decode("utf-8"))
+            stage = "payload"
+            # Legacy ArduinoJson sends some C0 characters literally inside strings.
+            # Only tolerate these AFTER AEAD authentication; structural JSON errors,
+            # invalid UTF-8 and non-object payloads still fail. Re-serialization by
+            # Python escapes the characters correctly without discarding SMS content.
+            payload = json.loads(plain.decode("utf-8"), strict=False)
             if not isinstance(payload, dict):
                 raise ValueError("payload is not an object")
             # Replay check: nonce bytes 1-7 are the device's per-boot session and
@@ -335,13 +386,14 @@ class EtCoreHub:
             return True
         except Exception as exc:
             self._decrypt_fail_count += 1
-            self._note_bad_source(msg, "wrong_key")
-            self._warn_limited(f"dec:{dev_id}", "ET-Core decrypt failed for %s (wrong key?): %s", dev_id, exc.__class__.__name__)
+            why = {"envelope": "invalid_envelope", "authentication": "authentication_failed", "payload": "invalid_payload"}[stage]
+            self._note_bad_source(msg, why)
+            self._warn_limited(f"dec:{dev_id}", "ET-Core rejected packet for %s (%s): %s", dev_id, why, exc.__class__.__name__)
             return False
 
     def _note_bad_source(self, msg: dict[str, Any], why: str) -> None:
         """Remember which address sends packets we cannot accept, so the panel can
-        say "172.168.1.50 (relay7) has the wrong key" instead of a bare counter."""
+        say "192.0.2.50 (relay7) has the wrong key" instead of a bare counter."""
         ip = str(msg.get("_src_ip") or "?")
         now = time.time()
         src = self._bad_sources.get(ip)
@@ -390,7 +442,8 @@ class EtCoreHub:
             # Always ask for a hello: a new session is a reboot (often an OTA), and
             # its boot hello was dropped above, so fw/effects would stay stale.
             self._send_announce(str(ip), hello=True, dev_id=dev["id"],
-                                ds=session, ch=self._make_challenge(dev["id"], session, int(now)))
+                                ds=session, ch=self._make_challenge(dev["id"], session, int(now)),
+                                wake=payload.get("wake"))
         return False
 
     def _make_challenge(self, dev_id: str, session: str, t: int) -> str:
@@ -459,7 +512,7 @@ class EtCoreHub:
             self._nohub_count += 1
         if (mtype == "hello" and now - told >= 1.0) or not told or lost or (want_hello and now - told >= 10.0):
             dev["told_hub_at"] = now
-            self._send_announce(ip, hello=want_hello, dev_id=dev_id)
+            self._send_announce(ip, hello=want_hello, dev_id=dev_id, wake=payload.get("wake"))
         # With a PSK only authenticated packets get this far.
         dev["class"] = msg.get("class") or dev.get("class")
         dev["boot"] = msg.get("boot") or dev.get("boot")
@@ -480,6 +533,18 @@ class EtCoreHub:
             # The whole hello (minus the challenge) for the platforms: switch
             # lists, fan presets, sensor metadata, model, ...
             dev["hello"] = {k: v for k, v in payload.items() if k != "ch"}
+
+        # Sleep metadata is advisory; the authenticated lease still decides offline.
+        if mtype == "hello" or (mtype == "lease" and "sleep" in payload):
+            interval = payload.get("sleep", 0)
+            if isinstance(interval, int) and not isinstance(interval, bool) and 0 <= interval <= 0xFFFFFFFF:
+                dev["sleep_interval"] = interval
+                if not interval:
+                    dev.pop("sleep_until", None)
+        if mtype == "lease" and dev.get("sleep_interval"):
+            sleeping_for = payload.get("sleeping_for")
+            if isinstance(sleeping_for, int) and not isinstance(sleeping_for, bool) and 0 <= sleeping_for <= 0xFFFFFFFF:
+                dev["sleep_until"] = now + sleeping_for if sleeping_for else None
 
         if mtype == "ack":
             msg["_ack_ms"] = self._handle_ack(dev_id, payload)
@@ -526,6 +591,23 @@ class EtCoreHub:
         while True:
             await asyncio.sleep(ANNOUNCE_INTERVAL)
             self._send_announce(MULTICAST_GROUP, hello=False)
+            self._announce_ipv6_peers()
+
+    def _announce_ipv6_peers(self) -> None:
+        """Refresh known awake IPv6 peers without relying on IPv4 multicast.
+
+        Only already-proven, online peers receive a per-device encrypted
+        announcement. Sleeping peers are contacted at their normal wake.
+        """
+        if not self._enable_ipv6 or not self._transport6 or not self._psk:
+            return
+        for dev_id, dev in tuple(self._devices.items()):
+            target = dev.get("last_addr")
+            if (not dev.get("online") or not dev.get("rx_session")
+                    or dev.get("sleep_interval") or not isinstance(target, str)
+                    or ":" not in target):
+                continue
+            self._send_announce(target, hello=False, dev_id=dev_id)
 
     def _source_ip(self, target: str) -> str:
         """The address our packets to target leave from (what the device sees)."""
@@ -533,7 +615,8 @@ class EtCoreHub:
         hit = self._src_ip_cache.get(target)
         if hit and now - hit[1] < 60:
             return hit[0]
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        family = socket.AF_INET6 if ":" in target else socket.AF_INET
+        s = socket.socket(family, socket.SOCK_DGRAM)
         try:
             s.connect((target, self._port))  # no packet is sent; the kernel picks the route
             ip = s.getsockname()[0]
@@ -543,7 +626,7 @@ class EtCoreHub:
         return ip
 
     def _send_announce(self, target: str, *, hello: bool, dev_id: str | None = None,
-                       ds: str | None = None, ch: str | None = None) -> None:
+                       ds: str | None = None, ch: str | None = None, wake: Any = None) -> None:
         """Multicast (dev_id None, site key) or unicast to one device (its key).
 
         With a PSK the payload is encrypted and carries the hub's own address, so
@@ -557,6 +640,8 @@ class EtCoreHub:
         to = dev_id or "hub"
         try:
             payload: dict[str, Any] = {"hello": hello, "hub": self._source_ip(target)}
+            if dev_id and isinstance(wake, str) and len(wake) == 16 and all(c in "0123456789abcdef" for c in wake):
+                payload["wake"] = wake
             key = self._key_for(dev_id) if dev_id else self._site_key
             if key and ChaCha20Poly1305 is not None:
                 if dev_id:
@@ -633,7 +718,7 @@ class EtCoreHub:
             "seq": msg.get("seq"),
             "encrypted": bool(msg.get("_encrypted", False)),
             "src": msg.get("_src_ip"),
-            "payload": _small(payload),
+            "payload": _event_payload(str(msg.get("class") or ""), payload),
         }
         if msg.get("_ack_ms") is not None:
             event["ack_ms"] = msg["_ack_ms"]
@@ -648,6 +733,15 @@ class EtCoreHub:
             item = dict(dev)
             item["age"] = round(now - float(dev.get("last_seen") or now), 3)
             item["expires_in"] = round(float(dev.get("lease_expires") or now) - now, 3)
+            item["sleep_interval"] = int(dev.get("sleep_interval") or 0)
+            sleep_until = dev.get("sleep_until")
+            item["next_report_in"] = round(float(sleep_until) - now, 3) if sleep_until else None
+            if not dev.get("online"):
+                item["sleep_state"] = "offline"
+            elif sleep_until:
+                item["sleep_state"] = "sleeping" if now < float(sleep_until) else "awaiting_report"
+            else:
+                item["sleep_state"] = "awake"
             stats = dict(dev.get("stats") or _new_stats())
             stats["ack_ms_avg"] = round(stats["ack_ms_sum"] / stats["acked"], 1) if stats["acked"] else None
             item["stats"] = stats
@@ -657,6 +751,7 @@ class EtCoreHub:
         devices.sort(key=lambda d: str(d.get("id") or ""))
         return {
             "ok": True,
+            "sleep_protocol": 2,  # per-wake token echo and explicit sleep intent
             "encrypted": bool(self._psk),
             "rx_count": self._rx_count,
             "decrypt_failures": self._decrypt_fail_count,
@@ -706,7 +801,7 @@ class EtCoreHub:
         }
         self._devices[dev_id].setdefault("stats", _new_stats())["cmds"] += 1
         self._add_event({"dir": "tx", "type": "command", "id": dev_id, "class": dev_class,
-                         "cmd_id": cmd_id, "payload": _small(payload)})
+                         "cmd_id": cmd_id, "payload": _event_payload(dev_class, payload)})
         self._transmit(cmd_id, first=True)
 
     def _transmit(self, cmd_id: str, first: bool = False) -> None:

@@ -14,6 +14,11 @@ from .hub import EtCoreHub
 # enums stand for, so this works across HA versions (ET-Bus's
 # CONCENTRATION_PARTS_PER_MILLION is deprecated in 2026.10).
 _KNOWN: dict[str, tuple[str, SensorDeviceClass | None, str | None]] = {
+    "wind_gust": ("Wind gust", None, "m/s"),
+    "wind_speed": ("Wind speed", None, "m/s"),
+    "wind_direction": ("Wind direction", None, "°"),
+    "rainfall": ("Rainfall", None, "mm"),
+    "battery_ok": ("Battery", None, None),
     "temp": ("Temperature", SensorDeviceClass.TEMPERATURE, "°C"),
     "humidity": ("Humidity", SensorDeviceClass.HUMIDITY, "%"),
     "co2": ("CO2", SensorDeviceClass.CO2, "ppm"),
@@ -48,6 +53,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     """sensor.* devices, ET-Bus payloads: {"value": 21.5, "unit": "°C"} (metric from the
     class, e.g. sensor.temperature) or several readings {"co2": 600, "temp": 21.5}."""
     hub: EtCoreHub = hass.data[DOMAIN][entry.entry_id]
+    from .hydro_bucket import setup_bucket_sensors
+    setup_bucket_sensors(hass, entry, hub, async_add_entities)
     entities: dict[tuple[str, str], EtCoreSensor] = {}
 
     @callback
@@ -55,7 +62,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         dev_id = str(msg.get("id") or "")
         dev_class = str(msg.get("class") or "")
         payload = msg.get("payload") if isinstance(msg.get("payload"), dict) else {}
-        if not dev_id or not dev_class.startswith("sensor."):
+        if not dev_id or not dev_class.startswith("sensor.") or dev_class == "sensor.hydro_bucket":
             return
         # Only state carries readings; lease/ack/hello fields are not sensors.
         if msg.get("type") != "state":
@@ -128,6 +135,8 @@ class EtCoreSensor(SensorEntity):
         return bool((self._hub.devices.get(self._dev_id) or {}).get("online", False))
 
     def set_value(self, value: Any) -> None:
+        if self._metric == "battery_ok" and isinstance(value, bool):
+            value = "OK" if value else "LOW"
         self._attr_native_value = value
         # Numbers are measurements (history graphs, statistics); text is not.
         if isinstance(value, (int, float)) and not isinstance(value, bool):

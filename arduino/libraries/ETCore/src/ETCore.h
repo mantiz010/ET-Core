@@ -4,9 +4,10 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
+#include "ETCoreTransport.h"
 #include <ETChaCha20Poly1305.h>
 
-#define ETCORE_LIBRARY_VERSION "0.4.3"
+#define ETCORE_LIBRARY_VERSION "0.4.9-alpha.1"
 #ifndef ETCORE_DEFAULT_PORT
 #define ETCORE_DEFAULT_PORT 5560
 #endif
@@ -19,6 +20,23 @@
 #endif
 // Recent command ids remembered so a resend is acked again but not re-run.
 #define ETCORE_CMD_HISTORY 4
+
+// What a battery device keeps while it is in deep sleep, so the next wake carries
+// on the same session instead of looking like a reboot. On the ESP32 it lives in
+// RTC memory; the three functions below are the only platform-specific part.
+struct ETCoreSleepState {
+  uint32_t magic;
+  uint32_t seq;
+  uint32_t lastCmdSeq;
+  uint8_t hubIp[4];
+  uint8_t session[7];
+  uint8_t hubKnown;
+  char boot[17];
+  uint32_t check;  // binds the state to this device id and key
+};
+bool etcoreSleepLoad(ETCoreSleepState& state);        // false unless this is a deep-sleep wake
+void etcoreSleepSave(const ETCoreSleepState& state);
+void etcoreDeepSleep(uint32_t seconds);               // does not return on real hardware
 
 class ETCore {
 public:
@@ -64,6 +82,11 @@ public:
 
   // UDP port (default ETCORE_DEFAULT_PORT, 5560); call before begin(). Must match
   // the port set in the Home Assistant integration.
+  // Opt-in adapter: set before begin(), with encryption already configured.
+  // Current adapters are always-awake; deep-sleep RTC state remains IPv4-only.
+  bool setTransport(ETCoreTransport* transport);
+  bool transportReady() const { return _transportReady; }
+  uint32_t transportSendFailures() const { return _transportSendFailures; }
   void setPort(uint16_t port);
   uint16_t port() const { return _port; }
 
@@ -73,6 +96,22 @@ public:
   // over 3 hub announce periods) the device forgets the hub address and asks again
   // by multicast, so it finds Home Assistant again after it moved address.
   void setHubSilentTimeout(uint32_t ms);
+
+  // ---- Battery devices (deep sleep) --------------------------------------------
+  // Call before begin(): the device normally sleeps this long between reports.
+  // The hub then keeps it online while it sleeps and marks it offline only after
+  // about three missed reports (lease TTL = 3 x seconds + 10; setLeaseTtl()
+  // afterwards overrides it).
+  void setSleepInterval(uint32_t seconds);
+  // True when begin() carried on the session of the previous wake (no handshake).
+  bool wokeFromSleep() const { return _resumed; }
+  // Runs loop() until the hub has answered this wake and any handshake it asked
+  // for is finished, or timeout_ms passed. True = the hub heard this wake.
+  bool waitForHub(uint32_t timeout_ms = 1500);
+  // Send the readings first, then call this: waits for the hub (waitForHub), saves
+  // the session and deep-sleeps. seconds = 0 uses the sleep interval. A wake-up pin
+  // the sketch enabled (esp_sleep_enable_ext0_wakeup, ...) still works.
+  void sleepFor(uint32_t seconds = 0, uint32_t timeout_ms = 1500);
 
 private:
   void _sendEnvelope(const char* type, JsonObject payload, bool multicast_fallback);
@@ -108,6 +147,9 @@ private:
   int _netRecv(char* buf, size_t max);
   void _netSend(IPAddress ip, const char* data, size_t len);
   IPAddress _rxFrom;
+  ETCoreTransport* _externalTransport = nullptr;
+  bool _transportReady = false;
+  uint32_t _transportSendFailures = 0;
 #if defined(ESP_PLATFORM)
   int _sock = -1;
 #else
@@ -137,6 +179,15 @@ private:
   char _curCmd[24] = {0};
   bool _curAcked = false;
   bool _curOk = true;
+  uint32_t _sleepSec = 0;       // > 0: battery device
+  char _wakeToken[17] = {0};  // fresh per wake, never restored from RTC
+  uint32_t _sleepingFor = 0;  // explicit sleep intent in the final lease
+  bool _resumed = false;        // this wake carried on a saved session
+  bool _askHub = false;         // lease asks the hub to answer (wake confirmation)
+  bool _hubConfirmed = false;   // an authenticated hub packet arrived this wake
+  bool _challenged = false;     // the hub made this wake prove itself
+  char* _stateCache = nullptr;  // last sendState(), re-sent after a challenge
+  uint32_t _sleepCheck(const ETCoreSleepState& st) const;
   bool _helloPending = false;
   uint32_t _helloDueMs = 0;
   uint32_t _leaseIntervalMs = 2000;

@@ -23,3 +23,10 @@ Home Assistant first, it uses the same port):
 Home Assistant checks against a test instance: `tools/ha_e2e.py` (switch),
 `tools/ha_e2e_light.py` (light), `tools/ha_restart_check.sh <state>` (`ENT=` picks the
 entity), `tools/ha_panel_shot.js` (sidebar panel in headless Chromium).
+
+## Run without colliding with another local HA instance
+
+Run `sh sim/run-tests.sh`. It chooses a currently unused UDP port, builds the
+simulator with the same port and supplies the Python test import path. An explicit
+`ETCORE_SIM_PORT` is checked before the run. Test multicast stays on loopback with
+TTL zero. Do not stop another HA instance merely to free the old default port.

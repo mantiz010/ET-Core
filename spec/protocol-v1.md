@@ -229,6 +229,45 @@ the announce counter) and AAD `v1|announce|<id>|<seq>`:
 ```
 decrypted payload: `{"hello": false, "hub": "192.168.1.8"}` (unicast adds `"_ds"`).
 
+### Sleeping (battery) devices
+
+Experimental in SDK 0.4.8-beta.2; see [preview limits](../BATTERY-PREVIEW.md).
+
+A device that deep-sleeps between reports uses the same messages; nothing new is
+needed on the hub.
+
+- It asks for a long lease: `ttl` = 3 x its sleep interval + 10 s (library
+  `setSleepInterval()`, capped at 65535 seconds), so the hub keeps it online while it sleeps and marks it
+  offline after about three missed reports. `lease` and `hello` also carry
+  `"sleep": <seconds>` for display; a hub may ignore it.
+- It keeps its session, `boot` id, `seq`, last command `seq` and the hub address
+  through deep sleep (RTC memory on the ESP32). A wake therefore continues the same
+  session with a rising `seq`: no challenge, no hello. The saved copy is wiped as
+  soon as it is read and written again only just before the next sleep, so no
+  `seq` is ever used twice. Any other reset (power loss, crash) starts a new
+  session, which is challenged as usual.
+- On begin, each wake sends a `lease` with `"nohub": true` straight to the
+  remembered hub address, then the sketch sends its readings. The hub's answering unicast `announce` (authenticated,
+  bound to the session by `_ds`) tells the device it was heard; it then sleeps.
+  The hub answers at most once per device per second, so a second wake within a
+  second is delivered but not confirmed.
+- If the hub was restarted it challenges the session in that same `announce`; the
+  device answers with a hello and sends its reading again (its sync handler, or the
+  library's copy of the last `state` up to 512 bytes) before sleeping.
+- No answer within the wait limit (default 1.5 s): the device sleeps anyway,
+  forgets the hub address and searches by multicast on the next wake.
+- SDK beta.2 adds `wake`, a fresh 16-character random hex token generated on each
+  wake (not restored from RTC). Hello and lease carry it. The updated hub echoes
+  it only in the unicast announce, inside encryption when a PSK is configured.
+  Only a matching unicast echo confirms that wake; multicast and earlier-wake
+  recordings do not. Older hubs still receive data but cannot confirm beta.2 wakes.
+- Immediately before deep sleep, a final lease carries `sleeping_for` in seconds.
+  Awake leases set this to zero. The transmit sequence is saved after this lease.
+  The hub derives the expected next report from the receipt time and this duration.
+  Report due is advisory; only the normal lease expiry makes the device offline.
+- Commands are not held for a sleeping device yet: one sent while it sleeps times
+  out. Wake confirmation does not acknowledge durable storage of each reading.
+
 ### Command delivery
 
 - The hub assigns every command a unique `cmd_id` (any `cmd_id` from the caller is
@@ -296,3 +335,16 @@ Encrypted mode:
   1-7 of its own packets, 14 lowercase hex chars). Devices drop commands whose `_ds`
   is not their own session, so commands recorded before a device reboot are dead.
   The hub learns the session from the device's first encrypted packet after boot.
+
+### Legacy string compatibility and rejection diagnostics
+
+Receivers may accept raw C0 control characters *inside JSON strings* from legacy
+ArduinoJson senders, but only after successful AEAD authentication. Preserve the
+string value and escape it normally when serializing again. This compatibility
+rule does not accept invalid UTF-8, malformed JSON structure, non-object payloads,
+unauthenticated packets or replays.
+
+Diagnostics distinguish invalid envelope format, failed authentication and invalid
+message data. An authentication failure alone does not establish that a configured
+key is wrong: the packet's claimed sender has not been authenticated. Peer library
+versions are inventory information, not evidence of an available or required update.

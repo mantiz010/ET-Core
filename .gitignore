@@ -4,3 +4,8 @@ __pycache__/
 build/
 .pio/
 *.log
+
+# Local encryption keys and firmware outputs
+*.key
+*.bin
+*.elf

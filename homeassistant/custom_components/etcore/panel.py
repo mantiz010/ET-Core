@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,8 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from .const import DOMAIN, MULTICAST_GROUP
+from .health_profiles import PROFILES, describe_device
+from homeassistant.helpers.storage import Store
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -90,6 +93,29 @@ def _ha_device(hass: HomeAssistant, dev_id: str, entry_id: str | None = None) ->
     return None
 
 
+def _profile_state(hass: HomeAssistant) -> dict:
+    key = f"{DOMAIN}_health_profiles"
+    if key not in hass.data:
+        hass.data[key] = {"data": {}, "ready": False, "lock": asyncio.Lock(),
+                          "store": Store(hass, 1, key)}
+    return hass.data[key]
+
+
+async def _load_profiles(hass: HomeAssistant) -> None:
+    state = _profile_state(hass)
+    async with state["lock"]:
+        if state["ready"]:
+            return
+        saved = await state["store"].async_load() or {}
+        state["data"] = {
+            entry: {dev: profile for dev, profile in devices.items()
+                    if isinstance(dev, str) and isinstance(profile, str) and profile in PROFILES}
+            for entry, devices in saved.items()
+            if isinstance(entry, str) and isinstance(devices, dict)
+        } if isinstance(saved, dict) else {}
+        state["ready"] = True
+
+
 def _diag(hass: HomeAssistant, since: int | None) -> dict[str, Any]:
     ent_reg = er.async_get(hass)
     hubs = []
@@ -99,9 +125,13 @@ def _diag(hass: HomeAssistant, since: int | None) -> dict[str, Any]:
             continue
         snap = get_snapshot(since)
         snap["entry_id"] = entry_id
+        entry = hass.config_entries.async_get_entry(entry_id)
+        snap["title"] = entry.title if entry else "ET-Core"
         # Which HA entities belong to each device, so the page can show and
         # control them through the normal HA services.
         for dev in snap["devices"]:
+            override = _profile_state(hass)["data"].get(entry_id, {}).get(dev["id"], "auto")
+            dev["health_profile"] = describe_device(dev, override)
             device = _ha_device(hass, dev.get("id"), entry_id)
             dev["ha_device_id"] = device.id if device else None
             dev["ha_name"] = device.name_by_user if device else None
@@ -180,11 +210,89 @@ def _ws_setup_info(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
     })
 
 
+@websocket_api.websocket_command({
+    vol.Required("type"): "etcore/set_health_profile",
+    vol.Required("entry_id"): str,
+    vol.Required("dev_id"): str,
+    vol.Required("profile"): vol.In(PROFILES),
+})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def _ws_set_health_profile(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    hub = _hubs(hass).get(msg["entry_id"])
+    if hub is None or msg["dev_id"] not in hub.devices:
+        connection.send_error(msg["id"], "not_found", "Unknown device in this ET-Core connection")
+        return
+    await _load_profiles(hass)
+    state = _profile_state(hass)
+    async with state["lock"]:
+        updated = {entry: dict(devices) for entry, devices in state["data"].items()}
+        devices = updated.setdefault(msg["entry_id"], {})
+        if msg["profile"] == "auto":
+            devices.pop(msg["dev_id"], None)
+        else:
+            devices[msg["dev_id"]] = msg["profile"]
+        try:
+            await state["store"].async_save(updated)
+        except Exception:
+            _LOGGER.exception("Could not save ET-Core health profile")
+            connection.send_error(msg["id"], "save_failed", "Profile was not saved; try again")
+            return
+        state["data"] = updated
+    connection.send_result(msg["id"], {"profile": msg["profile"]})
+
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): "etcore/thread_bootstrap",
+    vol.Required("entry_id"): str,
+    vol.Required("dev_id"): vol.All(str, vol.Length(min=1, max=64)),
+    vol.Required("session"): vol.All(str, vol.Match(r"^[0-9a-f]{14}$")),
+    vol.Required("address"): str,
+})
+@websocket_api.require_admin
+@callback
+def _ws_thread_bootstrap(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Challenge a provisioned Thread peer from this hub's own IPv6 address.
+
+    Does not admit a device or import state. The peer must prove its key and
+    session using the ordinary encrypted handshake before it creates entities.
+    """
+    import ipaddress
+    import time
+    hub = (hass.data.get(DOMAIN) or {}).get(msg["entry_id"])
+    if hub is None or not hub._psk or not hub._enable_ipv6:
+        connection.send_error(msg["id"], "invalid_hub", "An encrypted IPv6 hub is required")
+        return
+    try:
+        address = ipaddress.IPv6Address(msg["address"])
+        if address.is_multicast or address.is_unspecified or address.is_link_local or address.is_loopback:
+            raise ValueError
+    except ValueError:
+        connection.send_error(msg["id"], "invalid_address", "Use a routable unicast Thread IPv6 address")
+        return
+    limits = hass.data.setdefault("etcore_thread_bootstrap_limits", {})
+    key = (msg["entry_id"], msg["dev_id"])
+    now = time.monotonic()
+    if key in limits and now - limits[key] < 10:
+        connection.send_error(msg["id"], "rate_limited", "Wait ten seconds before another challenge")
+        return
+    limits[key] = now
+    try:
+        hub._send_announce(str(address), hello=True, dev_id=msg["dev_id"],
+                           ds=msg["session"], ch=hub._make_challenge(msg["dev_id"], msg["session"], int(now)))
+    except OSError:
+        connection.send_error(msg["id"], "send_failed", "IPv6 challenge could not be sent")
+        return
+    connection.send_result(msg["id"], {"challenge_sent": True})
+
+
 async def async_setup_panel(hass: HomeAssistant) -> None:
+    await _load_profiles(hass)
     if not hass.data.get(f"{DOMAIN}_panel_loaded"):
         hass.http.register_view(EtCoreHtmlView)
         hass.http.register_view(EtCoreDiagApiView)
-        for cmd in (_ws_diag, _ws_rename, _ws_remove, _ws_setup_info):
+        for cmd in (_ws_diag, _ws_rename, _ws_remove, _ws_setup_info, _ws_set_health_profile, _ws_thread_bootstrap):
             websocket_api.async_register_command(hass, cmd)
         hass.data[f"{DOMAIN}_panel_loaded"] = True
 
@@ -196,6 +304,7 @@ async def async_setup_panel(hass: HomeAssistant) -> None:
         frontend_url_path=PANEL_URL_PATH,
         config={"url": VIEW_URL},
         require_admin=False,
+        update=True,  # Multiple ET-Core entries share one dashboard.
     )
 
 
