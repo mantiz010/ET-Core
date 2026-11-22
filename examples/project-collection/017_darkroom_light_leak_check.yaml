@@ -1,0 +1,35 @@
+blueprint:
+  name: ET-Core · Darkroom light leak check
+  domain: automation
+  description: 'Use the ET-Core BH1750 firmware. Select illuminance (lx). Default
+    trigger: above 2, held for 0 minutes.'
+  input:
+    source:
+      name: illuminance (lx)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 2
+      selector:
+        number:
+          min: 0
+          max: 20000
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Darkroom light leak check
+          message: illuminance (lx) changed to the configured state.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  above: !input threshold
+action: !input response
+mode: single

@@ -1,0 +1,38 @@
+blueprint:
+  name: ET-Core · Pond summer warmth
+  domain: automation
+  description: 'Use the ET-Core DS18B20 firmware. Select probe temperature (°C). Default
+    trigger: above 26, held for 30 minutes.'
+  input:
+    source:
+      name: probe temperature (°C)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 26
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Pond summer warmth
+          message: probe temperature (°C) reached the configured condition for 30
+            min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  above: !input threshold
+  for:
+    minutes: 30
+action: !input response
+mode: single

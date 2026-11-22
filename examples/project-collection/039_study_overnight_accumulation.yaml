@@ -1,0 +1,37 @@
+blueprint:
+  name: ET-Core · Study overnight accumulation
+  domain: automation
+  description: 'Use the ET-Core SCD40 firmware. Select carbon dioxide (ppm). Default
+    trigger: above 1000, held for 60 minutes.'
+  input:
+    source:
+      name: carbon dioxide (ppm)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 1000
+      selector:
+        number:
+          min: 0
+          max: 5000
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Study overnight accumulation
+          message: carbon dioxide (ppm) reached the configured condition for 60 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  above: !input threshold
+  for:
+    minutes: 60
+action: !input response
+mode: single

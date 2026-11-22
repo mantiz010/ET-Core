@@ -1,0 +1,27 @@
+blueprint:
+  name: ET-Core · Stair landing movement cue
+  domain: automation
+  description: 'Use the ET-Core MotionPIR firmware. Select motion. Default trigger:
+    on, held for 0 minutes.'
+  input:
+    source:
+      name: motion
+      selector:
+        entity:
+          domain: binary_sensor
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Stair landing movement cue
+          message: motion changed to the configured state.
+      selector:
+        action: {}
+trigger:
+- platform: state
+  entity_id: !input source
+  from: 'off'
+  to: 'on'
+action: !input response
+mode: single

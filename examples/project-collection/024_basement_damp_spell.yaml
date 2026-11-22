@@ -1,0 +1,37 @@
+blueprint:
+  name: ET-Core · Basement damp spell
+  domain: automation
+  description: 'Use the ET-Core BME280 firmware. Select relative humidity (%). Default
+    trigger: above 65, held for 60 minutes.'
+  input:
+    source:
+      name: relative humidity (%)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 65
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Basement damp spell
+          message: relative humidity (%) reached the configured condition for 60 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  above: !input threshold
+  for:
+    minutes: 60
+action: !input response
+mode: single

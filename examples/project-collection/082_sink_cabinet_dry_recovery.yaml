@@ -1,0 +1,29 @@
+blueprint:
+  name: ET-Core · Sink cabinet dry recovery
+  domain: automation
+  description: 'Use the ET-Core WaterLeak firmware. Select wet contact. Default trigger:
+    off, held for 10 minutes.'
+  input:
+    source:
+      name: wet contact
+      selector:
+        entity:
+          domain: binary_sensor
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Sink cabinet dry recovery
+          message: wet contact reached the configured condition for 10 min.
+      selector:
+        action: {}
+trigger:
+- platform: state
+  entity_id: !input source
+  from: 'on'
+  to: 'off'
+  for:
+    minutes: 10
+action: !input response
+mode: single

@@ -1,0 +1,37 @@
+blueprint:
+  name: ET-Core · Meeting room airing reminder
+  domain: automation
+  description: 'Use the ET-Core SCD40 firmware. Select carbon dioxide (ppm). Default
+    trigger: above 1100, held for 10 minutes.'
+  input:
+    source:
+      name: carbon dioxide (ppm)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 1100
+      selector:
+        number:
+          min: 0
+          max: 5000
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Meeting room airing reminder
+          message: carbon dioxide (ppm) reached the configured condition for 10 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  above: !input threshold
+  for:
+    minutes: 10
+action: !input response
+mode: single

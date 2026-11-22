@@ -1,0 +1,37 @@
+blueprint:
+  name: ET-Core · Covered sensor darkness test
+  domain: automation
+  description: 'Use the ET-Core BH1750 firmware. Select illuminance (lx). Default
+    trigger: below 1, held for 1 minutes.'
+  input:
+    source:
+      name: illuminance (lx)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 1
+      selector:
+        number:
+          min: 0
+          max: 20000
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Covered sensor darkness test
+          message: illuminance (lx) reached the configured condition for 1 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  below: !input threshold
+  for:
+    minutes: 1
+action: !input response
+mode: single

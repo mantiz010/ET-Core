@@ -1,0 +1,29 @@
+blueprint:
+  name: ET-Core · Greenhouse vent closed
+  domain: automation
+  description: 'Use the ET-Core DoorContact firmware. Select contact. Default trigger:
+    off, held for 5 minutes.'
+  input:
+    source:
+      name: contact
+      selector:
+        entity:
+          domain: binary_sensor
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Greenhouse vent closed
+          message: contact reached the configured condition for 5 min.
+      selector:
+        action: {}
+trigger:
+- platform: state
+  entity_id: !input source
+  from: 'on'
+  to: 'off'
+  for:
+    minutes: 5
+action: !input response
+mode: single

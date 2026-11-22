@@ -1,0 +1,38 @@
+blueprint:
+  name: ET-Core · Rain barrel near freezing
+  domain: automation
+  description: 'Use the ET-Core DS18B20 firmware. Select probe temperature (°C). Default
+    trigger: below 2, held for 10 minutes.'
+  input:
+    source:
+      name: probe temperature (°C)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 2
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Rain barrel near freezing
+          message: probe temperature (°C) reached the configured condition for 10
+            min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  below: !input threshold
+  for:
+    minutes: 10
+action: !input response
+mode: single

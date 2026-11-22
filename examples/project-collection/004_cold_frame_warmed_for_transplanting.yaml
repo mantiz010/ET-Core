@@ -1,0 +1,38 @@
+blueprint:
+  name: ET-Core · Cold frame warmed for transplanting
+  domain: automation
+  description: 'Use the ET-Core DS18B20 firmware. Select probe temperature (°C). Default
+    trigger: above 16, held for 20 minutes.'
+  input:
+    source:
+      name: probe temperature (°C)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 16
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Cold frame warmed for transplanting
+          message: probe temperature (°C) reached the configured condition for 20
+            min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  above: !input threshold
+  for:
+    minutes: 20
+action: !input response
+mode: single

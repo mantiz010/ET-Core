@@ -1,0 +1,29 @@
+blueprint:
+  name: ET-Core · Storage drawer left out
+  domain: automation
+  description: 'Use the ET-Core DoorContact firmware. Select contact. Default trigger:
+    on, held for 5 minutes.'
+  input:
+    source:
+      name: contact
+      selector:
+        entity:
+          domain: binary_sensor
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Storage drawer left out
+          message: contact reached the configured condition for 5 min.
+      selector:
+        action: {}
+trigger:
+- platform: state
+  entity_id: !input source
+  from: 'off'
+  to: 'on'
+  for:
+    minutes: 5
+action: !input response
+mode: single

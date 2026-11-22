@@ -1,0 +1,38 @@
+blueprint:
+  name: ET-Core · Seed tray drying
+  domain: automation
+  description: 'Use the ET-Core SoilMoisture firmware. Select calibrated soil moisture
+    (%). Default trigger: below 45, held for 5 minutes.'
+  input:
+    source:
+      name: calibrated soil moisture (%)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 45
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Seed tray drying
+          message: calibrated soil moisture (%) reached the configured condition for
+            5 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  below: !input threshold
+  for:
+    minutes: 5
+action: !input response
+mode: single

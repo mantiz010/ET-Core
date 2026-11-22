@@ -1,0 +1,27 @@
+blueprint:
+  name: ET-Core · Mailbox delivery flap opened
+  domain: automation
+  description: 'Use the ET-Core DoorContact firmware. Select contact. Default trigger:
+    on, held for 0 minutes.'
+  input:
+    source:
+      name: contact
+      selector:
+        entity:
+          domain: binary_sensor
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Mailbox delivery flap opened
+          message: contact changed to the configured state.
+      selector:
+        action: {}
+trigger:
+- platform: state
+  entity_id: !input source
+  from: 'off'
+  to: 'on'
+action: !input response
+mode: single

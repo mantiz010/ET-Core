@@ -1,0 +1,38 @@
+blueprint:
+  name: ET-Core · Window box slow drainage
+  domain: automation
+  description: 'Use the ET-Core SoilMoisture firmware. Select calibrated soil moisture
+    (%). Default trigger: above 85, held for 120 minutes.'
+  input:
+    source:
+      name: calibrated soil moisture (%)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 85
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Window box slow drainage
+          message: calibrated soil moisture (%) reached the configured condition for
+            120 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  above: !input threshold
+  for:
+    minutes: 120
+action: !input response
+mode: single

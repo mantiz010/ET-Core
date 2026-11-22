@@ -1,0 +1,37 @@
+blueprint:
+  name: ET-Core · Camera cabinet too dry
+  domain: automation
+  description: 'Use the ET-Core BME280 firmware. Select relative humidity (%). Default
+    trigger: below 30, held for 30 minutes.'
+  input:
+    source:
+      name: relative humidity (%)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 30
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Camera cabinet too dry
+          message: relative humidity (%) reached the configured condition for 30 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  below: !input threshold
+  for:
+    minutes: 30
+action: !input response
+mode: single

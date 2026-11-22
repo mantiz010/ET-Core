@@ -1,0 +1,37 @@
+blueprint:
+  name: ET-Core · Laundry drying room recovered
+  domain: automation
+  description: 'Use the ET-Core BME280 firmware. Select relative humidity (%). Default
+    trigger: below 55, held for 15 minutes.'
+  input:
+    source:
+      name: relative humidity (%)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 55
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Laundry drying room recovered
+          message: relative humidity (%) reached the configured condition for 15 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  below: !input threshold
+  for:
+    minutes: 15
+action: !input response
+mode: single

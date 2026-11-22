@@ -1,0 +1,37 @@
+blueprint:
+  name: ET-Core · Greenhouse frost watch
+  domain: automation
+  description: 'Use the ET-Core DS18B20 firmware. Select probe temperature (°C). Default
+    trigger: below 3, held for 5 minutes.'
+  input:
+    source:
+      name: probe temperature (°C)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 3
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Greenhouse frost watch
+          message: probe temperature (°C) reached the configured condition for 5 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  below: !input threshold
+  for:
+    minutes: 5
+action: !input response
+mode: single

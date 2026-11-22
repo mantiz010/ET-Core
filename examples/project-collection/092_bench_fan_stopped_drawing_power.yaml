@@ -1,0 +1,37 @@
+blueprint:
+  name: ET-Core · Bench fan stopped drawing power
+  domain: automation
+  description: 'Use the ET-Core INA219 firmware. Select DC load power (W). Default
+    trigger: below 0.5, held for 1 minutes.'
+  input:
+    source:
+      name: DC load power (W)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 0.5
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Bench fan stopped drawing power
+          message: DC load power (W) reached the configured condition for 1 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  below: !input threshold
+  for:
+    minutes: 1
+action: !input response
+mode: single

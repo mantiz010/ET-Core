@@ -1,0 +1,29 @@
+blueprint:
+  name: ET-Core · Garage side door left open
+  domain: automation
+  description: 'Use the ET-Core DoorContact firmware. Select contact. Default trigger:
+    on, held for 10 minutes.'
+  input:
+    source:
+      name: contact
+      selector:
+        entity:
+          domain: binary_sensor
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Garage side door left open
+          message: contact reached the configured condition for 10 min.
+      selector:
+        action: {}
+trigger:
+- platform: state
+  entity_id: !input source
+  from: 'off'
+  to: 'on'
+  for:
+    minutes: 10
+action: !input response
+mode: single

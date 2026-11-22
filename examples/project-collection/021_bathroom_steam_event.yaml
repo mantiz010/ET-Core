@@ -1,0 +1,37 @@
+blueprint:
+  name: ET-Core · Bathroom steam event
+  domain: automation
+  description: 'Use the ET-Core BME280 firmware. Select relative humidity (%). Default
+    trigger: above 75, held for 3 minutes.'
+  input:
+    source:
+      name: relative humidity (%)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 75
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Bathroom steam event
+          message: relative humidity (%) reached the configured condition for 3 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  above: !input threshold
+  for:
+    minutes: 3
+action: !input response
+mode: single

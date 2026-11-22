@@ -1,0 +1,35 @@
+blueprint:
+  name: ET-Core · USB lamp switched on
+  domain: automation
+  description: 'Use the ET-Core INA219 firmware. Select DC load power (W). Default
+    trigger: above 1, held for 0 minutes.'
+  input:
+    source:
+      name: DC load power (W)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 1
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: USB lamp switched on
+          message: DC load power (W) changed to the configured state.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  above: !input threshold
+action: !input response
+mode: single

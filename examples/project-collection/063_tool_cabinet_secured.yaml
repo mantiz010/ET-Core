@@ -1,0 +1,29 @@
+blueprint:
+  name: ET-Core · Tool cabinet secured
+  domain: automation
+  description: 'Use the ET-Core DoorContact firmware. Select contact. Default trigger:
+    off, held for 1 minutes.'
+  input:
+    source:
+      name: contact
+      selector:
+        entity:
+          domain: binary_sensor
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Tool cabinet secured
+          message: contact reached the configured condition for 1 min.
+      selector:
+        action: {}
+trigger:
+- platform: state
+  entity_id: !input source
+  from: 'on'
+  to: 'off'
+  for:
+    minutes: 1
+action: !input response
+mode: single

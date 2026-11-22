@@ -1,0 +1,37 @@
+blueprint:
+  name: ET-Core · Drain tank empty confirmation
+  domain: automation
+  description: 'Use the ET-Core TankLevel firmware. Select calibrated level (%). Default
+    trigger: below 5, held for 1 minutes.'
+  input:
+    source:
+      name: calibrated level (%)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 5
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Drain tank empty confirmation
+          message: calibrated level (%) reached the configured condition for 1 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  below: !input threshold
+  for:
+    minutes: 1
+action: !input response
+mode: single

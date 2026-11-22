@@ -1,0 +1,38 @@
+blueprint:
+  name: ET-Core · Mulched bed moisture reserve
+  domain: automation
+  description: 'Use the ET-Core SoilMoisture firmware. Select calibrated soil moisture
+    (%). Default trigger: below 30, held for 30 minutes.'
+  input:
+    source:
+      name: calibrated soil moisture (%)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 30
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Mulched bed moisture reserve
+          message: calibrated soil moisture (%) reached the configured condition for
+            30 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  below: !input threshold
+  for:
+    minutes: 30
+action: !input response
+mode: single

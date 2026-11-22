@@ -1,0 +1,37 @@
+blueprint:
+  name: ET-Core · Bedroom morning air recovery
+  domain: automation
+  description: 'Use the ET-Core SCD40 firmware. Select carbon dioxide (ppm). Default
+    trigger: below 750, held for 10 minutes.'
+  input:
+    source:
+      name: carbon dioxide (ppm)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 750
+      selector:
+        number:
+          min: 0
+          max: 5000
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Bedroom morning air recovery
+          message: carbon dioxide (ppm) reached the configured condition for 10 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  below: !input threshold
+  for:
+    minutes: 10
+action: !input response
+mode: single

@@ -1,0 +1,37 @@
+blueprint:
+  name: ET-Core · Studio occupancy trend prompt
+  domain: automation
+  description: 'Use the ET-Core SCD40 firmware. Select carbon dioxide (ppm). Default
+    trigger: above 900, held for 20 minutes.'
+  input:
+    source:
+      name: carbon dioxide (ppm)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 900
+      selector:
+        number:
+          min: 0
+          max: 5000
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Studio occupancy trend prompt
+          message: carbon dioxide (ppm) reached the configured condition for 20 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  above: !input threshold
+  for:
+    minutes: 20
+action: !input response
+mode: single

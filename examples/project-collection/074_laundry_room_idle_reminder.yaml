@@ -1,0 +1,29 @@
+blueprint:
+  name: ET-Core · Laundry room idle reminder
+  domain: automation
+  description: 'Use the ET-Core MotionPIR firmware. Select motion. Default trigger:
+    off, held for 10 minutes.'
+  input:
+    source:
+      name: motion
+      selector:
+        entity:
+          domain: binary_sensor
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Laundry room idle reminder
+          message: motion reached the configured condition for 10 min.
+      selector:
+        action: {}
+trigger:
+- platform: state
+  entity_id: !input source
+  from: 'on'
+  to: 'off'
+  for:
+    minutes: 10
+action: !input response
+mode: single

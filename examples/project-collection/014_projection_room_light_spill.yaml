@@ -1,0 +1,37 @@
+blueprint:
+  name: ET-Core · Projection room light spill
+  domain: automation
+  description: 'Use the ET-Core BH1750 firmware. Select illuminance (lx). Default
+    trigger: above 40, held for 1 minutes.'
+  input:
+    source:
+      name: illuminance (lx)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 40
+      selector:
+        number:
+          min: 0
+          max: 20000
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Projection room light spill
+          message: illuminance (lx) reached the configured condition for 1 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  above: !input threshold
+  for:
+    minutes: 1
+action: !input response
+mode: single

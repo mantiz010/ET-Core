@@ -1,0 +1,27 @@
+blueprint:
+  name: ET-Core · Reservoir overflow tray wet
+  domain: automation
+  description: 'Use the ET-Core WaterLeak firmware. Select wet contact. Default trigger:
+    on, held for 0 minutes.'
+  input:
+    source:
+      name: wet contact
+      selector:
+        entity:
+          domain: binary_sensor
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Reservoir overflow tray wet
+          message: wet contact changed to the configured state.
+      selector:
+        action: {}
+trigger:
+- platform: state
+  entity_id: !input source
+  from: 'off'
+  to: 'on'
+action: !input response
+mode: single

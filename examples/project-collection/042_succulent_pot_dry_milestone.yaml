@@ -1,0 +1,38 @@
+blueprint:
+  name: ET-Core · Succulent pot dry milestone
+  domain: automation
+  description: 'Use the ET-Core SoilMoisture firmware. Select calibrated soil moisture
+    (%). Default trigger: below 15, held for 60 minutes.'
+  input:
+    source:
+      name: calibrated soil moisture (%)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 15
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Succulent pot dry milestone
+          message: calibrated soil moisture (%) reached the configured condition for
+            60 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  below: !input threshold
+  for:
+    minutes: 60
+action: !input response
+mode: single

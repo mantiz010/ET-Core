@@ -1,0 +1,37 @@
+blueprint:
+  name: ET-Core · Condensate bucket emptying reminder
+  domain: automation
+  description: 'Use the ET-Core TankLevel firmware. Select calibrated level (%). Default
+    trigger: above 70, held for 2 minutes.'
+  input:
+    source:
+      name: calibrated level (%)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 70
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Condensate bucket emptying reminder
+          message: calibrated level (%) reached the configured condition for 2 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  above: !input threshold
+  for:
+    minutes: 2
+action: !input response
+mode: single

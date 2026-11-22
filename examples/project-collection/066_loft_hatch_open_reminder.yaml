@@ -1,0 +1,29 @@
+blueprint:
+  name: ET-Core · Loft hatch open reminder
+  domain: automation
+  description: 'Use the ET-Core DoorContact firmware. Select contact. Default trigger:
+    on, held for 15 minutes.'
+  input:
+    source:
+      name: contact
+      selector:
+        entity:
+          domain: binary_sensor
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Loft hatch open reminder
+          message: contact reached the configured condition for 15 min.
+      selector:
+        action: {}
+trigger:
+- platform: state
+  entity_id: !input source
+  from: 'off'
+  to: 'on'
+  for:
+    minutes: 15
+action: !input response
+mode: single

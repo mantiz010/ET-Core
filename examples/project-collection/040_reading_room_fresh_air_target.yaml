@@ -1,0 +1,37 @@
+blueprint:
+  name: ET-Core · Reading room fresh-air target
+  domain: automation
+  description: 'Use the ET-Core SCD40 firmware. Select carbon dioxide (ppm). Default
+    trigger: below 700, held for 15 minutes.'
+  input:
+    source:
+      name: carbon dioxide (ppm)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 700
+      selector:
+        number:
+          min: 0
+          max: 5000
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Reading room fresh-air target
+          message: carbon dioxide (ppm) reached the configured condition for 15 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  below: !input threshold
+  for:
+    minutes: 15
+action: !input response
+mode: single

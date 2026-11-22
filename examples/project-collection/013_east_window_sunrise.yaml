@@ -1,0 +1,37 @@
+blueprint:
+  name: ET-Core · East window sunrise
+  domain: automation
+  description: 'Use the ET-Core BH1750 firmware. Select illuminance (lx). Default
+    trigger: above 500, held for 5 minutes.'
+  input:
+    source:
+      name: illuminance (lx)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 500
+      selector:
+        number:
+          min: 0
+          max: 20000
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: East window sunrise
+          message: illuminance (lx) reached the configured condition for 5 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  above: !input threshold
+  for:
+    minutes: 5
+action: !input response
+mode: single

@@ -1,0 +1,29 @@
+blueprint:
+  name: ET-Core · Plant saucer persistent pooling
+  domain: automation
+  description: 'Use the ET-Core WaterLeak firmware. Select wet contact. Default trigger:
+    on, held for 15 minutes.'
+  input:
+    source:
+      name: wet contact
+      selector:
+        entity:
+          domain: binary_sensor
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Plant saucer persistent pooling
+          message: wet contact reached the configured condition for 15 min.
+      selector:
+        action: {}
+trigger:
+- platform: state
+  entity_id: !input source
+  from: 'off'
+  to: 'on'
+  for:
+    minutes: 15
+action: !input response
+mode: single

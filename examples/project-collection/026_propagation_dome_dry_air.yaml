@@ -1,0 +1,37 @@
+blueprint:
+  name: ET-Core · Propagation dome dry air
+  domain: automation
+  description: 'Use the ET-Core BME280 firmware. Select relative humidity (%). Default
+    trigger: below 65, held for 5 minutes.'
+  input:
+    source:
+      name: relative humidity (%)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 65
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Propagation dome dry air
+          message: relative humidity (%) reached the configured condition for 5 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  below: !input threshold
+  for:
+    minutes: 5
+action: !input response
+mode: single

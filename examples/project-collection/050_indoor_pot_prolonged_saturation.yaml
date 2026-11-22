@@ -1,0 +1,38 @@
+blueprint:
+  name: ET-Core · Indoor pot prolonged saturation
+  domain: automation
+  description: 'Use the ET-Core SoilMoisture firmware. Select calibrated soil moisture
+    (%). Default trigger: above 90, held for 180 minutes.'
+  input:
+    source:
+      name: calibrated soil moisture (%)
+      selector:
+        entity:
+          domain: sensor
+    threshold:
+      name: Threshold
+      default: 90
+      selector:
+        number:
+          min: 0
+          max: 125
+          step: 0.01
+          mode: box
+    response:
+      name: When triggered
+      default:
+      - service: persistent_notification.create
+        data:
+          title: Indoor pot prolonged saturation
+          message: calibrated soil moisture (%) reached the configured condition for
+            180 min.
+      selector:
+        action: {}
+trigger:
+- platform: numeric_state
+  entity_id: !input source
+  above: !input threshold
+  for:
+    minutes: 180
+action: !input response
+mode: single
