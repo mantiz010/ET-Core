@@ -148,7 +148,9 @@ void ETCore::begin(const char* device_id, const char* device_class, const char* 
   }
 
 #if defined(ARDUINO_ARCH_ESP32)
+#if !defined(ESP_PLATFORM) || SOC_WIFI_SUPPORTED
   if (!_externalTransport) WiFi.setSleep(false);
+#endif
 #endif
 
   _netBegin();
@@ -712,8 +714,10 @@ void ETCore::sendLease() {
   JsonObject p = d.to<JsonObject>();
   p["ttl"] = _leaseTtlSec;
   p["uptime"] = (uint32_t)(millis() / 1000);
-  if (!_externalTransport) p["rssi"] = WiFi.RSSI();
-  else p["transport"] = _externalTransport->name();
+  if (_externalTransport) p["transport"] = _externalTransport->name();
+#if !defined(ESP_PLATFORM) || SOC_WIFI_SUPPORTED
+  else p["rssi"] = WiFi.RSSI();
+#endif
   if (_hubCh[0]) p["ch"] = _hubCh;
   // nohub: the hub answers with an announce. A device that lost the hub sends it
   // by multicast; a battery device sends it on every wake to learn it was heard.
