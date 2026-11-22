@@ -13,3 +13,5 @@ Follow the [Thread commissioning and build instructions](../README.md).
 ## Bench check
 
 Vary the input and compare the reported % reading to an independent reference.
+
+Arduino Library Manager driver: **Adafruit HTU21DF Library** 1.1.2.

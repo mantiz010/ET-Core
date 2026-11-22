@@ -13,3 +13,5 @@ Follow the [Thread commissioning and build instructions](../README.md).
 ## Bench check
 
 Vary the input and compare the reported % reading to an independent reference.
+
+Arduino Library Manager driver: **Adafruit SHT31 Library** 2.0.0.

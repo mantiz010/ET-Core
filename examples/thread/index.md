@@ -1,7 +1,11 @@
 # Hardware index
 
+## First builds
+
 1. [BME280 weather](BME280Weather/README.md) — [firmware](BME280Weather/BME280Weather.ino)
 2. [Low-voltage relay](LowVoltageRelay/README.md) — [firmware](LowVoltageRelay/LowVoltageRelay.ino)
+## I²C measurement boards
+
 3. [SHT31 humidity](SHT31humidity/README.md) — [firmware](SHT31humidity/SHT31humidity.ino)
 4. [Si7021 temperature](Si7021temperature/README.md) — [firmware](Si7021temperature/Si7021temperature.ino)
 5. [HTU21D humidity](HTU21Dhumidity/README.md) — [firmware](HTU21Dhumidity/HTU21Dhumidity.ino)
@@ -11,6 +15,8 @@
 9. [INA219 bus voltage](INA219busvoltage/README.md) — [firmware](INA219busvoltage/INA219busvoltage.ino)
 10. [ADS1115 voltage](ADS1115voltage/README.md) — [firmware](ADS1115voltage/ADS1115voltage.ino)
 11. [ADS1015 voltage](ADS1015voltage/README.md) — [firmware](ADS1015voltage/ADS1015voltage.ino)
+## Dry-contact inputs
+
 12. [Reed proximity switch](Reedproximityswitch/README.md) — [firmware](Reedproximityswitch/Reedproximityswitch.ino)
 13. [Roller lever limit switch](Rollerleverlimitswitch/README.md) — [firmware](Rollerleverlimitswitch/Rollerleverlimitswitch.ino)
 14. [Plunger microswitch](Plungermicroswitch/README.md) — [firmware](Plungermicroswitch/Plungermicroswitch.ino)
@@ -34,6 +40,8 @@
 32. [Magnetic piston switch](Magneticpistonswitch/README.md) — [firmware](Magneticpistonswitch/Magneticpistonswitch.ino)
 33. [Capillary bulb thermostat](Capillarybulbthermostat/README.md) — [firmware](Capillarybulbthermostat/Capillarybulbthermostat.ino)
 34. [Differential filter pressure switch](Differentialfilterpressureswitch/README.md) — [firmware](Differentialfilterpressureswitch/Differentialfilterpressureswitch.ino)
+## Isolated 4–20 mA transmitter profiles
+
 35. [Hydrostatic depth](Hydrostaticdepth/README.md) — [firmware](Hydrostaticdepth/Hydrostaticdepth.ino)
 36. [Gauge pressure](Gaugepressure/README.md) — [firmware](Gaugepressure/Gaugepressure.ino)
 37. [Vacuum transmitter](Vacuumtransmitter/README.md) — [firmware](Vacuumtransmitter/Vacuumtransmitter.ino)
@@ -70,6 +78,8 @@
 68. [Dielectric moisture transmitter](Dielectricmoisturetransmitter/README.md) — [firmware](Dielectricmoisturetransmitter/Dielectricmoisturetransmitter.ino)
 69. [Salinity transmitter](Salinitytransmitter/README.md) — [firmware](Salinitytransmitter/Salinitytransmitter.ino)
 70. [Solar irradiance transmitter](Solarirradiancetransmitter/README.md) — [firmware](Solarirradiancetransmitter/Solarirradiancetransmitter.ino)
+## Resistive sensing elements
+
 71. [Photocell GL5528](PhotocellGL5528/README.md) — [firmware](PhotocellGL5528/PhotocellGL5528.ino)
 72. [Flex strip](Flexstrip/README.md) — [firmware](Flexstrip/Flexstrip.ino)
 73. [Force sensing resistor](Forcesensingresistor/README.md) — [firmware](Forcesensingresistor/Forcesensingresistor.ino)
@@ -81,6 +91,8 @@
 79. [NTC bead thermistor](NTCbeadthermistor/README.md) — [firmware](NTCbeadthermistor/NTCbeadthermistor.ino)
 80. [PTC resettable sensing element](PTCresettablesensingelement/README.md) — [firmware](PTCresettablesensingelement/PTCresettablesensingelement.ino)
 81. [Resistive soil block](Resistivesoilblock/README.md) — [firmware](Resistivesoilblock/Resistivesoilblock.ino)
+## Driven outputs
+
 82. [Solid state DC relay](SolidstateDCrelay/README.md) — [firmware](SolidstateDCrelay/SolidstateDCrelay.ino)
 83. [MOSFET strip dimmer](MOSFETstripdriver/README.md) — [firmware](MOSFETstripdriver/MOSFETstripdriver.ino)
 84. [Brushless fan speed](Brushlessfanenable/README.md) — [firmware](Brushlessfanenable/Brushlessfanenable.ino)
@@ -123,4 +135,6 @@
 118. [TMP36 analog thermometer](TMP36analogthermometer/README.md) — [firmware](TMP36analogthermometer/TMP36analogthermometer.ino)
 119. [MCP9700 analog thermometer](MCP9700analogthermometer/README.md) — [firmware](MCP9700analogthermometer/MCP9700analogthermometer.ino)
 120. [MCP9701 analog thermometer](MCP9701analogthermometer/README.md) — [firmware](MCP9701analogthermometer/MCP9701analogthermometer.ino)
+## OLED status display
+
 121. [SSD1306 status display](SSD1306StatusDisplay/README.md) — [firmware](SSD1306StatusDisplay/SSD1306StatusDisplay.ino)

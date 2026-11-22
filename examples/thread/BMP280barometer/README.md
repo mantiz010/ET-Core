@@ -13,3 +13,5 @@ Follow the [Thread commissioning and build instructions](../README.md).
 ## Bench check
 
 Vary the input and compare the reported hPa reading to an independent reference.
+
+Arduino Library Manager driver: **Adafruit BMP280 Library** 1.0.4.

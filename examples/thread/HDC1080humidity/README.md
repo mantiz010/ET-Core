@@ -13,3 +13,5 @@ Follow the [Thread commissioning and build instructions](../README.md).
 ## Bench check
 
 Compare the % output with a reference. Change the input and confirm a new report.
+
+Arduino Library Manager driver: **ClosedCube HDC1080** 1.3.2.

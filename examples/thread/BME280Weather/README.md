@@ -13,3 +13,5 @@ Follow the [Thread commissioning and build instructions](../README.md).
 ## Bench check
 
 Compare temperature, humidity and hPa against a reference at room conditions.
+
+Arduino Library Manager driver: **Adafruit BME280 Library** 1.0.7.

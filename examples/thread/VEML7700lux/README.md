@@ -13,3 +13,5 @@ Follow the [Thread commissioning and build instructions](../README.md).
 ## Bench check
 
 Vary the input and compare the reported lx reading to an independent reference.
+
+Arduino Library Manager driver: **Adafruit VEML7700 Library** 2.1.6.

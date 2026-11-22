@@ -13,3 +13,5 @@ Follow the [Thread commissioning and build instructions](../README.md).
 ## Bench check
 
 Compare the % output with a reference. Change the input and confirm a new report.
+
+Arduino Library Manager driver: **Adafruit SHT4x Library** 1.0.5.

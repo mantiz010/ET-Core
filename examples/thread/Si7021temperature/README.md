@@ -13,3 +13,5 @@ Follow the [Thread commissioning and build instructions](../README.md).
 ## Bench check
 
 Vary the input and compare the reported °C reading to an independent reference.
+
+Arduino Library Manager driver: **Adafruit Si7021 Library** 1.5.1.

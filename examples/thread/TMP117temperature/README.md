@@ -13,3 +13,5 @@ Follow the [Thread commissioning and build instructions](../README.md).
 ## Bench check
 
 Compare the °C output with a reference. Change the input and confirm a new report.
+
+Arduino Library Manager driver: **7Semi TMP11x** 1.0.0.

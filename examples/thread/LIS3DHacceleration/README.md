@@ -13,3 +13,5 @@ Follow the [Thread commissioning and build instructions](../README.md).
 ## Bench check
 
 Compare the m/s² output with a reference. Change the input and confirm a new report.
+
+Arduino Library Manager driver: **Adafruit LIS3DH** 1.3.0.

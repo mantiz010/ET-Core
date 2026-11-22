@@ -13,3 +13,5 @@ Follow the [Thread commissioning and build instructions](../README.md).
 ## Bench check
 
 Vary the input and compare the reported V reading to an independent reference.
+
+Arduino Library Manager driver: **Adafruit ADS1X15** 2.6.2.

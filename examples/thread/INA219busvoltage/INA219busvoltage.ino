@@ -11,9 +11,15 @@ uint32_t lastRead = 0;
 bool requested = true;
 void requestReading() { requested = true; }
 void publish() {
+  Wire.beginTransmission(0x40);
+  if (Wire.endTransmission() != 0) {
+    ready = false;
+    node.device.sendError("sensor", "INA219 missing at 0x40");
+    return;
+  }
   if (!ready) {
-    ready = probe.begin();
-    if (!ready) node.device.sendError("sensor", "I2C probe initialization failed");
+    probe.begin();
+    ready = true;
     return;
   }
   float value = probe.getBusVoltage_V();
