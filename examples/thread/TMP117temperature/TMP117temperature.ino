@@ -29,7 +29,7 @@ void setup() {
   Serial.begin(115200);
   Wire.begin(SDA, SCL);
   node.device.onSync(requestReading);
-  
+
   node.configure(key, hub);
 }
 

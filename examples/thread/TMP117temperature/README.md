@@ -4,7 +4,7 @@
 
 ## Wiring
 
-Connect SDA to GPIO12, SCL to GPIO22 and share ground. Supply the breakout at its rated voltage. 
+Connect SDA to GPIO12, SCL to GPIO22 and share ground. Supply the breakout at its rated voltage.
 
 ## Run
 

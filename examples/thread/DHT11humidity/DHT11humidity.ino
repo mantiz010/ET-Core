@@ -18,7 +18,7 @@ void setup() {
   Serial.begin(115200);
   probe.begin();
   node.device.onSync(requestReading);
-  
+
   node.configure(key, hub);
 }
 

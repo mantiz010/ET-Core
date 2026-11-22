@@ -13,7 +13,7 @@ void setup() {
   pinMode(4, INPUT_PULLUP);
   stable = raw = digitalRead(4) == LOW;
   node.device.onSync(publish);
-  
+
   node.configure(key, hub);
 }
 

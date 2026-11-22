@@ -22,7 +22,7 @@ void setup() {
   Serial.begin(115200);
   analogSetPinAttenuation(1, ADC_11db);
   node.device.onSync(requestReading);
-  
+
   node.configure(key, hub);
 }
 
